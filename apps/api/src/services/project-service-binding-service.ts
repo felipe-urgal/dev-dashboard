@@ -20,12 +20,17 @@ export class ProjectServiceBindingServiceError extends Error {
   public constructor(
     public readonly code: 'NOT_FOUND' | 'CONFLICT' | 'BAD_REQUEST',
     message: string,
-  ) { super(message); this.name = 'ProjectServiceBindingServiceError'; }
+  ) {
+    super(message);
+    this.name = 'ProjectServiceBindingServiceError';
+  }
 }
 
 interface Dependencies {
-  store: Pick<ProjectServiceBindingStore,
-    'list' | 'byProject' | 'byResource' | 'revision' | 'save' | 'delete'>;
+  store: Pick<
+    ProjectServiceBindingStore,
+    'list' | 'byProject' | 'byResource' | 'revision' | 'save' | 'delete'
+  >;
   projectStore: Pick<ProjectStore, 'findProject'>;
   environmentStore: Pick<DevelopmentEnvironmentInstanceStore, 'findById'>;
   catalog: Pick<ServiceCatalogService, 'inspect'>;
@@ -33,7 +38,10 @@ interface Dependencies {
   composeOwnership: Pick<DockerComposeOwnershipStore, 'get'>;
 }
 
-function rejected(message: string, code: ProjectServiceBindingServiceError['code'] = 'BAD_REQUEST'): never {
+function rejected(
+  message: string,
+  code: ProjectServiceBindingServiceError['code'] = 'BAD_REQUEST',
+): never {
   throw new ProjectServiceBindingServiceError(code, message);
 }
 
@@ -42,14 +50,20 @@ function bindingOwnedBy(
   projectId: string,
   environmentInstanceId: string,
 ): boolean {
-  return entry.ownership === 'confirmed' && entry.projectId === projectId &&
+  return (
+    entry.ownership === 'confirmed' &&
+    entry.projectId === projectId &&
     (entry.environmentInstanceId ?? primaryEnvironmentInstanceId(projectId)) ===
-      environmentInstanceId;
+      environmentInstanceId
+  );
 }
 
 export class ProjectServiceBindingService {
   private readonly now: () => Date;
-  public constructor(private readonly d: Dependencies, options: { now?: () => Date } = {}) {
+  public constructor(
+    private readonly d: Dependencies,
+    options: { now?: () => Date } = {},
+  ) {
     this.now = options.now ?? (() => new Date());
   }
 
@@ -59,54 +73,83 @@ export class ProjectServiceBindingService {
     return project;
   }
 
-  private environment(projectId: string, environmentInstanceId?: string): string {
+  private environment(
+    projectId: string,
+    environmentInstanceId?: string,
+  ): string {
     this.project(projectId);
     const id = environmentInstanceId ?? primaryEnvironmentInstanceId(projectId);
     const environment = this.d.environmentStore.findById(id);
     if (!environment || environment.projectId !== projectId) {
-      rejected('Environment instance does not belong to this project.', 'NOT_FOUND');
+      rejected(
+        'Environment instance does not belong to this project.',
+        'NOT_FOUND',
+      );
     }
     if (environment.runtime.kind !== 'host') {
-      rejected('Host services cannot be linked to a Dev Container environment.', 'CONFLICT');
+      rejected(
+        'Host services cannot be linked to a Dev Container environment.',
+        'CONFLICT',
+      );
     }
     return id;
   }
 
   private async observed(): Promise<ServiceCatalogSnapshot> {
-    try { return await this.d.catalog.inspect(); }
-    catch { return rejected('Service catalog unavailable.', 'CONFLICT'); }
+    try {
+      return await this.d.catalog.inspect();
+    } catch {
+      return rejected('Service catalog unavailable.', 'CONFLICT');
+    }
   }
 
   private async suggestions(
-    projectId: string, environmentInstanceId: string,
+    projectId: string,
+    environmentInstanceId: string,
     catalog: ServiceCatalogSnapshot,
   ): Promise<ProjectServiceBindingSuggestion[]> {
-    if (environmentInstanceId !== primaryEnvironmentInstanceId(projectId)) return [];
+    if (environmentInstanceId !== primaryEnvironmentInstanceId(projectId))
+      return [];
     const project = this.project(projectId);
     try {
       const owner = await this.d.composeOwnership.get(project);
       if (!owner) return [];
       const inspection = await this.d.composeProvider.inspect(project);
-      if (!inspection.config || !inspection.runtime ||
+      if (
+        !inspection.config ||
+        !inspection.runtime ||
         inspection.state !== 'available' ||
-        inspection.config.projectName !== owner.composeProjectName) return [];
-      const available = new Set(catalog.entries.filter((e) =>
-        bindingOwnedBy(e, projectId, environmentInstanceId)).map((e) => e.id));
+        inspection.config.projectName !== owner.composeProjectName
+      )
+        return [];
+      const available = new Set(
+        catalog.entries
+          .filter((e) => bindingOwnedBy(e, projectId, environmentInstanceId))
+          .map((e) => e.id),
+      );
       const result: ProjectServiceBindingSuggestion[] = [];
       for (const service of inspection.config.services) {
         const serviceRef = 'compose:' + projectId + ':' + service.name;
         if (!available.has(serviceRef)) continue;
         for (const dependency of service.dependsOn) {
           const dependsOnServiceRef = 'compose:' + projectId + ':' + dependency;
-          if (!available.has(dependsOnServiceRef) || serviceRef === dependsOnServiceRef) continue;
+          if (
+            !available.has(dependsOnServiceRef) ||
+            serviceRef === dependsOnServiceRef
+          )
+            continue;
           result.push({
-            serviceRef, dependsOnServiceRef, source: 'compose',
+            serviceRef,
+            dependsOnServiceRef,
+            source: 'compose',
             observedAt: inspection.observedAt,
           });
         }
       }
       return result.slice(0, 100);
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   }
 
   public async preview(
@@ -116,16 +159,23 @@ export class ProjectServiceBindingService {
     const id = this.environment(projectId, environmentInstanceId);
     const catalog = await this.observed();
     return {
-      projectId, environmentInstanceId: id,
+      projectId,
+      environmentInstanceId: id,
       candidates: catalog.entries.map((e) => ({
-        serviceRef: e.id, name: e.name, provider: e.provider,
+        serviceRef: e.id,
+        name: e.name,
+        provider: e.provider,
         ownership: e.ownership,
         linkableAsOwned: bindingOwnedBy(e, projectId, id),
       })),
       suggestions: await this.suggestions(projectId, id, catalog),
       partial: catalog.status !== 'ready' || catalog.truncated,
       ...(catalog.status !== 'ready' || catalog.truncated
-        ? { diagnostic: 'Catalog is incomplete; missing resources cannot be adopted.' } : {}),
+        ? {
+            diagnostic:
+              'Catalog is incomplete; missing resources cannot be adopted.',
+          }
+        : {}),
     };
   }
 
@@ -133,17 +183,29 @@ export class ProjectServiceBindingService {
     binding: ProjectServiceBinding,
     observed: ReadonlySet<string>,
   ): ProjectServiceBindingView {
-    const orphaned = !this.d.projectStore.findProject(binding.projectId) ||
-      this.d.environmentStore.findById(binding.environmentInstanceId)?.projectId !==
-        binding.projectId;
+    const orphaned =
+      !this.d.projectStore.findProject(binding.projectId) ||
+      this.d.environmentStore.findById(binding.environmentInstanceId)
+        ?.projectId !== binding.projectId;
     const consumers = this.d.store.byResource(binding.serviceRef);
     return {
       ...binding,
-      availability: orphaned ? 'orphaned' : observed.has(binding.serviceRef) ? 'observed' : 'stale',
-      shared: new Set(consumers.map((item) =>
-        item.projectId + '\0' + item.environmentInstanceId)).size > 1,
-      consumerCount: new Set(consumers.map((item) =>
-        item.projectId + '\0' + item.environmentInstanceId)).size,
+      availability: orphaned
+        ? 'orphaned'
+        : observed.has(binding.serviceRef)
+          ? 'observed'
+          : 'stale',
+      shared:
+        new Set(
+          consumers.map(
+            (item) => item.projectId + '\0' + item.environmentInstanceId,
+          ),
+        ).size > 1,
+      consumerCount: new Set(
+        consumers.map(
+          (item) => item.projectId + '\0' + item.environmentInstanceId,
+        ),
+      ).size,
     };
   }
 
@@ -153,18 +215,23 @@ export class ProjectServiceBindingService {
     const observed = new Set(catalog.entries.map((e) => e.id));
     return {
       revision: this.d.store.revision(projectId),
-      bindings: this.d.store.byProject(projectId).map((b) => this.view(b, observed)),
+      bindings: this.d.store
+        .byProject(projectId)
+        .map((b) => this.view(b, observed)),
       partial: catalog.status !== 'ready' || catalog.truncated,
     };
   }
 
   public async consumers(serviceRef: string) {
-    if (!serviceRef || serviceRef.length > 512) rejected('Invalid service reference.');
+    if (!serviceRef || serviceRef.length > 512)
+      rejected('Invalid service reference.');
     const catalog = await this.observed();
     const observed = new Set(catalog.entries.map((e) => e.id));
     return {
       serviceRef,
-      bindings: this.d.store.byResource(serviceRef).map((b) => this.view(b, observed)),
+      bindings: this.d.store
+        .byResource(serviceRef)
+        .map((b) => this.view(b, observed)),
       partial: catalog.status !== 'ready' || catalog.truncated,
     };
   }
@@ -175,15 +242,24 @@ export class ProjectServiceBindingService {
     expectedRevision: string,
     id?: string,
   ) {
-    const environmentInstanceId = this.environment(projectId, input.environmentInstanceId);
+    const environmentInstanceId = this.environment(
+      projectId,
+      input.environmentInstanceId,
+    );
     if (!/^[a-f0-9]{64}$/.test(expectedRevision)) rejected('Invalid revision.');
     const catalog = await this.observed();
     const entries = new Map(catalog.entries.map((e) => [e.id, e]));
     const observed = entries.get(input.serviceRef);
-    if (!observed) rejected('Resource is not present in the observed catalog.', 'CONFLICT');
-    if (input.relation === 'owned' &&
-      !bindingOwnedBy(observed, projectId, environmentInstanceId)) {
-      rejected('Resource ownership is not proven for this environment.', 'CONFLICT');
+    if (!observed)
+      rejected('Resource is not present in the observed catalog.', 'CONFLICT');
+    if (
+      input.relation === 'owned' &&
+      !bindingOwnedBy(observed, projectId, environmentInstanceId)
+    ) {
+      rejected(
+        'Resource ownership is not proven for this environment.',
+        'CONFLICT',
+      );
     }
     if (input.requiredForStart && input.relation === 'observed') {
       rejected('An observed-only service cannot be required for start.');
@@ -191,32 +267,62 @@ export class ProjectServiceBindingService {
 
     const unique = new Set<string>();
     for (const dependency of input.dependencies) {
-      if (unique.has(dependency.serviceRef) || dependency.serviceRef === input.serviceRef) {
-        rejected('Dependencies must be unique and cannot reference themselves.');
+      if (
+        unique.has(dependency.serviceRef) ||
+        dependency.serviceRef === input.serviceRef
+      ) {
+        rejected(
+          'Dependencies must be unique and cannot reference themselves.',
+        );
       }
       unique.add(dependency.serviceRef);
       if (!entries.has(dependency.serviceRef)) {
-        rejected('Dependency is not present in the observed catalog.', 'CONFLICT');
+        rejected(
+          'Dependency is not present in the observed catalog.',
+          'CONFLICT',
+        );
       }
     }
 
     if (input.dependencies.some((d) => d.source === 'compose')) {
-      const suggestions = await this.suggestions(projectId, environmentInstanceId, catalog);
-      for (const dependency of input.dependencies.filter((d) => d.source === 'compose')) {
-        if (!suggestions.some((candidate) =>
-          candidate.serviceRef === input.serviceRef &&
-          candidate.dependsOnServiceRef === dependency.serviceRef)) {
-          rejected('Compose dependency is not confirmed by provider evidence.', 'CONFLICT');
+      const suggestions = await this.suggestions(
+        projectId,
+        environmentInstanceId,
+        catalog,
+      );
+      for (const dependency of input.dependencies.filter(
+        (d) => d.source === 'compose',
+      )) {
+        if (
+          !suggestions.some(
+            (candidate) =>
+              candidate.serviceRef === input.serviceRef &&
+              candidate.dependsOnServiceRef === dependency.serviceRef,
+          )
+        ) {
+          rejected(
+            'Compose dependency is not confirmed by provider evidence.',
+            'CONFLICT',
+          );
         }
       }
     }
 
     // No external/unknown discovery can create management rights. A declared
     // relation never grants the ability to start/stop the observed resource.
-    const draft: ProjectServiceBindingDraft & { environmentInstanceId: string } = {
-      ...input, environmentInstanceId,
+    const draft: ProjectServiceBindingDraft & {
+      environmentInstanceId: string;
+    } = {
+      ...input,
+      environmentInstanceId,
     };
-    const saved = this.d.store.save(projectId, draft, expectedRevision, this.now(), id);
+    const saved = this.d.store.save(
+      projectId,
+      draft,
+      expectedRevision,
+      this.now(),
+      id,
+    );
     return { binding: saved, revision: this.d.store.revision(projectId) };
   }
 
