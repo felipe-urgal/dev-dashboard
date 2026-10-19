@@ -308,6 +308,31 @@ export class ProjectServiceBindingService {
       }
     }
 
+    // Reject cycles even when a dependency is shared by multiple projects.
+    const graph = new Map<string, Set<string>>();
+    for (const binding of this.d.store.list()) {
+      if (id && binding.id === id) continue;
+      const edges = graph.get(binding.serviceRef) ?? new Set<string>();
+      for (const dependency of binding.dependencies) edges.add(dependency.serviceRef);
+      graph.set(binding.serviceRef, edges);
+    }
+    const edges = graph.get(input.serviceRef) ?? new Set<string>();
+    for (const dependency of input.dependencies) edges.add(dependency.serviceRef);
+    graph.set(input.serviceRef, edges);
+    const visited = new Set<string>();
+    const pending = new Set<string>();
+    const walk = (serviceRef: string): void => {
+      if (pending.has(serviceRef)) rejected('Dependency cycle detected.', 'CONFLICT');
+      if (visited.has(serviceRef)) return;
+      pending.add(serviceRef);
+      for (const dependency of graph.get(serviceRef) ?? []) walk(dependency);
+      pending.delete(serviceRef);
+      visited.add(serviceRef);
+    };
+    for (const serviceRef of graph.keys()) walk(serviceRef);
+    // Environment could have been removed while observations were fetched.
+    this.environment(projectId, environmentInstanceId);
+
     // No external/unknown discovery can create management rights. A declared
     // relation never grants the ability to start/stop the observed resource.
     const draft: ProjectServiceBindingDraft & {
