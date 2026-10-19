@@ -98,6 +98,7 @@ test('HTTP enforces token, versioned mutations and shared consumers without life
   const createBody = {
     expectedRevision: initialRevision,
     serviceRef: HOST_REF,
+    role: 'database',
     relation: 'required',
     requiredForStart: true,
     enabled: true,
