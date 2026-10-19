@@ -11,6 +11,7 @@ import { agentRuntimeRoutes } from './routes/agent-runtime.js';
 import { stackRoutes } from './routes/stacks.js';
 import { hostServiceRoutes } from './routes/host-services.js';
 import { serviceCatalogRoutes } from './routes/service-catalog.js';
+import { projectServiceBindingRoutes } from './routes/project-service-bindings.js';
 
 import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
@@ -50,6 +51,7 @@ import { StackStartService } from './services/stack-start-service.js';
 import { StackStopService } from './services/stack-stop-service.js';
 import { SystemdServiceInventory } from './services/systemd-service-inventory.js';
 import { ServiceCatalogService } from './services/service-catalog-service.js';
+import { ProjectServiceBindingService } from './services/project-service-binding-service.js';
 import { DockerContainerObserver } from './services/docker-container-observer.js';
 import { gitWorktreeRoutes } from './routes/git-worktrees.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
@@ -347,19 +349,32 @@ export async function buildApp(options: BuildAppOptions = {}) {
     inventory: systemdInventory,
   });
 
+  const catalog =
+    options.serviceCatalog ??
+    new ServiceCatalogService({
+      systemd: systemdInventory,
+      containers: new DockerContainerObserver(),
+      processManager: context.processManager,
+      portInspector: portInspectorService,
+      projectStore: context.projectStore,
+      composeProvider: dockerComposeProvider,
+      composeOwnership: dockerComposeOwnershipStore,
+    });
   app.register(serviceCatalogRoutes, {
     prefix: '/api',
-    catalog:
-      options.serviceCatalog ??
-      new ServiceCatalogService({
-        systemd: systemdInventory,
-        containers: new DockerContainerObserver(),
-        processManager: context.processManager,
-        portInspector: portInspectorService,
-        projectStore: context.projectStore,
-        composeProvider: dockerComposeProvider,
-        composeOwnership: dockerComposeOwnershipStore,
-      }),
+    catalog,
+  });
+
+  app.register(projectServiceBindingRoutes, {
+    prefix: '/api',
+    bindings: new ProjectServiceBindingService({
+      store: context.projectServiceBindingStore,
+      projectStore: context.projectStore,
+      environmentStore: context.developmentEnvironmentInstanceStore,
+      catalog,
+      composeProvider: dockerComposeProvider,
+      composeOwnership: dockerComposeOwnershipStore,
+    }),
   });
 
   app.register(stackRoutes, {

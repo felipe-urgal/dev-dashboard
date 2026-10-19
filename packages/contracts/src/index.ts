@@ -75,6 +75,16 @@ export type {
 } from './service-catalog.js';
 
 export type {
+  ProjectServiceBinding,
+  ProjectServiceBindingDraft,
+  ProjectServiceBindingPreview,
+  ProjectServiceBindingSuggestion,
+  ProjectServiceBindingView,
+  ProjectServiceDependency,
+  ProjectServiceRelation,
+} from './service-binding.js';
+
+export type {
   RetentionSettings,
   RetentionSettingsLimits,
   RetentionSettingsSnapshot,
