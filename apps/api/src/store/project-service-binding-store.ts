@@ -130,6 +130,7 @@ export class ProjectServiceBindingStore {
       duplicate &&
       !id &&
       duplicate.relation === draft.relation &&
+      duplicate.role === draft.role &&
       duplicate.requiredForStart === draft.requiredForStart &&
       duplicate.enabled === draft.enabled &&
       JSON.stringify(duplicate.dependencies) ===
@@ -142,6 +143,7 @@ export class ProjectServiceBindingStore {
       previous.environmentInstanceId === draft.environmentInstanceId &&
       previous.serviceRef === draft.serviceRef &&
       previous.relation === draft.relation &&
+      previous.role === draft.role &&
       previous.requiredForStart === draft.requiredForStart &&
       previous.enabled === draft.enabled &&
       JSON.stringify(previous.dependencies) ===
@@ -173,6 +175,7 @@ export class ProjectServiceBindingStore {
       projectId,
       environmentInstanceId: draft.environmentInstanceId,
       serviceRef: draft.serviceRef,
+      ...(draft.role ? { role: draft.role } : {}),
       relation: draft.relation,
       requiredForStart: draft.requiredForStart,
       enabled: draft.enabled,
