@@ -120,27 +120,40 @@ export class ProjectServiceBindingStore {
         'Binding changed or no longer exists.',
       );
     }
-    const duplicate = this.byProject(projectId).find((existing) =>
-      existing.environmentInstanceId === draft.environmentInstanceId &&
-      existing.serviceRef === draft.serviceRef && existing.id !== id);
-    if (duplicate && !id &&
+    const duplicate = this.byProject(projectId).find(
+      (existing) =>
+        existing.environmentInstanceId === draft.environmentInstanceId &&
+        existing.serviceRef === draft.serviceRef &&
+        existing.id !== id,
+    );
+    if (
+      duplicate &&
+      !id &&
       duplicate.relation === draft.relation &&
       duplicate.requiredForStart === draft.requiredForStart &&
       duplicate.enabled === draft.enabled &&
-      JSON.stringify(duplicate.dependencies) === JSON.stringify(draft.dependencies)) {
+      JSON.stringify(duplicate.dependencies) ===
+        JSON.stringify(draft.dependencies)
+    ) {
       return duplicate; // Safe POST retry with latest collection revision.
     }
-    if (previous && previous.environmentInstanceId === draft.environmentInstanceId &&
+    if (
+      previous &&
+      previous.environmentInstanceId === draft.environmentInstanceId &&
       previous.serviceRef === draft.serviceRef &&
       previous.relation === draft.relation &&
       previous.requiredForStart === draft.requiredForStart &&
       previous.enabled === draft.enabled &&
-      JSON.stringify(previous.dependencies) === JSON.stringify(draft.dependencies)) {
+      JSON.stringify(previous.dependencies) ===
+        JSON.stringify(draft.dependencies)
+    ) {
       return structuredClone(previous); // Identical PUT is idempotent.
     }
     if (duplicate) {
-      throw new ProjectServiceBindingStoreError('CONFLICT',
-        'A binding for this service and environment already exists.');
+      throw new ProjectServiceBindingStoreError(
+        'CONFLICT',
+        'A binding for this service and environment already exists.',
+      );
     }
     if (!previous && this.byProject(projectId).length >= MAX_PER_PROJECT) {
       throw new ProjectServiceBindingStoreError(

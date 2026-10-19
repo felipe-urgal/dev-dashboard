@@ -313,16 +313,19 @@ export class ProjectServiceBindingService {
     for (const binding of this.d.store.list()) {
       if (id && binding.id === id) continue;
       const edges = graph.get(binding.serviceRef) ?? new Set<string>();
-      for (const dependency of binding.dependencies) edges.add(dependency.serviceRef);
+      for (const dependency of binding.dependencies)
+        edges.add(dependency.serviceRef);
       graph.set(binding.serviceRef, edges);
     }
     const edges = graph.get(input.serviceRef) ?? new Set<string>();
-    for (const dependency of input.dependencies) edges.add(dependency.serviceRef);
+    for (const dependency of input.dependencies)
+      edges.add(dependency.serviceRef);
     graph.set(input.serviceRef, edges);
     const visited = new Set<string>();
     const pending = new Set<string>();
     const walk = (serviceRef: string): void => {
-      if (pending.has(serviceRef)) rejected('Dependency cycle detected.', 'CONFLICT');
+      if (pending.has(serviceRef))
+        rejected('Dependency cycle detected.', 'CONFLICT');
       if (visited.has(serviceRef)) return;
       pending.add(serviceRef);
       for (const dependency of graph.get(serviceRef) ?? []) walk(dependency);
