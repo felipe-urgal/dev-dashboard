@@ -16,10 +16,7 @@ const SERVICE_NAME = /^[A-Za-z0-9_.@:\\-]{1,200}\.service$/;
 const SCOPES: readonly HostServiceScope[] = ['user', 'system'];
 
 type QueryKind = 'units' | 'unit-files';
-type Runner = (
-  scope: HostServiceScope,
-  query: QueryKind,
-) => Promise<string>;
+type Runner = (scope: HostServiceScope, query: QueryKind) => Promise<string>;
 
 export interface SystemdServiceInventoryOptions {
   platform?: NodeJS.Platform;
@@ -28,7 +25,10 @@ export interface SystemdServiceInventoryOptions {
   maxServices?: number;
 }
 
-function runSystemctl(scope: HostServiceScope, query: QueryKind): Promise<string> {
+function runSystemctl(
+  scope: HostServiceScope,
+  query: QueryKind,
+): Promise<string> {
   const args = [
     ...(scope === 'user' ? ['--user'] : []),
     query === 'units' ? 'list-units' : 'list-unit-files',
@@ -98,7 +98,10 @@ function parseUnits(output: string): Map<string, HostServiceState> {
   const result = new Map<string, HostServiceState>();
   for (const row of output.split(/\r?\n/)) {
     // systemctl may prefix failed units with a bullet.
-    const [name, , active, sub] = row.trim().replace(/^[●×]\s+/, '').split(/\s+/);
+    const [name, , active, sub] = row
+      .trim()
+      .replace(/^[●×]\s+/, '')
+      .split(/\s+/);
     if (!safeUnit(name) || !active || !sub) continue;
     result.set(name, systemdState(active, sub));
   }
@@ -158,23 +161,30 @@ export class SystemdServiceInventory {
         this.runner(scope, 'units'),
         this.runner(scope, 'unit-files'),
       ]);
-      const units = unitsResult.status === 'fulfilled'
-        ? parseUnits(unitsResult.value)
-        : new Map<string, HostServiceState>();
-      const unitFiles = filesResult.status === 'fulfilled'
-        ? parseUnitFiles(filesResult.value)
-        : new Map<string, HostServiceBootState>();
+      const units =
+        unitsResult.status === 'fulfilled'
+          ? parseUnits(unitsResult.value)
+          : new Map<string, HostServiceState>();
+      const unitFiles =
+        filesResult.status === 'fulfilled'
+          ? parseUnitFiles(filesResult.value)
+          : new Map<string, HostServiceBootState>();
 
       const complete =
-        unitsResult.status === 'fulfilled' && filesResult.status === 'fulfilled';
+        unitsResult.status === 'fulfilled' &&
+        filesResult.status === 'fulfilled';
       const available =
-        unitsResult.status === 'fulfilled' || filesResult.status === 'fulfilled';
+        unitsResult.status === 'fulfilled' ||
+        filesResult.status === 'fulfilled';
 
       sources.push({
         scope,
         status: complete ? 'ready' : available ? 'partial' : 'unavailable',
         ...(!complete
-          ? { diagnostic: 'Some systemd observations are unavailable; runtime and/or boot state is unverified.' }
+          ? {
+              diagnostic:
+                'Some systemd observations are unavailable; runtime and/or boot state is unverified.',
+            }
           : {}),
       });
 
@@ -196,19 +206,27 @@ export class SystemdServiceInventory {
           managed: false,
           observedAt,
           ...(state === 'unknown'
-            ? { diagnostic: 'Runtime state is not proven; no application health has been checked.' }
+            ? {
+                diagnostic:
+                  'Runtime state is not proven; no application health has been checked.',
+              }
             : {}),
         });
       }
     }
 
-    const available = sources.filter((source) => source.status !== 'unavailable');
+    const available = sources.filter(
+      (source) => source.status !== 'unavailable',
+    );
     return {
-      status: available.length === 0
-        ? 'unavailable'
-        : available.length !== SCOPES.length || sources.some((source) => source.status !== 'ready') || truncated
-          ? 'partial'
-          : 'ready',
+      status:
+        available.length === 0
+          ? 'unavailable'
+          : available.length !== SCOPES.length ||
+              sources.some((source) => source.status !== 'ready') ||
+              truncated
+            ? 'partial'
+            : 'ready',
       observedAt,
       services,
       sources,

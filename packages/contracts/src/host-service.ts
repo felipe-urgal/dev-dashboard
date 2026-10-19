@@ -2,12 +2,7 @@
 export type HostServiceScope = 'system' | 'user';
 
 export type HostServiceState =
-  | 'running'
-  | 'starting'
-  | 'stopping'
-  | 'stopped'
-  | 'failed'
-  | 'unknown';
+  'running' | 'starting' | 'stopping' | 'stopped' | 'failed' | 'unknown';
 
 export type HostServiceBootState =
   | 'enabled'
