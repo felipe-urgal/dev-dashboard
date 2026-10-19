@@ -161,7 +161,8 @@ test('HTTP enforces token, versioned mutations and shared consumers without life
       info.binding.id +
       '?expectedRevision=' +
       info.revision,
-    headers,
+    // A bodyless DELETE must not advertise application/json to Fastify.
+    headers: { 'x-dev-dashboard-token': TOKEN },
   });
   assert.equal(deleteResult.statusCode, 200);
   const missing = await get('/api/projects/unknown/service-bindings');
