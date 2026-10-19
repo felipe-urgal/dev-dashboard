@@ -44,3 +44,5 @@ Referências: #1113 (epic), #1114 (inventário), #1115 (vínculos), #1116 (plann
 **Importante:** a revisão do catálogo e a revisão dos vínculos são conceitos diferentes. A revisão dos vínculos protege gravações concorrentes; a presença de um recurso observado no catálogo não prova autorização de mutação.
 
 A implementação é acompanhada pelos testes de isolamento de unidades com nomes iguais em scopes `system` e `user`, pela proteção de contextos Dev Container e por testes de recuperação após reinício da API.
+
+O schema HTTP exige `relation` nas operações de gravação e impede que campos inesperados sejam interpretados como parâmetros de controle do host.
