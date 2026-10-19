@@ -146,6 +146,7 @@ function fixture() {
     store,
     existing,
     observed,
+    deps,
   };
 }
 
@@ -319,4 +320,41 @@ test('resource disappearance becomes stale; removed project becomes orphaned', a
   existing.delete('gastos');
   const consumers = await service.consumers('docker:' + 'b'.repeat(64));
   assert.equal(consumers.bindings[0]?.availability, 'orphaned');
+});
+
+test('distinguishes homonymous user/system units and rejects host resources in Dev Containers', async () => {
+  const { service, store, observed, deps } = fixture();
+  const systemService = observed.find((entry) =>
+    entry.id === 'systemd:system:postgresql.service')!;
+  observed.push({ ...systemService, id: 'systemd:user:postgresql.service', scope: 'user' });
+  for (const serviceRef of [
+    'systemd:system:postgresql.service',
+    'systemd:user:postgresql.service',
+  ]) {
+    await service.save('loto', {
+      serviceRef,
+      role: 'database',
+      relation: 'required',
+      requiredForStart: true, enabled: true, dependencies: [],
+    }, store.revision('loto'));
+  }
+  const list = await service.list('loto');
+  assert.equal(list.bindings.length, 2);
+  assert.equal(list.bindings.every((b) => b.role === 'database'), true);
+  assert.notEqual(list.bindings[0]?.serviceRef, list.bindings[1]?.serviceRef);
+
+  const devcontainer = new ProjectServiceBindingService({
+    ...deps,
+    environmentStore: {
+      findById: (id: string) => {
+        const instance = deps.environmentStore.findById(id);
+        return instance ? { ...instance, runtime: { kind: 'devcontainer' as const } } : null;
+      },
+    },
+  });
+  await assert.rejects(
+    devcontainer.preview('loto'),
+    (error) => error instanceof ProjectServiceBindingServiceError &&
+      error.code === 'CONFLICT',
+  );
 });
