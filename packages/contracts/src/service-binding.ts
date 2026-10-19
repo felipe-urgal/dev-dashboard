@@ -25,7 +25,12 @@ export interface ProjectServiceBinding {
 
 export type ProjectServiceBindingDraft = Pick<
   ProjectServiceBinding,
-  'serviceRef' | 'role' | 'relation' | 'requiredForStart' | 'enabled' | 'dependencies'
+  | 'serviceRef'
+  | 'role'
+  | 'relation'
+  | 'requiredForStart'
+  | 'enabled'
+  | 'dependencies'
 > & { environmentInstanceId?: string };
 
 export interface ProjectServiceBindingView extends ProjectServiceBinding {

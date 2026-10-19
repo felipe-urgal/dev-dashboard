@@ -40,7 +40,8 @@ function validBinding(value: unknown): value is ProjectServiceBinding {
     b.environmentInstanceId.length <= 512 &&
     typeof b.serviceRef === 'string' &&
     b.serviceRef.length <= 512 &&
-    (b.role === undefined || (typeof b.role === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(b.role))) &&
+    (b.role === undefined ||
+      (typeof b.role === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(b.role))) &&
     ['owned', 'required', 'observed'].includes(b.relation ?? '') &&
     typeof b.requiredForStart === 'boolean' &&
     typeof b.enabled === 'boolean' &&
