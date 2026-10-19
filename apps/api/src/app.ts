@@ -9,6 +9,7 @@ import { taskContextRoutes } from './routes/task-contexts.js';
 import { activityRoutes } from './routes/activity.js';
 import { agentRuntimeRoutes } from './routes/agent-runtime.js';
 import { stackRoutes } from './routes/stacks.js';
+import { hostServiceRoutes } from './routes/host-services.js';
 
 import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
@@ -46,6 +47,7 @@ import { StackLogsService } from './services/stack-logs-service.js';
 import { StackRestartService } from './services/stack-restart-service.js';
 import { StackStartService } from './services/stack-start-service.js';
 import { StackStopService } from './services/stack-stop-service.js';
+import { SystemdServiceInventory } from './services/systemd-service-inventory.js';
 import { gitWorktreeRoutes } from './routes/git-worktrees.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
@@ -92,6 +94,7 @@ import {
 import { createAppContext, type AppContext } from './app-context.js';
 
 export interface BuildAppOptions extends AppCompositionOptions {
+  hostServiceInventory?: Pick<SystemdServiceInventory, 'inspect'>;
   localToken?: string;
   allowedOrigins?: readonly string[];
   context?: AppContext;
@@ -331,6 +334,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     agentRuntimeApiService,
     agentRuntimeRealtimeService,
+  });
+
+  app.register(hostServiceRoutes, {
+    prefix: '/api',
+    inventory: options.hostServiceInventory ?? new SystemdServiceInventory(),
   });
 
   app.register(stackRoutes, {
