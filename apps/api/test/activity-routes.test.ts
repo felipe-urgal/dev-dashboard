@@ -23,6 +23,8 @@ test('Activity HTTP expõe snapshots por projeto/global com autenticação e lim
   const { buildApp } = await import('../src/app.js');
   const { createAppContext } = await import('../src/app-context.js');
   const appContext = createAppContext();
+  // Keep activity fixtures inside the repository's 30-day retention window.
+  const fixtureTime = Date.now();
   const project: Project = {
     id: 'project-a',
     name: 'Project A',
@@ -45,7 +47,7 @@ test('Activity HTTP expõe snapshots por projeto/global com autenticação e lim
     type: 'database.snapshot',
     status: 'succeeded',
     summary: 'Snapshot concluído',
-    occurredAt: '2026-09-19T12:00:00.000Z',
+    occurredAt: new Date(fixtureTime - 120_000).toISOString(),
   });
   await appContext.activityEventRepository.append({
     projectId: project.id,
@@ -53,7 +55,7 @@ test('Activity HTTP expõe snapshots por projeto/global com autenticação e lim
     type: 'agent.task.created',
     status: 'started',
     summary: 'Agent task created.',
-    occurredAt: '2026-09-19T12:01:00.000Z',
+    occurredAt: new Date(fixtureTime - 60_000).toISOString(),
     resourceRef: { kind: 'agent-task', id: 'task-1' },
     jobId: 'task-1',
   });
@@ -63,7 +65,7 @@ test('Activity HTTP expõe snapshots por projeto/global com autenticação e lim
     type: 'stack.start',
     status: 'succeeded',
     summary: 'Stack Local: iniciar API',
-    occurredAt: '2026-09-19T12:02:00.000Z',
+    occurredAt: new Date(fixtureTime).toISOString(),
     resourceRef: { kind: 'stack-node', id: 'local-stack:api' },
   });
 
