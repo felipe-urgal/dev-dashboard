@@ -74,7 +74,7 @@ const bindingBody = {
     expectedRevision: revision,
     serviceRef,
     environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
-    role: { type: 'string', minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9_.-]+
+    role: { type: 'string', minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9_.-]+$' },
     requiredForStart: { type: 'boolean' },
     enabled: { type: 'boolean' },
     dependencies: {
@@ -134,6 +134,7 @@ const bindingSchema = {
     projectId: { type: 'string' },
     environmentInstanceId: { type: 'string' },
     serviceRef,
+    role: { type: 'string', minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9_.-]+$' },
     relation: { type: 'string', enum: ['owned', 'required', 'observed'] },
     requiredForStart: { type: 'boolean' },
     enabled: { type: 'boolean' },
