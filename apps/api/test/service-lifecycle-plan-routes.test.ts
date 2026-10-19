@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { Project, ServiceCatalogSnapshot, ServiceLifecyclePlan } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  ServiceCatalogSnapshot,
+  ServiceLifecyclePlan,
+} from '@dev-dashboard/contracts';
 
 import { buildApp } from '../src/app.js';
 import { createAppContext } from '../src/app-context.js';
@@ -12,25 +16,45 @@ const REF = 'systemd:system:postgresql.service';
 test('project lifecycle preview is authenticated, read-only and hash guarded', async (t) => {
   const context = createAppContext();
   const project: Project = {
-    id: 'loto', name: 'Loto Lab', workspaceId: 'test', path: '/tmp/loto',
-    source: 'workspace', type: 'node', enabled: true, capabilities: [],
+    id: 'loto',
+    name: 'Loto Lab',
+    workspaceId: 'test',
+    path: '/tmp/loto',
+    source: 'workspace',
+    type: 'node',
+    enabled: true,
+    capabilities: [],
   };
   context.projectStore.saveWorkspaceScan({
-    workspaceId: 'test', workspacePath: '/tmp',
-    projects: [project], warnings: [],
+    workspaceId: 'test',
+    workspacePath: '/tmp',
+    projects: [project],
+    warnings: [],
   });
   const catalog: ServiceCatalogSnapshot = {
-    status: 'ready', observedAt: '2026-10-19T16:00:00.000Z',
-    truncated: false, ports: [],
+    status: 'ready',
+    observedAt: '2026-10-19T16:00:00.000Z',
+    truncated: false,
+    ports: [],
     providers: [{ provider: 'systemd', status: 'ready' }],
-    entries: [{
-      id: REF, provider: 'systemd', name: 'postgresql.service',
-      scope: 'system', state: 'running', readiness: 'ready',
-      ownership: 'unmanaged', ports: [], observedAt: '2026-10-19T16:00:00.000Z',
-    }],
+    entries: [
+      {
+        id: REF,
+        provider: 'systemd',
+        name: 'postgresql.service',
+        scope: 'system',
+        state: 'running',
+        readiness: 'ready',
+        ownership: 'unmanaged',
+        ports: [],
+        observedAt: '2026-10-19T16:00:00.000Z',
+      },
+    ],
   };
   const app = await buildApp({
-    context, localToken: TOKEN, serviceCatalog: { inspect: async () => catalog },
+    context,
+    localToken: TOKEN,
+    serviceCatalog: { inspect: async () => catalog },
   });
   t.after(async () => app.close());
 
@@ -48,13 +72,17 @@ test('project lifecycle preview is authenticated, read-only and hash guarded', a
   assert.equal(first.planHash.length, 64);
 
   const repeat = await app.inject({
-    method: 'GET', url: uri + '&expectedPlanHash=' + first.planHash, headers,
+    method: 'GET',
+    url: uri + '&expectedPlanHash=' + first.planHash,
+    headers,
   });
   assert.equal(repeat.statusCode, 200);
 
   catalog.entries[0]!.state = 'stopped';
   const stale = await app.inject({
-    method: 'GET', url: uri + '&expectedPlanHash=' + first.planHash, headers,
+    method: 'GET',
+    url: uri + '&expectedPlanHash=' + first.planHash,
+    headers,
   });
   assert.equal(stale.statusCode, 409);
 
@@ -62,7 +90,9 @@ test('project lifecycle preview is authenticated, read-only and hash guarded', a
   assert.notEqual(mutation.statusCode, 200);
 
   const invalid = await app.inject({
-    method: 'GET', url: '/api/projects/loto/service-plan?action=restart', headers,
+    method: 'GET',
+    url: '/api/projects/loto/service-plan?action=restart',
+    headers,
   });
   assert.equal(invalid.statusCode, 400);
 });

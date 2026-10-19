@@ -17,8 +17,14 @@ const apiRef = 'compose:loto:api';
 const ownedDbRef = 'compose:loto:database';
 const env = (projectId: string) => 'environment:primary:' + projectId;
 const projects: Project[] = ['loto', 'gastos'].map((id) => ({
-  id, name: id, path: '/tmp/' + id, workspaceId: 'test',
-  source: 'workspace', type: 'node', enabled: true, capabilities: [],
+  id,
+  name: id,
+  path: '/tmp/' + id,
+  workspaceId: 'test',
+  source: 'workspace',
+  type: 'node',
+  enabled: true,
+  capabilities: [],
 }));
 
 const service = (
@@ -42,8 +48,14 @@ const draft = (
   relation: ProjectServiceBindingDraft['relation'],
   dependencies: string[] = [],
 ): ProjectServiceBindingDraft => ({
-  serviceRef: ref, relation, requiredForStart: true, enabled: true,
-  dependencies: dependencies.map((ref) => ({ serviceRef: ref, source: 'manual' })),
+  serviceRef: ref,
+  relation,
+  requiredForStart: true,
+  enabled: true,
+  dependencies: dependencies.map((ref) => ({
+    serviceRef: ref,
+    source: 'manual',
+  })),
 });
 
 function fixture() {
@@ -54,37 +66,57 @@ function fixture() {
     service(ownedDbRef),
   ];
   const snapshot: ServiceCatalogSnapshot = {
-    status: 'ready', observedAt: NOW.toISOString(),
-    entries, ports: [], truncated: false,
-    providers: [{ provider: 'systemd', status: 'ready' },
+    status: 'ready',
+    observedAt: NOW.toISOString(),
+    entries,
+    ports: [],
+    truncated: false,
+    providers: [
+      { provider: 'systemd', status: 'ready' },
       { provider: 'compose', status: 'ready' },
-      { provider: 'ports', status: 'ready' }],
+      { provider: 'ports', status: 'ready' },
+    ],
   };
-  const planner = new ServiceLifecyclePlanningService({
-    bindings: store,
-    projects: {
-      findProject: (projectId: string) =>
-        projects.find((p) => p.id === projectId) ?? null,
-    },
-    environments: {
-      findById: (id: string) => {
-        const project = projects.find((p) => env(p.id) === id);
-        return project ? {
-          id, projectId: project.id,
-          source: { kind: 'primary' as const, path: project.path },
-          runtime: { kind: 'host' as const }, lifecycle: 'ready' as const,
-        } : null;
+  const planner = new ServiceLifecyclePlanningService(
+    {
+      bindings: store,
+      projects: {
+        findProject: (projectId: string) =>
+          projects.find((p) => p.id === projectId) ?? null,
       },
+      environments: {
+        findById: (id: string) => {
+          const project = projects.find((p) => env(p.id) === id);
+          return project
+            ? {
+                id,
+                projectId: project.id,
+                source: { kind: 'primary' as const, path: project.path },
+                runtime: { kind: 'host' as const },
+                lifecycle: 'ready' as const,
+              }
+            : null;
+        },
+      },
+      catalog: { inspect: async () => snapshot },
     },
-    catalog: { inspect: async () => snapshot },
-  }, { now: () => NOW });
+    { now: () => NOW },
+  );
 
-  const bind = (projectId: string, ref: string,
+  const bind = (
+    projectId: string,
+    ref: string,
     relation: ProjectServiceBindingDraft['relation'],
-    dependencies: string[] = []) => store.save(
-      projectId, { ...draft(ref, relation, dependencies),
-        environmentInstanceId: env(projectId) },
-      store.revision(projectId), NOW,
+    dependencies: string[] = [],
+  ) =>
+    store.save(
+      projectId,
+      {
+        ...draft(ref, relation, dependencies),
+        environmentInstanceId: env(projectId),
+      },
+      store.revision(projectId),
+      NOW,
     );
   return { planner, store, snapshot, entries, bind };
 }
@@ -96,10 +128,16 @@ test('start orders prerequisites first and requires readiness rather than a runn
   const plan = await planner.preview('loto', 'start');
   assert.equal(plan.status, 'ready');
   assert.deepEqual(plan.order, [dbRef, apiRef]);
-  assert.deepEqual(plan.nodes.map((n) => n.disposition), ['alreadyReady', 'willStart']);
+  assert.deepEqual(
+    plan.nodes.map((n) => n.disposition),
+    ['alreadyReady', 'willStart'],
+  );
   assert.equal(plan.executable, false);
   assert.match(plan.planHash, /^[a-f0-9]{64}$/);
-  assert.equal(Date.parse(plan.expiresAt) - Date.parse(plan.observedAt), 30_000);
+  assert.equal(
+    Date.parse(plan.expiresAt) - Date.parse(plan.observedAt),
+    30_000,
+  );
 });
 
 test('stop reverses dependencies and retains external required services', async () => {
@@ -111,7 +149,10 @@ test('stop reverses dependencies and retains external required services', async 
   const plan = await planner.preview('loto', 'stop');
   assert.equal(plan.status, 'ready');
   assert.deepEqual(plan.order, [apiRef, dbRef]);
-  assert.deepEqual(plan.nodes.map((n) => n.disposition), ['willStop', 'retained']);
+  assert.deepEqual(
+    plan.nodes.map((n) => n.disposition),
+    ['willStop', 'retained'],
+  );
 });
 
 test('shared owned Compose resource is retained when another project uses it', async () => {
@@ -140,14 +181,23 @@ test('stale binding, missing dependency and cycle fail closed', async () => {
   bind('loto', apiRef, 'owned', [dbRef]);
   let plan = await planner.preview('loto', 'start');
   assert.equal(plan.status, 'blocked');
-  assert.equal(plan.nodes.find((n) => n.serviceRef === dbRef)?.relation, 'missing');
+  assert.equal(
+    plan.nodes.find((n) => n.serviceRef === dbRef)?.relation,
+    'missing',
+  );
   bind('loto', dbRef, 'required', [apiRef]);
   plan = await planner.preview('loto', 'start');
   assert.equal(plan.status, 'blocked');
   assert.match(plan.diagnostics.join(' '), /cycle/);
-  entries.splice(entries.findIndex((e) => e.id === apiRef), 1);
+  entries.splice(
+    entries.findIndex((e) => e.id === apiRef),
+    1,
+  );
   plan = await planner.preview('loto', 'stop');
-  assert.equal(plan.nodes.find((n) => n.serviceRef === apiRef)?.disposition, 'blocked');
+  assert.equal(
+    plan.nodes.find((n) => n.serviceRef === apiRef)?.disposition,
+    'blocked',
+  );
 });
 
 test('occupied declared host port and partial observation block action', async () => {
@@ -168,22 +218,32 @@ test('unchanged preview is repeatable; changed revision or runtime evidence inva
   const { planner, bind, snapshot } = fixture();
   bind('loto', apiRef, 'owned');
   const first = await planner.preview('loto', 'start');
-  const same = await planner.preview('loto', 'start', undefined, first.planHash);
+  const same = await planner.preview(
+    'loto',
+    'start',
+    undefined,
+    first.planHash,
+  );
   assert.equal(same.planHash, first.planHash);
 
   bind('loto', dbRef, 'required');
-  await assert.rejects(planner.preview('loto', 'start', undefined, first.planHash),
-    (e: unknown) => e instanceof Error && /plan changed/i.test(e.message));
+  await assert.rejects(
+    planner.preview('loto', 'start', undefined, first.planHash),
+    (e: unknown) => e instanceof Error && /plan changed/i.test(e.message),
+  );
   const next = await planner.preview('loto', 'start');
   snapshot.entries.find((e) => e.id === apiRef)!.state = 'running';
-  await assert.rejects(planner.preview('loto', 'start', undefined, next.planHash),
-    (e: unknown) => e instanceof Error && /plan changed/i.test(e.message));
+  await assert.rejects(
+    planner.preview('loto', 'start', undefined, next.planHash),
+    (e: unknown) => e instanceof Error && /plan changed/i.test(e.message),
+  );
 });
 
 test('missing project or mismatched environment is rejected without any mutation', async () => {
   const { planner } = fixture();
   await assert.rejects(planner.preview('missing', 'stop'), /Project not found/);
   await assert.rejects(
-    planner.preview('loto', 'start', env('gastos')), /Environment not found/,
+    planner.preview('loto', 'start', env('gastos')),
+    /Environment not found/,
   );
 });
