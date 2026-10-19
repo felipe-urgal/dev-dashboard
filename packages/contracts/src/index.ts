@@ -85,6 +85,13 @@ export type {
 } from './service-binding.js';
 
 export type {
+  ServiceLifecycleAction,
+  ServiceLifecycleDisposition,
+  ServiceLifecyclePlanNode,
+  ServiceLifecyclePlan,
+} from './service-lifecycle-plan.js';
+
+export type {
   RetentionSettings,
   RetentionSettingsLimits,
   RetentionSettingsSnapshot,
