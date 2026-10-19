@@ -8,6 +8,7 @@ A issue #1115 cria vínculos explícitos de um serviço identificado no catálog
 - `required`: o projeto precisa do serviço, mesmo que outra aplicação seja sua dona. Pode haver vários consumidores.
 - `observed`: referência informativa, sem bloqueio operacional. Um vínculo `observed` não pode ser `requiredForStart`.
 - `enabled`: ativa o vínculo na **configuração**, não ativa o serviço no host.
+- `role` (opcional): descrição do papel técnico como `api`, `database` ou `cache`, sem implicação de ownership nem permissão.
 - `dependencies`: arestas explícitas de `serviceRef` para `serviceRef`, com origem `manual` ou `compose`. Evidências Compose devem ser confirmadas pelo provider; a sugestão só entra após aceite explícito.
 - `stale`: o projeto e ambiente ainda existem, mas o recurso saiu do inventário; `orphaned`: projeto ou ambiente desapareceu. Nenhum deles concede capacidade mutável.
 - `shared`: mais de um Project/Environment Instance depende do mesmo `serviceRef`.
