@@ -9,11 +9,16 @@ import {
 import { ProjectServiceBindingStoreError } from '../store/project-service-binding-store.js';
 
 interface Options extends FastifyPluginOptions {
-  bindings: Pick<ProjectServiceBindingService,
-    'list' | 'preview' | 'consumers' | 'save' | 'remove'>;
+  bindings: Pick<
+    ProjectServiceBindingService,
+    'list' | 'preview' | 'consumers' | 'save' | 'remove'
+  >;
 }
 
-interface Params { projectId: string; bindingId?: string }
+interface Params {
+  projectId: string;
+  bindingId?: string;
+}
 interface Body {
   expectedRevision: string;
   serviceRef: string;
@@ -27,27 +32,42 @@ interface Body {
     observedAt?: string;
   }>;
 }
-interface RevisionQuery { expectedRevision: string }
-interface EnvironmentQuery { environmentInstanceId?: string }
-interface ResourceQuery { serviceRef: string }
+interface RevisionQuery {
+  expectedRevision: string;
+}
+interface EnvironmentQuery {
+  environmentInstanceId?: string;
+}
+interface ResourceQuery {
+  serviceRef: string;
+}
 
 const revision = { type: 'string', pattern: '^[a-f0-9]{64}$' } as const;
 const serviceRef = {
-  type: 'string', minLength: 1, maxLength: 512,
+  type: 'string',
+  minLength: 1,
+  maxLength: 512,
   pattern: '^(systemd|compose|process|docker):[A-Za-z0-9_.:@/-]{1,500}$',
 } as const;
 const params = {
-  type: 'object', additionalProperties: false, required: ['projectId'],
+  type: 'object',
+  additionalProperties: false,
+  required: ['projectId'],
   properties: {
     projectId: { type: 'string', minLength: 1, maxLength: 160 },
     bindingId: { type: 'string', minLength: 36, maxLength: 36 },
   },
 } as const;
 const bindingBody = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: [
-    'expectedRevision', 'serviceRef', 'relation',
-    'requiredForStart', 'enabled', 'dependencies',
+    'expectedRevision',
+    'serviceRef',
+    'relation',
+    'requiredForStart',
+    'enabled',
+    'dependencies',
   ],
   properties: {
     expectedRevision: revision,
@@ -57,9 +77,12 @@ const bindingBody = {
     requiredForStart: { type: 'boolean' },
     enabled: { type: 'boolean' },
     dependencies: {
-      type: 'array', maxItems: 32, uniqueItems: true,
+      type: 'array',
+      maxItems: 32,
+      uniqueItems: true,
       items: {
-        type: 'object', additionalProperties: false,
+        type: 'object',
+        additionalProperties: false,
         required: ['serviceRef', 'source'],
         properties: {
           serviceRef,
@@ -71,23 +94,39 @@ const bindingBody = {
   },
 } as const;
 const projectQuery = {
-  type: 'object', additionalProperties: false,
-  properties: { environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 } },
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+  },
 } as const;
 const resourceQuery = {
-  type: 'object', additionalProperties: false, required: ['serviceRef'],
+  type: 'object',
+  additionalProperties: false,
+  required: ['serviceRef'],
   properties: { serviceRef },
 } as const;
 const revisionQuery = {
-  type: 'object', additionalProperties: false, required: ['expectedRevision'],
+  type: 'object',
+  additionalProperties: false,
+  required: ['expectedRevision'],
   properties: { expectedRevision: revision },
 } as const;
 
 const bindingSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: [
-    'id', 'projectId', 'environmentInstanceId', 'serviceRef', 'relation',
-    'requiredForStart', 'enabled', 'dependencies', 'createdAt', 'updatedAt',
+    'id',
+    'projectId',
+    'environmentInstanceId',
+    'serviceRef',
+    'relation',
+    'requiredForStart',
+    'enabled',
+    'dependencies',
+    'createdAt',
+    'updatedAt',
   ],
   properties: {
     id: { type: 'string' },
@@ -107,46 +146,72 @@ const bindingSchema = {
 } as const;
 
 const listResponse = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['revision', 'bindings', 'partial'],
   properties: {
-    revision, partial: { type: 'boolean' },
+    revision,
+    partial: { type: 'boolean' },
     bindings: { type: 'array', maxItems: 500, items: bindingSchema },
   },
 } as const;
 const consumerResponse = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['serviceRef', 'bindings', 'partial'],
   properties: {
-    serviceRef, partial: { type: 'boolean' },
+    serviceRef,
+    partial: { type: 'boolean' },
     bindings: { type: 'array', maxItems: 500, items: bindingSchema },
   },
 } as const;
 const previewResponse = {
-  type: 'object', additionalProperties: false,
-  required: ['projectId', 'environmentInstanceId', 'candidates', 'suggestions', 'partial'],
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'projectId',
+    'environmentInstanceId',
+    'candidates',
+    'suggestions',
+    'partial',
+  ],
   properties: {
-    projectId: { type: 'string' }, environmentInstanceId: { type: 'string' },
+    projectId: { type: 'string' },
+    environmentInstanceId: { type: 'string' },
     partial: { type: 'boolean' },
     diagnostic: { type: 'string' },
     candidates: {
-      type: 'array', maxItems: 250,
+      type: 'array',
+      maxItems: 250,
       items: {
-        type: 'object', additionalProperties: false,
-        required: ['serviceRef', 'name', 'provider', 'ownership', 'linkableAsOwned'],
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'serviceRef',
+          'name',
+          'provider',
+          'ownership',
+          'linkableAsOwned',
+        ],
         properties: {
-          serviceRef, name: { type: 'string' }, provider: { type: 'string' },
-          ownership: { type: 'string' }, linkableAsOwned: { type: 'boolean' },
+          serviceRef,
+          name: { type: 'string' },
+          provider: { type: 'string' },
+          ownership: { type: 'string' },
+          linkableAsOwned: { type: 'boolean' },
         },
       },
     },
     suggestions: {
-      type: 'array', maxItems: 100,
+      type: 'array',
+      maxItems: 100,
       items: {
-        type: 'object', additionalProperties: false,
+        type: 'object',
+        additionalProperties: false,
         required: ['serviceRef', 'dependsOnServiceRef', 'source', 'observedAt'],
         properties: {
-          serviceRef, dependsOnServiceRef: serviceRef,
+          serviceRef,
+          dependsOnServiceRef: serviceRef,
           source: { type: 'string', enum: ['compose'] },
           observedAt: { type: 'string' },
         },
@@ -155,12 +220,15 @@ const previewResponse = {
   },
 } as const;
 const mutationResponse = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['binding', 'revision'],
   properties: { binding: bindingSchema, revision },
 } as const;
 const deleteResponse = {
-  type: 'object', additionalProperties: false, required: ['revision'],
+  type: 'object',
+  additionalProperties: false,
+  required: ['revision'],
   properties: { revision },
 } as const;
 
@@ -174,8 +242,12 @@ function translate(error: unknown): never {
   }
   if (error instanceof ProjectServiceBindingServiceError) {
     throw new ApiError({
-      statusCode: error.code === 'NOT_FOUND' ? 404 :
-        error.code === 'CONFLICT' ? 409 : 400,
+      statusCode:
+        error.code === 'NOT_FOUND'
+          ? 404
+          : error.code === 'CONFLICT'
+            ? 409
+            : 400,
       code: error.code,
       message: error.message,
     });
@@ -183,65 +255,117 @@ function translate(error: unknown): never {
   throw error;
 }
 async function safe<T>(f: () => Promise<T>): Promise<T> {
-  try { return await f(); } catch (error) { return translate(error); }
+  try {
+    return await f();
+  } catch (error) {
+    return translate(error);
+  }
 }
 
-export const projectServiceBindingRoutes: FastifyPluginAsync<Options> = async (app, options) => {
-  app.get<{ Querystring: ResourceQuery }>('/services/bindings/consumers', {
-    schema: {
-      querystring: resourceQuery,
-      response: { 200: consumerResponse, ...commonErrorResponseSchemas },
-    },
-  }, async (request) => safe(() => options.bindings.consumers(request.query.serviceRef)));
-
-  app.get<{ Params: Params }>('/projects/:projectId/service-bindings', {
-    schema: {
-      params,
-      response: { 200: listResponse, ...commonErrorResponseSchemas },
-    },
-  }, async (request) => safe(() => options.bindings.list(request.params.projectId)));
-
-  app.get<{ Params: Params; Querystring: EnvironmentQuery }>(
-    '/projects/:projectId/service-bindings/preview', {
+export const projectServiceBindingRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  options,
+) => {
+  app.get<{ Querystring: ResourceQuery }>(
+    '/services/bindings/consumers',
+    {
       schema: {
-        params, querystring: projectQuery,
-        response: { 200: previewResponse, ...commonErrorResponseSchemas },
+        querystring: resourceQuery,
+        response: { 200: consumerResponse, ...commonErrorResponseSchemas },
       },
-    }, async (request) => safe(() => options.bindings.preview(
-      request.params.projectId, request.query.environmentInstanceId,
-    )),
+    },
+    async (request) =>
+      safe(() => options.bindings.consumers(request.query.serviceRef)),
   );
 
-  app.post<{ Params: Params; Body: Body }>('/projects/:projectId/service-bindings', {
-    schema: {
-      params, body: bindingBody,
-      response: { 200: mutationResponse, ...commonErrorResponseSchemas },
+  app.get<{ Params: Params }>(
+    '/projects/:projectId/service-bindings',
+    {
+      schema: {
+        params,
+        response: { 200: listResponse, ...commonErrorResponseSchemas },
+      },
     },
-  }, async (request) => safe(() => options.bindings.save(
-    request.params.projectId, request.body, request.body.expectedRevision,
-  )));
+    async (request) =>
+      safe(() => options.bindings.list(request.params.projectId)),
+  );
 
-  app.put<{ Params: Params; Body: Body }>('/projects/:projectId/service-bindings/:bindingId', {
-    schema: {
-      params, body: bindingBody,
-      response: { 200: mutationResponse, ...commonErrorResponseSchemas },
+  app.get<{ Params: Params; Querystring: EnvironmentQuery }>(
+    '/projects/:projectId/service-bindings/preview',
+    {
+      schema: {
+        params,
+        querystring: projectQuery,
+        response: { 200: previewResponse, ...commonErrorResponseSchemas },
+      },
     },
-  }, async (request) => safe(() => options.bindings.save(
-    request.params.projectId, request.body, request.body.expectedRevision,
-    request.params.bindingId,
-  )));
+    async (request) =>
+      safe(() =>
+        options.bindings.preview(
+          request.params.projectId,
+          request.query.environmentInstanceId,
+        ),
+      ),
+  );
+
+  app.post<{ Params: Params; Body: Body }>(
+    '/projects/:projectId/service-bindings',
+    {
+      schema: {
+        params,
+        body: bindingBody,
+        response: { 200: mutationResponse, ...commonErrorResponseSchemas },
+      },
+    },
+    async (request) =>
+      safe(() =>
+        options.bindings.save(
+          request.params.projectId,
+          request.body,
+          request.body.expectedRevision,
+        ),
+      ),
+  );
+
+  app.put<{ Params: Params; Body: Body }>(
+    '/projects/:projectId/service-bindings/:bindingId',
+    {
+      schema: {
+        params,
+        body: bindingBody,
+        response: { 200: mutationResponse, ...commonErrorResponseSchemas },
+      },
+    },
+    async (request) =>
+      safe(() =>
+        options.bindings.save(
+          request.params.projectId,
+          request.body,
+          request.body.expectedRevision,
+          request.params.bindingId,
+        ),
+      ),
+  );
 
   app.delete<{ Params: Params; Querystring: RevisionQuery }>(
-    '/projects/:projectId/service-bindings/:bindingId', {
+    '/projects/:projectId/service-bindings/:bindingId',
+    {
       schema: {
-        params, querystring: revisionQuery,
+        params,
+        querystring: revisionQuery,
         response: { 200: deleteResponse, ...commonErrorResponseSchemas },
       },
-    }, async (request) => {
+    },
+    async (request) => {
       try {
-        return options.bindings.remove(request.params.projectId,
-          request.params.bindingId!, request.query.expectedRevision);
-      } catch (error) { return translate(error); }
+        return options.bindings.remove(
+          request.params.projectId,
+          request.params.bindingId!,
+          request.query.expectedRevision,
+        );
+      } catch (error) {
+        return translate(error);
+      }
     },
   );
 };
