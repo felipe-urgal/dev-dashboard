@@ -28,14 +28,17 @@ type CatalogDependencies = {
   composeOwnership: Pick<DockerComposeOwnershipStore, 'get'>;
 };
 
-function processState(value: ManagedProcess['status']): ServiceCatalogEntry['state'] {
+function processState(
+  value: ManagedProcess['status'],
+): ServiceCatalogEntry['state'] {
   return value;
 }
 
 function composeState(value: string): ServiceCatalogEntry['state'] {
   if (value === 'running') return 'running';
   if (value === 'restarting') return 'starting';
-  if (value === 'exited' || value === 'created' || value === 'paused') return 'stopped';
+  if (value === 'exited' || value === 'created' || value === 'paused')
+    return 'stopped';
   if (value === 'dead') return 'failed';
   return 'unknown';
 }
@@ -56,11 +59,12 @@ export class ServiceCatalogService {
     const entries: ServiceCatalogEntry[] = [];
     let truncated = false;
 
-    const [systemdResult, containersResult, processesResult] = await Promise.allSettled([
-      this.dependencies.systemd.inspect(),
-      this.dependencies.containers.inspect(),
-      this.dependencies.processManager.listProcesses(),
-    ]);
+    const [systemdResult, containersResult, processesResult] =
+      await Promise.allSettled([
+        this.dependencies.systemd.inspect(),
+        this.dependencies.containers.inspect(),
+        this.dependencies.processManager.listProcesses(),
+      ]);
 
     if (systemdResult.status === 'fulfilled') {
       const snapshot = systemdResult.value;
@@ -87,11 +91,15 @@ export class ServiceCatalogService {
         });
       }
     } else {
-      providers.push({ provider: 'systemd', status: 'unavailable',
-        diagnostic: 'Systemd observation failed.' });
+      providers.push({
+        provider: 'systemd',
+        status: 'unavailable',
+        diagnostic: 'Systemd observation failed.',
+      });
     }
 
-    const processes = processesResult.status === 'fulfilled' ? processesResult.value : [];
+    const processes =
+      processesResult.status === 'fulfilled' ? processesResult.value : [];
     if (processesResult.status === 'fulfilled') {
       providers.push({ provider: 'managed-process', status: 'ready' });
       for (const process of processes) {
@@ -113,8 +121,11 @@ export class ServiceCatalogService {
         });
       }
     } else {
-      providers.push({ provider: 'managed-process', status: 'unavailable',
-        diagnostic: 'Managed processes could not be inspected.' });
+      providers.push({
+        provider: 'managed-process',
+        status: 'unavailable',
+        diagnostic: 'Managed processes could not be inspected.',
+      });
     }
 
     let ownedContainerIds = new Set<string>();
@@ -128,20 +139,37 @@ export class ServiceCatalogService {
       projects.slice(0, MAX_PROJECTS).map(async (project) => {
         try {
           const owner = await this.dependencies.composeOwnership.get(project);
-          if (!owner) return { status: 'ready' as const, entries: [] as ServiceCatalogEntry[],
-            containerIds: [] as string[] };
-          const observation = await this.dependencies.composeProvider.inspect(project);
-          if (observation.state !== 'available' || !observation.runtime ||
-            !observation.config || observation.config.projectName !== owner.composeProjectName) {
-            return { status: 'partial' as const, entries: [] as ServiceCatalogEntry[],
-              containerIds: [] as string[] };
+          if (!owner)
+            return {
+              status: 'ready' as const,
+              entries: [] as ServiceCatalogEntry[],
+              containerIds: [] as string[],
+            };
+          const observation =
+            await this.dependencies.composeProvider.inspect(project);
+          if (
+            observation.state !== 'available' ||
+            !observation.runtime ||
+            !observation.config ||
+            observation.config.projectName !== owner.composeProjectName
+          ) {
+            return {
+              status: 'partial' as const,
+              entries: [] as ServiceCatalogEntry[],
+              containerIds: [] as string[],
+            };
           }
-          const knownServices = new Set(observation.config.services.map((s) => s.name));
+          const knownServices = new Set(
+            observation.config.services.map((s) => s.name),
+          );
           const composed: ServiceCatalogEntry[] = [];
           const ids: string[] = [];
           for (const runtime of observation.runtime.services) {
             if (!knownServices.has(runtime.service)) continue;
-            if (runtime.containerId && /^[a-f0-9]{12,64}$/.test(runtime.containerId)) {
+            if (
+              runtime.containerId &&
+              /^[a-f0-9]{12,64}$/.test(runtime.containerId)
+            ) {
               ids.push(runtime.containerId);
             }
             const state = composeState(runtime.state);
@@ -150,20 +178,32 @@ export class ServiceCatalogService {
               provider: 'compose',
               name: runtime.service,
               state,
-              readiness: state === 'running' && runtime.health === 'healthy'
-                ? 'ready' : runtime.health === 'unhealthy' ? 'unhealthy' : 'unknown',
+              readiness:
+                state === 'running' && runtime.health === 'healthy'
+                  ? 'ready'
+                  : runtime.health === 'unhealthy'
+                    ? 'unhealthy'
+                    : 'unknown',
               ownership: 'confirmed',
               scope: 'environment',
               projectId: project.id,
               ports: runtime.ports.flatMap((port) =>
-                port.publishedPort ? [port.publishedPort] : []),
+                port.publishedPort ? [port.publishedPort] : [],
+              ),
               observedAt: observation.observedAt,
             });
           }
-          return { status: 'ready' as const, entries: composed, containerIds: ids };
+          return {
+            status: 'ready' as const,
+            entries: composed,
+            containerIds: ids,
+          };
         } catch {
-          return { status: 'partial' as const, entries: [] as ServiceCatalogEntry[],
-            containerIds: [] as string[] };
+          return {
+            status: 'partial' as const,
+            entries: [] as ServiceCatalogEntry[],
+            containerIds: [] as string[],
+          };
         }
       }),
     );
@@ -172,23 +212,36 @@ export class ServiceCatalogService {
       entries.push(...result.entries);
       for (const id of result.containerIds) ownedContainerIds.add(id);
     }
-    providers.push({ provider: 'compose', status: composeStatus,
+    providers.push({
+      provider: 'compose',
+      status: composeStatus,
       ...(composeStatus !== 'ready'
-        ? { diagnostic: 'One or more owned Compose projects could not be proven.' }
+        ? {
+            diagnostic:
+              'One or more owned Compose projects could not be proven.',
+          }
         : {}),
     });
 
     if (containersResult.status === 'fulfilled') {
       const snapshot = containersResult.value;
       providers.push({
-        provider: 'docker', status: snapshot.status,
+        provider: 'docker',
+        status: snapshot.status,
         ...(snapshot.status !== 'ready'
-          ? { diagnostic: 'Docker container observation unavailable.' } : {}),
+          ? { diagnostic: 'Docker container observation unavailable.' }
+          : {}),
       });
       truncated ||= snapshot.truncated;
       for (const container of snapshot.containers) {
-        if ([...ownedContainerIds].some((id) =>
-          id === container.id || (id.length > 12 && container.id.startsWith(id)))) continue;
+        if (
+          [...ownedContainerIds].some(
+            (id) =>
+              id === container.id ||
+              (id.length > 12 && container.id.startsWith(id)),
+          )
+        )
+          continue;
         entries.push({
           id: 'docker:' + container.id,
           provider: 'docker',
@@ -202,17 +255,26 @@ export class ServiceCatalogService {
         });
       }
     } else {
-      providers.push({ provider: 'docker', status: 'unavailable',
-        diagnostic: 'Docker container observation failed.' });
+      providers.push({
+        provider: 'docker',
+        status: 'unavailable',
+        diagnostic: 'Docker container observation failed.',
+      });
     }
 
     const ports = [];
     try {
-      const inspection = await this.dependencies.portInspector.inspect({ managedProcesses: processes });
+      const inspection = await this.dependencies.portInspector.inspect({
+        managedProcesses: processes,
+      });
       providers.push({
         provider: 'ports',
-        status: inspection.status === 'ready'
-          ? 'ready' : inspection.status === 'unsupported' ? 'unsupported' : 'unavailable',
+        status:
+          inspection.status === 'ready'
+            ? 'ready'
+            : inspection.status === 'unsupported'
+              ? 'unsupported'
+              : 'unavailable',
         ...(inspection.warning ? { diagnostic: inspection.warning } : {}),
       });
       truncated ||= inspection.truncated;
@@ -223,18 +285,23 @@ export class ServiceCatalogService {
           address: entry.address,
           conflict: entry.conflict,
           ...(entry.managedProcess
-            ? { managedProcessId: entry.managedProcess.id } : {}),
+            ? { managedProcessId: entry.managedProcess.id }
+            : {}),
         });
         // Only the Port Inspector's verified process identity permits correlation.
-        const matching = entries.find((candidate) =>
-          candidate.provider === 'managed-process' &&
-          candidate.id === 'process:' + entry.managedProcess?.id &&
-          candidate.projectId === entry.managedProcess?.projectId);
-        if (matching && !matching.ports.includes(entry.port)) matching.ports.push(entry.port);
+        const matching = entries.find(
+          (candidate) =>
+            candidate.provider === 'managed-process' &&
+            candidate.id === 'process:' + entry.managedProcess?.id &&
+            candidate.projectId === entry.managedProcess?.projectId,
+        );
+        if (matching && !matching.ports.includes(entry.port))
+          matching.ports.push(entry.port);
       }
     } catch {
       providers.push({
-        provider: 'ports', status: 'unavailable',
+        provider: 'ports',
+        status: 'unavailable',
         diagnostic: 'Port observation failed.',
       });
     }
@@ -244,11 +311,18 @@ export class ServiceCatalogService {
       truncated = true;
       entries.length = MAX_ENTRIES;
     }
-    const available = providers.filter((provider) => provider.status === 'ready');
-    const status = providers.every((provider) => provider.status === 'unsupported')
+    const available = providers.filter(
+      (provider) => provider.status === 'ready',
+    );
+    const status = providers.every(
+      (provider) => provider.status === 'unsupported',
+    )
       ? 'unsupported'
-      : available.length === 0 ? 'unavailable'
-        : available.length === providers.length && !truncated ? 'ready' : 'partial';
+      : available.length === 0
+        ? 'unavailable'
+        : available.length === providers.length && !truncated
+          ? 'ready'
+          : 'partial';
     return {
       status,
       observedAt,

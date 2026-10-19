@@ -7,16 +7,40 @@ interface Options extends FastifyPluginOptions {
   catalog: Pick<ServiceCatalogService, 'inspect'>;
 }
 
-const stateValues = ['running', 'starting', 'stopping', 'stopped', 'failed', 'unknown'] as const;
-const providerValues = ['systemd', 'docker', 'compose', 'managed-process'] as const;
-const statusValues = ['ready', 'partial', 'unavailable', 'unsupported'] as const;
+const stateValues = [
+  'running',
+  'starting',
+  'stopping',
+  'stopped',
+  'failed',
+  'unknown',
+] as const;
+const providerValues = [
+  'systemd',
+  'docker',
+  'compose',
+  'managed-process',
+] as const;
+const statusValues = [
+  'ready',
+  'partial',
+  'unavailable',
+  'unsupported',
+] as const;
 
 const catalogServiceSchema = {
   type: 'object',
   additionalProperties: false,
   required: [
-    'id', 'provider', 'name', 'state', 'readiness', 'ownership',
-    'scope', 'ports', 'observedAt',
+    'id',
+    'provider',
+    'name',
+    'state',
+    'readiness',
+    'ownership',
+    'scope',
+    'ports',
+    'observedAt',
   ],
   properties: {
     id: { type: 'string' },
@@ -46,7 +70,14 @@ const responseSchema = {
     catalog: {
       type: 'object',
       additionalProperties: false,
-      required: ['status', 'observedAt', 'entries', 'ports', 'providers', 'truncated'],
+      required: [
+        'status',
+        'observedAt',
+        'entries',
+        'ports',
+        'providers',
+        'truncated',
+      ],
       properties: {
         status: { type: 'string', enum: statusValues },
         observedAt: { type: 'string' },
@@ -86,10 +117,17 @@ const responseSchema = {
   },
 } as const;
 
-export const serviceCatalogRoutes: FastifyPluginAsync<Options> = async (app, options) => {
+export const serviceCatalogRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  options,
+) => {
   app.get(
     '/services/catalog',
-    { schema: { response: { 200: responseSchema, ...commonErrorResponseSchemas } } },
+    {
+      schema: {
+        response: { 200: responseSchema, ...commonErrorResponseSchemas },
+      },
+    },
     async () => ({ catalog: await options.catalog.inspect() }),
   );
 };
