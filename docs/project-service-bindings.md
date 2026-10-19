@@ -42,3 +42,5 @@ A UI visual por projeto será implementada na #1118 e o planejamento de ações 
 Referências: #1113 (epic), #1114 (inventário), #1115 (vínculos), #1116 (planner), #1118 (UI).
 
 **Importante:** a revisão do catálogo e a revisão dos vínculos são conceitos diferentes. A revisão dos vínculos protege gravações concorrentes; a presença de um recurso observado no catálogo não prova autorização de mutação.
+
+A implementação é acompanhada pelos testes de isolamento de unidades com nomes iguais em scopes `system` e `user`, pela proteção de contextos Dev Container e por testes de recuperação após reinício da API.
