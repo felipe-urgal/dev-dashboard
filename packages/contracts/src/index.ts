@@ -57,6 +57,15 @@ export type {
 } from './stack.js';
 
 export type {
+  HostServiceBootState,
+  HostServiceInventory,
+  HostServiceInventorySource,
+  HostServiceObservation,
+  HostServiceScope,
+  HostServiceState,
+} from './host-service.js';
+
+export type {
   RetentionSettings,
   RetentionSettingsLimits,
   RetentionSettingsSnapshot,
