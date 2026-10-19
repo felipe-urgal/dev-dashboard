@@ -31,6 +31,20 @@ test('project lifecycle preview is authenticated, read-only and hash guarded', a
     projects: [project],
     warnings: [],
   });
+  // The hash tracks services bound to this project, not arbitrary host services.
+  context.projectServiceBindingStore.save(
+    'loto',
+    {
+      environmentInstanceId: 'environment:primary:loto',
+      serviceRef: REF,
+      relation: 'required',
+      requiredForStart: true,
+      enabled: true,
+      dependencies: [],
+    },
+    context.projectServiceBindingStore.revision('loto'),
+    new Date('2026-10-19T16:00:00.000Z'),
+  );
   const catalog: ServiceCatalogSnapshot = {
     status: 'ready',
     observedAt: '2026-10-19T16:00:00.000Z',
@@ -44,7 +58,7 @@ test('project lifecycle preview is authenticated, read-only and hash guarded', a
         name: 'postgresql.service',
         scope: 'system',
         state: 'running',
-        readiness: 'ready',
+        readiness: 'unknown',
         ownership: 'unmanaged',
         ports: [],
         observedAt: '2026-10-19T16:00:00.000Z',
@@ -68,6 +82,8 @@ test('project lifecycle preview is authenticated, read-only and hash guarded', a
   const first = original.json<ServiceLifecyclePlan>();
   assert.equal(first.target.projectId, 'loto');
   assert.equal(first.status, 'blocked');
+  assert.deepEqual(first.order, [REF]);
+  assert.equal(first.nodes[0]?.state, 'running');
   assert.equal(first.executable, false);
   assert.equal(first.planHash.length, 64);
 
