@@ -6,7 +6,9 @@ import type { ServiceLifecyclePlanningService } from '../services/service-lifecy
 interface Options extends FastifyPluginOptions {
   planner: Pick<ServiceLifecyclePlanningService, 'preview'>;
 }
-interface Params { projectId: string }
+interface Params {
+  projectId: string;
+}
 interface Query {
   action: 'start' | 'stop';
   environmentInstanceId?: string;
@@ -17,16 +19,30 @@ const properties = {
   serviceRef: { type: 'string' },
   name: { type: 'string' },
   provider: {
-    type: 'string', enum: ['systemd', 'docker', 'compose', 'managed-process', 'unknown'],
+    type: 'string',
+    enum: ['systemd', 'docker', 'compose', 'managed-process', 'unknown'],
   },
   disposition: {
     type: 'string',
-    enum: ['willStart', 'willStop', 'alreadyReady', 'retained', 'blocked', 'unsupported'],
+    enum: [
+      'willStart',
+      'willStop',
+      'alreadyReady',
+      'retained',
+      'blocked',
+      'unsupported',
+    ],
   },
   state: { type: 'string' },
   readiness: { type: 'string', enum: ['ready', 'unhealthy', 'unknown'] },
-  relation: { type: 'string', enum: ['owned', 'required', 'observed', 'missing'] },
-  ports: { type: 'array', items: { type: 'integer', minimum: 1, maximum: 65535 } },
+  relation: {
+    type: 'string',
+    enum: ['owned', 'required', 'observed', 'missing'],
+  },
+  ports: {
+    type: 'array',
+    items: { type: 'integer', minimum: 1, maximum: 65535 },
+  },
   consumerCount: { type: 'integer', minimum: 0 },
   dependencies: { type: 'array', items: { type: 'string' } },
   diagnostic: { type: 'string' },
@@ -36,12 +52,22 @@ const responseSchema = {
   type: 'object',
   additionalProperties: false,
   required: [
-    'target', 'action', 'status', 'expectedRevision', 'planHash',
-    'observedAt', 'expiresAt', 'order', 'nodes', 'diagnostics', 'executable',
+    'target',
+    'action',
+    'status',
+    'expectedRevision',
+    'planHash',
+    'observedAt',
+    'expiresAt',
+    'order',
+    'nodes',
+    'diagnostics',
+    'executable',
   ],
   properties: {
     target: {
-      type: 'object', additionalProperties: false,
+      type: 'object',
+      additionalProperties: false,
       required: ['kind', 'projectId', 'environmentInstanceId'],
       properties: {
         kind: { type: 'string', enum: ['project-environment'] },
@@ -57,12 +83,22 @@ const responseSchema = {
     expiresAt: { type: 'string' },
     order: { type: 'array', maxItems: 250, items: { type: 'string' } },
     nodes: {
-      type: 'array', maxItems: 250,
+      type: 'array',
+      maxItems: 250,
       items: {
-        type: 'object', additionalProperties: false,
+        type: 'object',
+        additionalProperties: false,
         required: [
-          'serviceRef', 'name', 'provider', 'disposition', 'state',
-          'readiness', 'relation', 'ports', 'consumerCount', 'dependencies',
+          'serviceRef',
+          'name',
+          'provider',
+          'disposition',
+          'state',
+          'readiness',
+          'relation',
+          'ports',
+          'consumerCount',
+          'dependencies',
         ],
         properties,
       },
@@ -81,28 +117,36 @@ export const serviceLifecyclePlanRoutes: FastifyPluginAsync<Options> = async (
     {
       schema: {
         params: {
-          type: 'object', additionalProperties: false,
+          type: 'object',
+          additionalProperties: false,
           required: ['projectId'],
           properties: {
             projectId: { type: 'string', minLength: 1, maxLength: 160 },
           },
         },
         querystring: {
-          type: 'object', additionalProperties: false, required: ['action'],
+          type: 'object',
+          additionalProperties: false,
+          required: ['action'],
           properties: {
             action: { type: 'string', enum: ['start', 'stop'] },
-            environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+            environmentInstanceId: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 512,
+            },
             expectedPlanHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
           },
         },
         response: { 200: responseSchema, ...commonErrorResponseSchemas },
       },
     },
-    async (request) => options.planner.preview(
-      request.params.projectId,
-      request.query.action,
-      request.query.environmentInstanceId,
-      request.query.expectedPlanHash,
-    ),
+    async (request) =>
+      options.planner.preview(
+        request.params.projectId,
+        request.query.action,
+        request.query.environmentInstanceId,
+        request.query.expectedPlanHash,
+      ),
   );
 };
