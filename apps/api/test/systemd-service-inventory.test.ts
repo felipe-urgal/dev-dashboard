@@ -44,12 +44,20 @@ test('observa user e system sem inferir ownership nem readiness', async () => {
   const result = await inventory.inspect();
   assert.equal(result.status, 'ready');
   assert.equal(result.truncated, false);
-  assert.deepEqual(commands.sort(), [
-    'system:unit-files', 'system:units', 'user:unit-files', 'user:units',
-  ].sort());
+  assert.deepEqual(
+    commands.sort(),
+    [
+      'system:unit-files',
+      'system:units',
+      'user:unit-files',
+      'user:units',
+    ].sort(),
+  );
   assert.equal(result.services.length, 6);
 
-  const music = result.services.find((service) => service.name === 'home-music.service');
+  const music = result.services.find(
+    (service) => service.name === 'home-music.service',
+  );
   assert.equal(music?.id, 'systemd:system:home-music.service');
   assert.equal(music?.state, 'running');
   assert.equal(music?.bootState, 'enabled');
@@ -57,13 +65,33 @@ test('observa user e system sem inferir ownership nem readiness', async () => {
   assert.equal(music?.managed, false);
   assert.equal(music?.observedAt, NOW.toISOString());
 
-  const dashboard = result.services.find((service) => service.name === 'dev-dashboard.service');
+  const dashboard = result.services.find(
+    (service) => service.name === 'dev-dashboard.service',
+  );
   assert.equal(dashboard?.scope, 'user');
-  assert.equal(result.services.find((service) => service.name === 'broken.service')?.state, 'failed');
-  assert.equal(result.services.find((service) => service.name === 'broken.service')?.bootState, 'masked');
-  assert.equal(result.services.find((service) => service.name === 'oneshot.service')?.state, 'unknown');
-  assert.equal(result.services.find((service) => service.name === 'sleeping.service')?.state, 'unknown');
-  assert.equal(result.services.some((service) => service.name === 'not-a-unit.timer'), false);
+  assert.equal(
+    result.services.find((service) => service.name === 'broken.service')?.state,
+    'failed',
+  );
+  assert.equal(
+    result.services.find((service) => service.name === 'broken.service')
+      ?.bootState,
+    'masked',
+  );
+  assert.equal(
+    result.services.find((service) => service.name === 'oneshot.service')
+      ?.state,
+    'unknown',
+  );
+  assert.equal(
+    result.services.find((service) => service.name === 'sleeping.service')
+      ?.state,
+    'unknown',
+  );
+  assert.equal(
+    result.services.some((service) => service.name === 'not-a-unit.timer'),
+    false,
+  );
 });
 
 test('não falha globalmente quando user bus está indisponível e não vaza erro bruto', async () => {
@@ -101,25 +129,30 @@ test('relata observação parcial quando estado de runtime é desconhecido', asy
   const result = await inventory.inspect();
   assert.equal(result.status, 'partial');
   assert.equal(result.sources[1]?.status, 'partial');
-  assert.equal(result.services.find((service) => service.scope === 'system')?.state, 'unknown');
+  assert.equal(
+    result.services.find((service) => service.scope === 'system')?.state,
+    'unknown',
+  );
 });
 
 test('respeita limite total e sinaliza truncamento', async () => {
   const inventory = new SystemdServiceInventory({
     platform: 'linux',
     maxServices: 2,
-    runSystemctl: async (_scope, query) => (
+    runSystemctl: async (_scope, query) =>
       query === 'units'
         ? 'first.service loaded active running First\nsecond.service loaded inactive dead Second'
-        : 'first.service enabled enabled\nsecond.service disabled enabled'
-    ),
+        : 'first.service enabled enabled\nsecond.service disabled enabled',
   });
 
   const result = await inventory.inspect();
   assert.equal(result.status, 'partial');
   assert.equal(result.truncated, true);
   assert.equal(result.services.length, 2);
-  assert.deepEqual(result.services.map((service) => service.scope), ['user', 'user']);
+  assert.deepEqual(
+    result.services.map((service) => service.scope),
+    ['user', 'user'],
+  );
 });
 
 test('não executa systemctl fora do Linux', async () => {
@@ -136,5 +169,8 @@ test('não executa systemctl fora do Linux', async () => {
   assert.equal(result.status, 'unsupported');
   assert.equal(calls, 0);
   assert.equal(result.services.length, 0);
-  assert.equal(result.sources.every((source) => source.status === 'unsupported'), true);
+  assert.equal(
+    result.sources.every((source) => source.status === 'unsupported'),
+    true,
+  );
 });

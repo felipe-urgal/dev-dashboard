@@ -12,17 +12,19 @@ test('inventário systemd é autenticado, read-only e serializa o contrato', asy
   const observation: HostServiceInventory = {
     status: 'ready',
     observedAt: '2026-10-19T12:00:00.000Z',
-    services: [{
-      id: 'systemd:system:home-music.service',
-      name: 'home-music.service',
-      provider: 'systemd',
-      scope: 'system',
-      state: 'running',
-      readiness: 'unknown',
-      bootState: 'enabled',
-      managed: false,
-      observedAt: '2026-10-19T12:00:00.000Z',
-    }],
+    services: [
+      {
+        id: 'systemd:system:home-music.service',
+        name: 'home-music.service',
+        provider: 'systemd',
+        scope: 'system',
+        state: 'running',
+        readiness: 'unknown',
+        bootState: 'enabled',
+        managed: false,
+        observedAt: '2026-10-19T12:00:00.000Z',
+      },
+    ],
     sources: [
       { scope: 'user', status: 'ready' },
       { scope: 'system', status: 'ready' },
@@ -53,7 +55,10 @@ test('inventário systemd é autenticado, read-only e serializa o contrato', asy
     headers: { 'x-dev-dashboard-token': TOKEN },
   });
   assert.equal(response.statusCode, 200);
-  assert.deepEqual(response.json<{ inventory: HostServiceInventory }>().inventory, observation);
+  assert.deepEqual(
+    response.json<{ inventory: HostServiceInventory }>().inventory,
+    observation,
+  );
   assert.equal(calls, 1);
 
   const mutation = await app.inject({
