@@ -340,7 +340,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     agentRuntimeRealtimeService,
   });
 
-  const systemdInventory = options.hostServiceInventory ?? new SystemdServiceInventory();
+  const systemdInventory =
+    options.hostServiceInventory ?? new SystemdServiceInventory();
   app.register(hostServiceRoutes, {
     prefix: '/api',
     inventory: systemdInventory,
@@ -348,15 +349,17 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   app.register(serviceCatalogRoutes, {
     prefix: '/api',
-    catalog: options.serviceCatalog ?? new ServiceCatalogService({
-      systemd: systemdInventory,
-      containers: new DockerContainerObserver(),
-      processManager: context.processManager,
-      portInspector: portInspectorService,
-      projectStore: context.projectStore,
-      composeProvider: dockerComposeProvider,
-      composeOwnership: dockerComposeOwnershipStore,
-    }),
+    catalog:
+      options.serviceCatalog ??
+      new ServiceCatalogService({
+        systemd: systemdInventory,
+        containers: new DockerContainerObserver(),
+        processManager: context.processManager,
+        portInspector: portInspectorService,
+        projectStore: context.projectStore,
+        composeProvider: dockerComposeProvider,
+        composeOwnership: dockerComposeOwnershipStore,
+      }),
   });
 
   app.register(stackRoutes, {
