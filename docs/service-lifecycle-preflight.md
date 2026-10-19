@@ -17,6 +17,7 @@ Autenticação local existente do Dashboard. `environmentInstanceId` omitido sel
 - `consumerCount`: consumidores configurados do mesmo recurso em projetos/ambientes distintos. Start/Stop de dependências compartilhadas não assume controle do host.
 - `ports`: portas declaradas no catálogo e evidências do Port Inspector; porta ocupada ou marcada com conflito bloqueia a prévia correspondente quando relevante.
 - `expectedRevision`: revisão atual dos vínculos. `planHash`: impressão da revisão, bindings, topologia implícita por dependências, observações, portas e ação.
+  - O fingerprint ignora timestamps voláteis de polling e considera estados, consumidores, portas, revisões e disponibilidade dos providers. Nova observação sem mudança de estado mantém o hash; mudança material invalida a prévia.
 - `observedAt` e `expiresAt`: janela de até 30 segundos para a evidência. Uma consulta hash-validada **não reserva** recursos e não torna mutação segura sem nova verificação atômica.
 - `executable: false`: garantia explícita da primeira fase; mesmo `status: ready` apenas significa ausência de bloqueios conhecidos na prévia, **não** que a UI possa executar.
 
