@@ -13,6 +13,8 @@ export interface ProjectServiceBinding {
   environmentInstanceId: string;
   /** Exact identity from ServiceCatalogSnapshot.entries[].id. */
   serviceRef: string;
+  /** Optional descriptive role (e.g. database, cache, api); not authority. */
+  role?: string;
   relation: ProjectServiceRelation;
   requiredForStart: boolean;
   enabled: boolean;
@@ -23,7 +25,7 @@ export interface ProjectServiceBinding {
 
 export type ProjectServiceBindingDraft = Pick<
   ProjectServiceBinding,
-  'serviceRef' | 'relation' | 'requiredForStart' | 'enabled' | 'dependencies'
+  'serviceRef' | 'role' | 'relation' | 'requiredForStart' | 'enabled' | 'dependencies'
 > & { environmentInstanceId?: string };
 
 export interface ProjectServiceBindingView extends ProjectServiceBinding {
