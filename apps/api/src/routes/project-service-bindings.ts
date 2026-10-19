@@ -75,7 +75,7 @@ const bindingBody = {
     serviceRef,
     environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
     role: {
-    relation: { type: 'string', enum: ['owned', 'required', 'observed'] },
+      relation: { type: 'string', enum: ['owned', 'required', 'observed'] },
       type: 'string',
       minLength: 1,
       maxLength: 64,
