@@ -66,6 +66,15 @@ export type {
 } from './host-service.js';
 
 export type {
+  ServiceCatalogEntry,
+  ServiceCatalogPortEvidence,
+  ServiceCatalogProvider,
+  ServiceCatalogProviderStatus,
+  ServiceCatalogSnapshot,
+  ServiceCatalogState,
+} from './service-catalog.js';
+
+export type {
   RetentionSettings,
   RetentionSettingsLimits,
   RetentionSettingsSnapshot,
