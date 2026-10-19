@@ -1,8 +1,12 @@
 /** Preview-only contract; an approved plan is NOT a lifecycle capability. */
 export type ServiceLifecycleAction = 'start' | 'stop';
 export type ServiceLifecycleDisposition =
-  | 'willStart' | 'willStop' | 'alreadyReady'
-  | 'retained' | 'blocked' | 'unsupported';
+  | 'willStart'
+  | 'willStop'
+  | 'alreadyReady'
+  | 'retained'
+  | 'blocked'
+  | 'unsupported';
 
 export interface ServiceLifecyclePlanNode {
   serviceRef: string;
