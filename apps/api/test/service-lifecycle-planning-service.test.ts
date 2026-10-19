@@ -225,6 +225,11 @@ test('unchanged preview is repeatable; changed revision or runtime evidence inva
     first.planHash,
   );
   assert.equal(same.planHash, first.planHash);
+  // Polling refreshes timestamps, but should not invalidate unchanged state.
+  snapshot.observedAt = '2026-10-19T16:00:01.000Z';
+  snapshot.entries[0]!.observedAt = '2026-10-19T16:00:01.000Z';
+  const refreshed = await planner.preview('loto', 'start', undefined, first.planHash);
+  assert.equal(refreshed.planHash, first.planHash);
 
   bind('loto', dbRef, 'required');
   await assert.rejects(
