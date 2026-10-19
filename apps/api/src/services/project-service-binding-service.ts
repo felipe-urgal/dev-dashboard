@@ -287,11 +287,20 @@ export class ProjectServiceBindingService {
     const suggestions = input.dependencies.some((d) => d.source === 'compose')
       ? await this.suggestions(projectId, environmentInstanceId, catalog)
       : [];
-    for (const dependency of input.dependencies.filter((d) => d.source === 'compose')) {
-      if (!suggestions.some((candidate) =>
-        candidate.serviceRef === input.serviceRef &&
-        candidate.dependsOnServiceRef === dependency.serviceRef)) {
-        rejected('Compose dependency is not confirmed by provider evidence.', 'CONFLICT');
+    for (const dependency of input.dependencies.filter(
+      (d) => d.source === 'compose',
+    )) {
+      if (
+        !suggestions.some(
+          (candidate) =>
+            candidate.serviceRef === input.serviceRef &&
+            candidate.dependsOnServiceRef === dependency.serviceRef,
+        )
+      ) {
+        rejected(
+          'Compose dependency is not confirmed by provider evidence.',
+          'CONFLICT',
+        );
       }
     }
 
@@ -332,13 +341,21 @@ export class ProjectServiceBindingService {
       environmentInstanceId,
       dependencies: input.dependencies.map((dependency) => {
         if (dependency.source !== 'compose') {
-          return { serviceRef: dependency.serviceRef, source: 'manual' as const };
+          return {
+            serviceRef: dependency.serviceRef,
+            source: 'manual' as const,
+          };
         }
-        const evidence = suggestions.find((item) =>
-          item.serviceRef === input.serviceRef &&
-          item.dependsOnServiceRef === dependency.serviceRef);
-        return { serviceRef: dependency.serviceRef, source: 'compose' as const,
-          observedAt: evidence!.observedAt };
+        const evidence = suggestions.find(
+          (item) =>
+            item.serviceRef === input.serviceRef &&
+            item.dependsOnServiceRef === dependency.serviceRef,
+        );
+        return {
+          serviceRef: dependency.serviceRef,
+          source: 'compose' as const,
+          observedAt: evidence!.observedAt,
+        };
       }),
     };
     const saved = this.d.store.save(
