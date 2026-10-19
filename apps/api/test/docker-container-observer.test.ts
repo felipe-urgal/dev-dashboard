@@ -6,16 +6,31 @@ import { DockerContainerObserver } from '../src/services/docker-container-observ
 test('Docker observer reads running/exited containers without claiming ownership', async () => {
   const observer = new DockerContainerObserver({
     platform: 'linux',
-    runDocker: async () => [
-      JSON.stringify({ ID: 'a'.repeat(64), Names: 'loto-lab-app', State: 'running' }),
-      JSON.stringify({ ID: 'b'.repeat(64), Names: 'test-db', State: 'exited' }),
-      JSON.stringify({ ID: 'c'.repeat(64), Names: 'failed-container', State: 'dead' }),
-    ].join('\n'),
+    runDocker: async () =>
+      [
+        JSON.stringify({
+          ID: 'a'.repeat(64),
+          Names: 'loto-lab-app',
+          State: 'running',
+        }),
+        JSON.stringify({
+          ID: 'b'.repeat(64),
+          Names: 'test-db',
+          State: 'exited',
+        }),
+        JSON.stringify({
+          ID: 'c'.repeat(64),
+          Names: 'failed-container',
+          State: 'dead',
+        }),
+      ].join('\n'),
   });
   const result = await observer.inspect();
   assert.equal(result.status, 'ready');
-  assert.deepEqual(result.containers.map((container) => container.state),
-    ['running', 'stopped', 'failed']);
+  assert.deepEqual(
+    result.containers.map((container) => container.state),
+    ['running', 'stopped', 'failed'],
+  );
   assert.equal(result.containers[0]?.name, 'loto-lab-app');
 });
 
@@ -23,12 +38,16 @@ test('Docker observer bounds output and does not leak errors or malformed record
   const observer = new DockerContainerObserver({
     platform: 'linux',
     limit: 1,
-    runDocker: async () => [
-      JSON.stringify({ ID: 'a'.repeat(64), Names: 'app', State: 'running' }),
-      JSON.stringify({ ID: 'b'.repeat(64), Names: 'db', State: 'running' }),
-    ].join('\n'),
+    runDocker: async () =>
+      [
+        JSON.stringify({ ID: 'a'.repeat(64), Names: 'app', State: 'running' }),
+        JSON.stringify({ ID: 'b'.repeat(64), Names: 'db', State: 'running' }),
+      ].join('\n'),
   });
-  assert.deepEqual((await observer.inspect()).containers.map((item) => item.name), ['app']);
+  assert.deepEqual(
+    (await observer.inspect()).containers.map((item) => item.name),
+    ['app'],
+  );
   assert.equal((await observer.inspect()).truncated, true);
 
   const broken = new DockerContainerObserver({
