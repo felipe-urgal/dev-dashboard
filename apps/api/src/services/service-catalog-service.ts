@@ -128,7 +128,7 @@ export class ServiceCatalogService {
       });
     }
 
-    let ownedContainerIds = new Set<string>();
+    const ownedContainerIds = new Set<string>();
     let composeStatus: ServiceCatalogProviderStatus['status'] = 'ready';
     const projects: Project[] = this.dependencies.projectStore.listProjects();
     if (projects.length > MAX_PROJECTS) {
