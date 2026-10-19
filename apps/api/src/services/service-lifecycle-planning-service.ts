@@ -320,29 +320,46 @@ export class ServiceLifecyclePlanningService {
       diagnostics.push('One or more services cannot be safely operated.');
     }
     const observedAt = this.now().toISOString();
-    const expiresAt = new Date(Date.parse(observedAt) + PLAN_TTL_MS).toISOString();
+    const expiresAt = new Date(
+      Date.parse(observedAt) + PLAN_TTL_MS,
+    ).toISOString();
     // Observation timestamps are deliberately excluded. A fresh poll with the
     // same state must not invalidate a plan, while the independent TTL still
     // limits how long the evidence may be presented as current.
     const portEvidence = [...catalog.ports]
       .map((port) => ({
-        port: port.port, address: port.address,
-        conflict: port.conflict, managedProcessId: port.managedProcessId ?? null,
+        port: port.port,
+        address: port.address,
+        conflict: port.conflict,
+        managedProcessId: port.managedProcessId ?? null,
       }))
-      .sort((a, b) => a.port - b.port ||
-        a.address.localeCompare(b.address) ||
-        String(a.managedProcessId).localeCompare(String(b.managedProcessId)));
+      .sort(
+        (a, b) =>
+          a.port - b.port ||
+          a.address.localeCompare(b.address) ||
+          String(a.managedProcessId).localeCompare(String(b.managedProcessId)),
+      );
     const providerEvidence = [...catalog.providers]
       .map((provider) => ({
-        provider: provider.provider, status: provider.status,
+        provider: provider.provider,
+        status: provider.status,
       }))
       .sort((a, b) => a.provider.localeCompare(b.provider));
     const planHash = createHash('sha256')
-      .update(JSON.stringify({
-        projectId, environmentInstanceId: id, action, expectedRevision,
-        providerStatus: catalog.status, truncated: catalog.truncated,
-        portEvidence, providerEvidence, order, nodes,
-      }))
+      .update(
+        JSON.stringify({
+          projectId,
+          environmentInstanceId: id,
+          action,
+          expectedRevision,
+          providerStatus: catalog.status,
+          truncated: catalog.truncated,
+          portEvidence,
+          providerEvidence,
+          order,
+          nodes,
+        }),
+      )
       .digest('hex');
 
     if (expectedPlanHash && expectedPlanHash !== planHash) {
