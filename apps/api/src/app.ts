@@ -349,15 +349,17 @@ export async function buildApp(options: BuildAppOptions = {}) {
     inventory: systemdInventory,
   });
 
-  const catalog = options.serviceCatalog ?? new ServiceCatalogService({
-    systemd: systemdInventory,
-    containers: new DockerContainerObserver(),
-    processManager: context.processManager,
-    portInspector: portInspectorService,
-    projectStore: context.projectStore,
-    composeProvider: dockerComposeProvider,
-    composeOwnership: dockerComposeOwnershipStore,
-  });
+  const catalog =
+    options.serviceCatalog ??
+    new ServiceCatalogService({
+      systemd: systemdInventory,
+      containers: new DockerContainerObserver(),
+      processManager: context.processManager,
+      portInspector: portInspectorService,
+      projectStore: context.projectStore,
+      composeProvider: dockerComposeProvider,
+      composeOwnership: dockerComposeOwnershipStore,
+    });
   app.register(serviceCatalogRoutes, {
     prefix: '/api',
     catalog,
