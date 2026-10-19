@@ -26,7 +26,12 @@ function runDocker(): Promise<string> {
     execFile(
       'docker',
       ['container', 'ls', '--all', '--no-trunc', '--format', '{{json .}}'],
-      { encoding: 'utf8', timeout: TIMEOUT_MS, maxBuffer: MAX_BUFFER, windowsHide: true },
+      {
+        encoding: 'utf8',
+        timeout: TIMEOUT_MS,
+        maxBuffer: MAX_BUFFER,
+        windowsHide: true,
+      },
       (error, stdout) => {
         if (error) reject(error);
         else resolve(stdout);
@@ -37,13 +42,18 @@ function runDocker(): Promise<string> {
 
 function state(value: string): DockerContainerObservation['state'] {
   switch (value) {
-    case 'running': return 'running';
-    case 'restarting': return 'starting';
+    case 'running':
+      return 'running';
+    case 'restarting':
+      return 'starting';
     case 'created':
     case 'exited':
-    case 'paused': return 'stopped';
-    case 'dead': return 'failed';
-    default: return 'unknown';
+    case 'paused':
+      return 'stopped';
+    case 'dead':
+      return 'failed';
+    default:
+      return 'unknown';
   }
 }
 
@@ -80,8 +90,13 @@ export class DockerContainerObserver {
         const id = record.ID;
         const name = record.Names;
         if (typeof id !== 'string' || !/^[a-f0-9]{12,64}$/.test(id)) continue;
-        if (typeof name !== 'string' || !name || name.length > 200 ||
-          /[\r\n\x00-\x1f]/.test(name)) continue;
+        if (
+          typeof name !== 'string' ||
+          !name ||
+          name.length > 200 ||
+          /[\r\n\x00-\x1f]/.test(name)
+        )
+          continue;
         if (containers.length >= this.limit) {
           truncated = true;
           break;
