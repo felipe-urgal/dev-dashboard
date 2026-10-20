@@ -10,6 +10,7 @@ Esta entrega dá continuidade ao diagnóstico somente leitura do PR #1132 e ao j
 - Reutiliza o relatório de reconciliação (etapas, observação, ownership e readiness) do PR #1132.
 - Consulta somente os leases locais que o Dashboard usa: `environment:<project>:<instance>`, `resource:<serviceRef>` e `compose-project:<project>` para recursos Compose.
 - Para cada lease informa `absent|present|unverifiable`. Se o marcador `owner.json` for válido, sonda apenas se o PID existe com sinal 0, sem encerrar o processo: `alive|not-observed|unknown`.
+- Para novos leases Linux, o owner também grava `processIdentity` com UUID do boot e clock ticks de criação do PID obtidos do `/proc`. A inspeção compara ambos e retorna `verified-same|different|unverifiable`; **mesmo `verified-same` não comprova operação ativa, e `different` não autoriza remoção de lease**. Leases legados e `/proc` indisponível resultam em `unverifiable`.
 - Sem metadados válidos, diretórios confiáveis, leitura disponível ou observação completa, o resultado continua incerto; nenhuma chave é excluída ou modificada.
 - `otherInstancesExcluded: false`, `safeToRetry: false`, `leaseReleaseAuthorized: false` e `manualReviewRequired: true` são invariantes. A ausência de lock ou PID no host atual **não exclui** outro processo, namespace, host, estado compartilhado diferente ou operação externa.
 

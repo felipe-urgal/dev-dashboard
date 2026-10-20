@@ -58,6 +58,7 @@ function harness() {
             resourceKey,
             status: 'present' as const,
             ownerProcess: 'not-observed' as const,
+            processIdentity: 'unverifiable' as const,
             diagnostic: 'PID no longer observed; does not prove safety.',
           }));
         },

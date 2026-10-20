@@ -77,6 +77,7 @@ test('reconciliation HTTP is authenticated, read-only and project scoped', async
           resourceKey,
           status: 'present' as const,
           ownerProcess: 'unknown' as const,
+          processIdentity: 'unverifiable' as const,
           diagnostic: 'Owner process is not proven.',
         })),
     },
@@ -123,6 +124,7 @@ test('reconciliation HTTP is authenticated, read-only and project scoped', async
   assert.equal(evidence.json().leaseReleaseAuthorized, false);
   assert.equal(evidence.json().otherInstancesExcluded, false);
   assert.equal(evidence.json().leases.length, 3);
+  assert.equal(evidence.json().leases[0].processIdentity, 'unverifiable');
 
   const reviewUri = base + '/' + ID + '/recovery-review';
   assert.equal(
