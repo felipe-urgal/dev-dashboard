@@ -31,6 +31,20 @@ same environment. Profile data is stored in versioned, bounded
 overwriting the original file. Deleting a Service Binding referenced by a
 profile via its API is rejected until the profile is updated/removed.
 
+## Using the project panel
+
+Open a project, choose **Diagnóstico**, then **Perfis de serviços do ambiente**.
+Choose `Padrão` to preview all enabled bindings, or select a saved
+`Desenvolvimento`, `Teste`, or `Produção` profile. Use `Novo perfil` or
+`Editar seleção` to choose explicit service bindings for the current
+Environment Instance; a revision conflict requires refreshing before retrying.
+
+The `Prévia Start` / `Prévia Stop` selector displays decisions, shared
+consumers, observed readiness and ports, and omitted resources. It never
+executes services, even when the preview says a resource *would* be started or
+stopped. `Excluir perfil…` removes only the profile after a second confirmation.
+It does not delete or stop any database, process, container or Stack.
+
 ## Semantics and limits
 
 - With no configured profile for an instance, **no existing behavior changes**:
@@ -57,8 +71,20 @@ profile via its API is rejected until the profile is updated/removed.
   `planHash` tracks those along with binding revisions and runtime evidence.
   All plans remain `executable: false`; selecting `production` is only a view.
   A matching plan hash is never an authorization or execution ticket.
-- The UI selection/configuration, per-profile visual diffs and operational
-  confirmation are still pending in #1120.
+- The project Diagnosis panel now contains a Runtime Profiles selector and
+  optional CRUD editor for existing enabled bindings. Its read-only Start/Stop
+  simulation contrasts selected vs omitted services and displays observed
+  ports, readiness, missing dependencies, sharing, unsupported actions and
+  possible mutation risks. Switching profiles does not call lifecycle endpoints.
+- The display compares ports only when two separate bindings declare the same
+  descriptive role; names, ports, worktrees and production labels are never
+  treated as evidence that two resources are interchangeable.
+- The UI uses the existing profile and binding revisions on writes. It displays
+  read-only errors instead of inferring safe state after partial observations.
+  Deleting a profile has an explicit two-step confirmation and never deletes
+  any service or binding.
+- End-to-end qualification with real isolated worktrees and production policy
+  restrictions remains pending in #1120.
 - Storage follows the existing local, single-writer JSON-store model; it does
   not promise transactionality across multiple independently writing
   Dashboard processes.

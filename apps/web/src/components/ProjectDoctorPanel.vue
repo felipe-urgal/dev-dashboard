@@ -22,6 +22,7 @@ import type {
 import { fetchProjectDoctor } from '../api';
 import StatusBadge from './StatusBadge.vue';
 import ProjectServiceDiagnosticsPanel from './ProjectServiceDiagnosticsPanel.vue';
+import ProjectServiceRuntimeProfilesPanel from './ProjectServiceRuntimeProfilesPanel.vue';
 
 const props = defineProps<{
   project: Project;
@@ -576,6 +577,11 @@ watch(
         </div>
       </template>
     </article>
+    <ProjectServiceRuntimeProfilesPanel
+      :key="`runtime-profiles-${project.id}-${environmentInstanceId ?? 'primary'}`"
+      :project-id="project.id"
+      :environment-instance-id="environmentInstanceId"
+    />
     <ProjectServiceDiagnosticsPanel
       :key="`${project.id}-${environmentInstanceId ?? 'primary'}`"
       :project-id="project.id"
