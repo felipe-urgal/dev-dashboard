@@ -115,6 +115,7 @@ export class ServiceResourceLeaseInspector {
           value.key !== resourceKey ||
           typeof value.holder !== 'string' ||
           !/^[a-f0-9-]{36}$/.test(value.holder) ||
+          typeof value.pid !== 'number' ||
           !Number.isSafeInteger(value.pid) ||
           (value.pid as number) <= 0 ||
           typeof value.acquiredAt !== 'string' ||
