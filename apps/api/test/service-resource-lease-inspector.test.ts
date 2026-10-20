@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -10,7 +16,8 @@ import { ServiceResourceLeaseInspector } from '../src/services/service-resource-
 const KEY = 'compose-project:loto';
 function lease(root: string, key = KEY) {
   const folder = path.join(
-    root, 'service-resource-leases-v1',
+    root,
+    'service-resource-leases-v1',
     createHash('sha256').update(key).digest('hex'),
   );
   mkdirSync(folder, { recursive: true });
@@ -18,8 +25,11 @@ function lease(root: string, key = KEY) {
 }
 function owner(key = KEY, pid = 12345) {
   return JSON.stringify({
-    version: 1, key, holder: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
-    pid, acquiredAt: '2026-10-20T12:00:00.000Z',
+    version: 1,
+    key,
+    holder: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+    pid,
+    acquiredAt: '2026-10-20T12:00:00.000Z',
   });
 }
 
