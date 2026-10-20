@@ -52,11 +52,28 @@ test('catalog endpoint is authenticated and read-only', async (context) => {
   );
   assert.equal(calls, 1);
 
+  const paged = await app.inject({
+    method: 'GET',
+    url: '/api/services/catalog?offset=0&limit=1',
+    headers: { 'x-dev-dashboard-token': TOKEN },
+  });
+  assert.equal(paged.statusCode, 200);
+  assert.deepEqual(
+    paged.json<{ catalog: ServiceCatalogSnapshot & { page: { offset: number; limit: number; hasMore: boolean; incomplete: boolean } } }>().catalog.page,
+    { offset: 0, limit: 1, hasMore: false, incomplete: false },
+  );
+  const badOffset = await app.inject({
+    method: 'GET',
+    url: '/api/services/catalog?offset=-1',
+    headers: { 'x-dev-dashboard-token': TOKEN },
+  });
+  assert.equal(badOffset.statusCode, 400);
+
   const deniedMutation = await app.inject({
     method: 'POST',
     url: '/api/services/catalog',
     headers: { 'x-dev-dashboard-token': TOKEN },
   });
   assert.notEqual(deniedMutation.statusCode, 200);
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
 });
