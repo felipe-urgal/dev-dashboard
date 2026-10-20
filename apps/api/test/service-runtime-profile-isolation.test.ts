@@ -301,12 +301,10 @@ test('HTTP qualification: test, production, worktree and shared Loto runtime rem
   assert.equal(f.inspections, 0);
 
   const originalEvidence = structuredClone(f.catalog);
-  const bindingRevisionBefore = f.context.projectServiceBindingStore.revision(
-    GASTOS,
-  );
-  const profileRevisionBefore = f.context.serviceRuntimeProfileStore.revision(
-    GASTOS,
-  );
+  const bindingRevisionBefore =
+    f.context.projectServiceBindingStore.revision(GASTOS);
+  const profileRevisionBefore =
+    f.context.serviceRuntimeProfileStore.revision(GASTOS);
   assert.equal(
     f.catalog.entries.find((item) => item.id === TEST_DB)?.name,
     f.catalog.entries.find((item) => item.id === PROD_DB)?.name,
