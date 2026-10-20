@@ -49,7 +49,9 @@ function probeProcess(pid: number): LeaseProcessObservation {
 export class ServiceResourceLeaseInspector {
   private readonly root: string;
   private readonly processExists: (pid: number) => LeaseProcessObservation;
-  private readonly processIdentity: (pid: number) => LinuxProcessIdentity | null;
+  private readonly processIdentity: (
+    pid: number,
+  ) => LinuxProcessIdentity | null;
 
   public constructor(
     stateDirectory: string,
@@ -89,7 +91,7 @@ export class ServiceResourceLeaseInspector {
             resourceKey,
             status: 'absent',
             ownerProcess: 'unknown',
-        processIdentity: 'unverifiable',
+            processIdentity: 'unverifiable',
             diagnostic:
               'No local lease root was observed; other executors remain possible.',
           };
@@ -107,7 +109,7 @@ export class ServiceResourceLeaseInspector {
             resourceKey,
             status: 'absent',
             ownerProcess: 'unknown',
-        processIdentity: 'unverifiable',
+            processIdentity: 'unverifiable',
             diagnostic:
               'No cooperating local lease observed for this resource.',
           };
@@ -142,13 +144,17 @@ export class ServiceResourceLeaseInspector {
         const ownerProcess = this.processExists(value.pid as number);
         // Legacy owners have no boot/starttime marker. Treat them as unknown.
         let processIdentity: LeaseProcessIdentityEvidence = 'unverifiable';
-        if (ownerProcess === 'alive' && isLinuxProcessIdentity(value.processIdentity)) {
+        if (
+          ownerProcess === 'alive' &&
+          isLinuxProcessIdentity(value.processIdentity)
+        ) {
           const current = this.processIdentity(value.pid as number);
           if (current && isLinuxProcessIdentity(current)) {
-            processIdentity = current.bootId === value.processIdentity.bootId &&
+            processIdentity =
+              current.bootId === value.processIdentity.bootId &&
               current.startTicks === value.processIdentity.startTicks
-              ? 'verified-same'
-              : 'different';
+                ? 'verified-same'
+                : 'different';
           }
         }
         return {
@@ -156,11 +162,12 @@ export class ServiceResourceLeaseInspector {
           status: 'present',
           ownerProcess,
           processIdentity,
-          diagnostic: processIdentity === 'verified-same'
-            ? 'Original process identity matches; active mutation remains unproven.'
-            : processIdentity === 'different'
-              ? 'PID now identifies a different Linux process or boot; recovery still requires fencing.'
-              : 'Original process identity cannot be verified; recovery remains blocked.',
+          diagnostic:
+            processIdentity === 'verified-same'
+              ? 'Original process identity matches; active mutation remains unproven.'
+              : processIdentity === 'different'
+                ? 'PID now identifies a different Linux process or boot; recovery still requires fencing.'
+                : 'Original process identity cannot be verified; recovery remains blocked.',
         };
       } catch {
         return unknown('Lease owner evidence is unreadable or invalid.');
