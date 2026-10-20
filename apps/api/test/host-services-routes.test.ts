@@ -67,9 +67,18 @@ test('inventário systemd é autenticado, read-only e serializa o contrato', asy
     headers: { 'x-dev-dashboard-token': TOKEN },
   });
   assert.equal(paged.statusCode, 200);
-  const page = paged.json<{ inventory: HostServiceInventory & { page: { offset: number; hasMore: boolean; incomplete: boolean } } }>().inventory;
+  const page = paged.json<{
+    inventory: HostServiceInventory & {
+      page: { offset: number; hasMore: boolean; incomplete: boolean };
+    };
+  }>().inventory;
   assert.deepEqual(page.services, []);
-  assert.deepEqual(page.page, { offset: 1, limit: 1, hasMore: false, incomplete: false });
+  assert.deepEqual(page.page, {
+    offset: 1,
+    limit: 1,
+    hasMore: false,
+    incomplete: false,
+  });
 
   const invalid = await app.inject({
     method: 'GET',

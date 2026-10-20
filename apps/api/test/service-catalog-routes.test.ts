@@ -59,7 +59,16 @@ test('catalog endpoint is authenticated and read-only', async (context) => {
   });
   assert.equal(paged.statusCode, 200);
   assert.deepEqual(
-    paged.json<{ catalog: ServiceCatalogSnapshot & { page: { offset: number; limit: number; hasMore: boolean; incomplete: boolean } } }>().catalog.page,
+    paged.json<{
+      catalog: ServiceCatalogSnapshot & {
+        page: {
+          offset: number;
+          limit: number;
+          hasMore: boolean;
+          incomplete: boolean;
+        };
+      };
+    }>().catalog.page,
     { offset: 0, limit: 1, hasMore: false, incomplete: false },
   );
   const badOffset = await app.inject({
