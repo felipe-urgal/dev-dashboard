@@ -62,10 +62,30 @@ const serviceSchema = {
     managed: { type: 'boolean', enum: [false] },
     observedAt: { type: 'string' },
     diagnostic: { type: 'string' },
-    activeState: { type: 'string', enum: ['active', 'inactive', 'activating', 'deactivating', 'failed', 'reloading', 'unknown'] },
-    subState: { type: 'string', enum: ['running', 'dead', 'exited', 'failed', 'waiting', 'unknown'] },
-    fragmentKind: { type: 'string', enum: ['persistent', 'runtime', 'none', 'unknown'] },
-    unitKind: { type: 'string', enum: ['regular', 'template', 'instance', 'transient', 'generated'] },
+    activeState: {
+      type: 'string',
+      enum: [
+        'active',
+        'inactive',
+        'activating',
+        'deactivating',
+        'failed',
+        'reloading',
+        'unknown',
+      ],
+    },
+    subState: {
+      type: 'string',
+      enum: ['running', 'dead', 'exited', 'failed', 'waiting', 'unknown'],
+    },
+    fragmentKind: {
+      type: 'string',
+      enum: ['persistent', 'runtime', 'none', 'unknown'],
+    },
+    unitKind: {
+      type: 'string',
+      enum: ['regular', 'template', 'instance', 'transient', 'generated'],
+    },
   },
 } as const;
 

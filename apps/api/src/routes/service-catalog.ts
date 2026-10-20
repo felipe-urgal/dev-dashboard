@@ -55,7 +55,10 @@ const catalogServiceSchema = {
       additionalProperties: false,
       required: ['source', 'identity'],
       properties: {
-        source: { type: 'string', enum: ['systemd', 'docker-cli', 'compose-owner', 'process-manager'] },
+        source: {
+          type: 'string',
+          enum: ['systemd', 'docker-cli', 'compose-owner', 'process-manager'],
+        },
         identity: { type: 'string' },
       },
     },
@@ -73,7 +76,17 @@ const catalogServiceSchema = {
     },
     enabledAtBoot: {
       type: 'string',
-      enum: ['enabled', 'disabled', 'static', 'masked', 'indirect', 'linked', 'generated', 'transient', 'unknown'],
+      enum: [
+        'enabled',
+        'disabled',
+        'static',
+        'masked',
+        'indirect',
+        'linked',
+        'generated',
+        'transient',
+        'unknown',
+      ],
     },
     state: { type: 'string', enum: stateValues },
     readiness: { type: 'string', enum: ['ready', 'unhealthy', 'unknown'] },
