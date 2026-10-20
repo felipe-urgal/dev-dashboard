@@ -71,6 +71,46 @@ explicit, non-mutating qualification against disposable local infrastructure,
 with no real production endpoints or secrets. Do not interpret a successful
 preview or these tests as proof of production database isolation.
 
+## Physical qualification (disposable CI infrastructure)
+
+The **Disposable PostgreSQL Isolation** CI check runs
+`scripts/qualify-runtime-profile-isolation.mjs` in a fresh GitHub-hosted
+runner. The script refuses to run unless `RUNTIME_ISOLATION_QUALIFY=1`
+is explicitly set, and it never accepts a project path, production endpoint,
+existing container name or database credentials from the caller. It creates
+four new PostgreSQL 16 fixtures with cryptographically random resource names,
+individual Docker named volumes and unique passwords:
+
+- Controle Gastos primary **test** and linked-worktree **test**
+- a **production-shaped disposable fixture**, never an actual production DB
+- a separate Loto Lab fixture
+
+The containers use `--network none`, publish **no host ports** and do
+not mount host files. The check inspects this configuration and the exact volume
+attachments. It seeds different markers, changes only the primary test marker,
+checks the other three remain untouched, then recreates the primary test
+container to prove persistence in *its own volume*. In parallel it creates a
+real temporary Git repository with two linked worktrees, each mapped to a
+distinct fixture volume. The script deletes only the randomly named resources
+that it created, including on ordinary test failures; cleanup failures fail
+the check.
+
+A dedicated disposable Docker host is required for local opt-in runs:
+
+```bash
+docker pull postgres:16-alpine
+RUNTIME_ISOLATION_QUALIFY=1 node scripts/qualify-runtime-profile-isolation.mjs
+```
+
+**Scope:** this checks physical fixture-volume and worktree separation.
+The existing HTTP qualification verifies the *API* enforces profile and
+Environment Instance IDs, stale bindings, read-only previews and shared
+services. Neither check deploys, migrates, reads real production secrets or
+authorizes database operations. The Production Contract is a separate
+operational control: the mere selection of a `production` runtime profile
+does not authorize its operations. An isolated physical fixture is **not**
+evidence that any external production database is configured safely.
+
 ## Semantics and limits
 
 - With no configured profile for an instance, **no existing behavior changes**:
@@ -109,8 +149,8 @@ preview or these tests as proof of production database isolation.
   read-only errors instead of inferring safe state after partial observations.
   Deleting a profile has an explicit two-step confirmation and never deletes
   any service or binding.
-- End-to-end qualification with real isolated worktrees and production policy
-  restrictions remains pending in #1120.
+- The disposable Docker/Git CI check qualifies physical fixture-volume and
+  worktree isolation; it does not inspect or verify any real production asset.
 - Storage follows the existing local, single-writer JSON-store model; it does
   not promise transactionality across multiple independently writing
   Dashboard processes.
