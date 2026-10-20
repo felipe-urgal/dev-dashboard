@@ -25,7 +25,14 @@ export interface HostServiceObservation {
   readiness: 'unknown';
   bootState: HostServiceBootState;
   /** Whitelisted systemctl show properties; never exposes FragmentPath itself. */
-  activeState?: 'active' | 'inactive' | 'activating' | 'deactivating' | 'failed' | 'reloading' | 'unknown';
+  activeState?:
+    | 'active'
+    | 'inactive'
+    | 'activating'
+    | 'deactivating'
+    | 'failed'
+    | 'reloading'
+    | 'unknown';
   subState?: 'running' | 'dead' | 'exited' | 'failed' | 'waiting' | 'unknown';
   fragmentKind?: 'persistent' | 'runtime' | 'none' | 'unknown';
   unitKind?: 'regular' | 'template' | 'instance' | 'transient' | 'generated';
