@@ -2,12 +2,14 @@ import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import type { ConfirmedLifecycleReconciliationService } from '../services/confirmed-lifecycle-reconciliation-service.js';
+import type { ConfirmedLifecycleRecoveryReviewService } from '../services/confirmed-lifecycle-recovery-review-service.js';
 
 interface Options extends FastifyPluginOptions {
   reconciliation: Pick<
     ConfirmedLifecycleReconciliationService,
     'list' | 'inspect'
   >;
+  recovery: Pick<ConfirmedLifecycleRecoveryReviewService, 'inspect' | 'recordReview'>;
 }
 interface ProjectParams {
   projectId: string;
@@ -143,6 +145,47 @@ const detailSchema = {
   },
 } as const;
 
+const leaseEvidenceSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['resourceKey', 'status', 'ownerProcess', 'diagnostic'],
+  properties: {
+    resourceKey: strings,
+    status: { type: 'string', enum: ['absent', 'present', 'unverifiable'] },
+    ownerProcess: { type: 'string', enum: ['alive', 'not-observed', 'unknown'] },
+    diagnostic: strings,
+  },
+} as const;
+const recoveryEvidenceSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'jobId', 'projectId', 'environmentInstanceId', 'checkedAt',
+    'reconciliation', 'leases', 'otherInstancesExcluded', 'manualReviewRequired',
+    'safeToRetry', 'leaseReleaseAuthorized', 'diagnostics',
+  ],
+  properties: {
+    jobId: strings, projectId: strings, environmentInstanceId: strings,
+    checkedAt: strings,
+    reconciliation: detailSchema,
+    leases: { type: 'array', maxItems: 250, items: leaseEvidenceSchema },
+    otherInstancesExcluded: { type: 'boolean', enum: [false] },
+    manualReviewRequired: { type: 'boolean', enum: [true] },
+    safeToRetry: { type: 'boolean', enum: [false] },
+    leaseReleaseAuthorized: { type: 'boolean', enum: [false] },
+    diagnostics: { type: 'array', maxItems: 12, items: strings },
+  },
+} as const;
+const reviewedSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['recorded', 'safeToRetry', 'leaseReleaseAuthorized'],
+  properties: {
+    recorded: { type: 'boolean', enum: [true] },
+    safeToRetry: { type: 'boolean', enum: [false] },
+    leaseReleaseAuthorized: { type: 'boolean', enum: [false] },
+  },
+} as const;
+
 export const confirmedLifecycleReconciliationRoutes: FastifyPluginAsync<
   Options
 > = async (app, options) => {
@@ -180,6 +223,31 @@ export const confirmedLifecycleReconciliationRoutes: FastifyPluginAsync<
       options.reconciliation.inspect(
         request.params.projectId,
         request.params.jobId,
+      ),
+  );
+  app.get<{ Params: JobParams }>(
+    '/projects/:projectId/service-jobs/:jobId/recovery-evidence',
+    {
+      schema: {
+        params: jobParams,
+        response: { 200: recoveryEvidenceSchema, ...commonErrorResponseSchemas },
+      },
+    },
+    async (request) =>
+      options.recovery.inspect(request.params.projectId, request.params.jobId),
+  );
+  // Audit-only POST. This does not approve recovery or mutate the runtime.
+  app.post<{ Params: JobParams }>(
+    '/projects/:projectId/service-jobs/:jobId/recovery-review',
+    {
+      schema: {
+        params: jobParams,
+        response: { 200: reviewedSchema, ...commonErrorResponseSchemas },
+      },
+    },
+    async (request) =>
+      options.recovery.recordReview(
+        request.params.projectId, request.params.jobId,
       ),
   );
 };
