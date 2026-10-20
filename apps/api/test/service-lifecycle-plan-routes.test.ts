@@ -108,6 +108,12 @@ test('project lifecycle preview is authenticated, read-only and hash guarded', a
   assert.equal(scopedPlan.profile?.kind, 'test');
   assert.equal(scopedPlan.executable, false);
   assert.notEqual(scopedPlan.planHash, first.planHash);
+  const mismatchedHash = await app.inject({
+    method: 'GET',
+    url: uri + '&profileId=' + profile.id + '&expectedPlanHash=' + first.planHash,
+    headers,
+  });
+  assert.equal(mismatchedHash.statusCode, 409);
   const invalidProfile = await app.inject({
     method: 'GET',
     url: uri + '&profileId=arbitrary',
