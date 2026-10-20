@@ -13,6 +13,7 @@ import { hostServiceRoutes } from './routes/host-services.js';
 import { serviceCatalogRoutes } from './routes/service-catalog.js';
 import { serviceDiagnosticsRoutes } from './routes/service-diagnostics.js';
 import { projectServiceBindingRoutes } from './routes/project-service-bindings.js';
+import { serviceRuntimeProfileRoutes } from './routes/service-runtime-profiles.js';
 import { serviceLifecyclePlanRoutes } from './routes/service-lifecycle-plans.js';
 import { confirmedLifecycleReconciliationRoutes } from './routes/confirmed-lifecycle-reconciliation.js';
 
@@ -57,6 +58,7 @@ import { ServiceCatalogService } from './services/service-catalog-service.js';
 import { ServiceDiagnosticsService } from './services/service-diagnostics-service.js';
 import { SystemdJournalReader } from './services/systemd-journal-reader.js';
 import { ProjectServiceBindingService } from './services/project-service-binding-service.js';
+import { ServiceRuntimeProfileService } from './services/service-runtime-profile-service.js';
 import { ServiceLifecyclePlanningService } from './services/service-lifecycle-planning-service.js';
 import { ConfirmedLifecycleReconciliationService } from './services/confirmed-lifecycle-reconciliation-service.js';
 import { ConfirmedLifecycleRecoveryReviewService } from './services/confirmed-lifecycle-recovery-review-service.js';
@@ -402,11 +404,22 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     bindings: new ProjectServiceBindingService({
       store: context.projectServiceBindingStore,
+      profiles: context.serviceRuntimeProfileStore,
       projectStore: context.projectStore,
       environmentStore: context.developmentEnvironmentInstanceStore,
       catalog,
       composeProvider: dockerComposeProvider,
       composeOwnership: dockerComposeOwnershipStore,
+    }),
+  });
+
+  app.register(serviceRuntimeProfileRoutes, {
+    prefix: '/api',
+    profiles: new ServiceRuntimeProfileService({
+      profiles: context.serviceRuntimeProfileStore,
+      projects: context.projectStore,
+      environments: context.developmentEnvironmentInstanceStore,
+      bindings: context.projectServiceBindingStore,
     }),
   });
 

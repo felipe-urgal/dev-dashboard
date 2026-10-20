@@ -93,6 +93,13 @@ export type {
 } from './service-binding.js';
 
 export type {
+  ServiceRuntimeProfile,
+  ServiceRuntimeProfileDraft,
+  ServiceRuntimeProfileKind,
+  ServiceRuntimeProfileView,
+} from './service-runtime-profile.js';
+
+export type {
   ServiceLifecycleAction,
   ServiceLifecycleDisposition,
   ServiceLifecyclePlanNode,

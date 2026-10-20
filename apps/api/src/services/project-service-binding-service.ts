@@ -12,6 +12,7 @@ import { primaryEnvironmentInstanceId } from '../store/development-environment-i
 import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
 import type { ProjectServiceBindingStore } from '../store/project-service-binding-store.js';
+import type { ServiceRuntimeProfileStore } from '../store/service-runtime-profile-store.js';
 import type { DockerComposeOwnershipStore } from './docker-compose-ownership-store.js';
 import type { DockerComposeProvider } from './docker-compose-provider.js';
 import type { ServiceCatalogService } from './service-catalog-service.js';
@@ -27,6 +28,7 @@ export class ProjectServiceBindingServiceError extends Error {
 }
 
 interface Dependencies {
+  profiles?: Pick<ServiceRuntimeProfileStore, 'byBinding'>;
   store: Pick<
     ProjectServiceBindingStore,
     'list' | 'byProject' | 'byResource' | 'revision' | 'save' | 'delete'
@@ -370,6 +372,12 @@ export class ProjectServiceBindingService {
 
   public remove(projectId: string, id: string, expectedRevision: string) {
     this.project(projectId);
+    if (this.d.profiles?.byBinding(id).length) {
+      rejected(
+        'Binding belongs to a runtime profile. Update the profile first.',
+        'CONFLICT',
+      );
+    }
     this.d.store.delete(projectId, id, expectedRevision);
     return { revision: this.d.store.revision(projectId) };
   }
