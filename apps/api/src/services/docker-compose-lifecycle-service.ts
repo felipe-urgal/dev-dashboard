@@ -7,7 +7,10 @@ import type {
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 import type { ComposeStructuredCommand } from './docker-compose-model.js';
-import type { ServiceResourceLeaseGuard, ServiceResourceOperationLock } from './service-resource-operation-lock.js';
+import type {
+  ServiceResourceLeaseGuard,
+  ServiceResourceOperationLock,
+} from './service-resource-operation-lock.js';
 import type {
   DockerComposeOwnershipRecord,
   DockerComposeOwnershipStore,
