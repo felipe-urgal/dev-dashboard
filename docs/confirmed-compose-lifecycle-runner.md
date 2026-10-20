@@ -11,6 +11,7 @@ Esta etapa da [#1116](https://github.com/felipe-urgal/dev-dashboard/issues/1116)
 - A parada delega a `DockerComposeLifecycleService.stop(project, service)` somente se nenhum outro serviço declarado depender do alvo estando ativo **ou** sem estado comprovadamente inativo; não interrompe bancos usados por aplicações dependentes.
 - O coordinator continua obrigado a revalidar o plano antes de cada mutação, aplicar locks process-local e verificar `running + readiness` no start ou `stopped` no stop. O retorno do comando isoladamente **não** prova sucesso.
 - `ConfirmedServiceLifecycleActivityWriter` aproveita o `ActivityEventRepository` atual, com domain `compose`, ação e resourceRef. Não registra diagnósticos crus com possíveis segredos e não cria um novo armazenamento.
+- Para `serviceRef` maior que o limite de ID aceito pelo Activity, o writer usa um hash SHA-256 estável em vez de truncar silenciosamente a identidade do recurso.
 
 ## Limites para disponibilização futura
 
