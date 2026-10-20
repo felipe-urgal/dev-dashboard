@@ -13,12 +13,39 @@ test('observa user e system sem inferir ownership nem readiness', async () => {
     runSystemctl: async (scope, query, names) => {
       commands.push(scope + ':' + query);
       if (query === 'show') {
-        return (names ?? []).map((name) => {
-          const active = name === 'idle.service' || name === 'sleeping.service' ? 'inactive' : name === 'broken.service' ? 'failed' : 'active';
-          const sub = name === 'oneshot.service' ? 'exited' : active === 'inactive' ? 'dead' : active === 'failed' ? 'failed' : 'running';
-          const boot = name === 'oneshot.service' ? 'static' : name === 'broken.service' ? 'masked' : 'enabled';
-          return ['Id=' + name, 'ActiveState=' + active, 'SubState=' + sub, 'UnitFileState=' + boot, 'FragmentPath=/usr/lib/systemd/system/' + name, 'Transient=no', 'TriggeredBy='].join('\n');
-        }).join('\n\n');
+        return (names ?? [])
+          .map((name) => {
+            const active =
+              name === 'idle.service' || name === 'sleeping.service'
+                ? 'inactive'
+                : name === 'broken.service'
+                  ? 'failed'
+                  : 'active';
+            const sub =
+              name === 'oneshot.service'
+                ? 'exited'
+                : active === 'inactive'
+                  ? 'dead'
+                  : active === 'failed'
+                    ? 'failed'
+                    : 'running';
+            const boot =
+              name === 'oneshot.service'
+                ? 'static'
+                : name === 'broken.service'
+                  ? 'masked'
+                  : 'enabled';
+            return [
+              'Id=' + name,
+              'ActiveState=' + active,
+              'SubState=' + sub,
+              'UnitFileState=' + boot,
+              'FragmentPath=/usr/lib/systemd/system/' + name,
+              'Transient=no',
+              'TriggeredBy=',
+            ].join('\n');
+          })
+          .join('\n\n');
       }
       if (scope === 'user' && query === 'units') {
         return [
@@ -113,10 +140,18 @@ test('não falha globalmente quando user bus está indisponível e não vaza err
       if (scope === 'user') {
         throw new Error('private token /home/secret user dbus unavailable');
       }
-      if (query === 'show') return (names ?? []).map((name) => [
-        'Id=' + name, 'ActiveState=active', 'SubState=running',
-        'UnitFileState=enabled', 'FragmentPath=/etc/systemd/system/' + name,
-      ].join('\n')).join('\n\n');
+      if (query === 'show')
+        return (names ?? [])
+          .map((name) =>
+            [
+              'Id=' + name,
+              'ActiveState=active',
+              'SubState=running',
+              'UnitFileState=enabled',
+              'FragmentPath=/etc/systemd/system/' + name,
+            ].join('\n'),
+          )
+          .join('\n\n');
       return query === 'units'
         ? 'postgresql.service loaded active running PostgreSQL'
         : 'postgresql.service enabled enabled';
@@ -138,9 +173,14 @@ test('relata observação parcial quando estado de runtime é desconhecido', asy
       if (scope === 'system' && query === 'units') {
         throw new Error('access denied');
       }
-      if (query === 'show') return (names ?? []).map((name) => [
-        'Id=' + name, 'UnitFileState=disabled', 'FragmentPath=',
-      ].join('\n')).join('\n\n');
+      if (query === 'show')
+        return (names ?? [])
+          .map((name) =>
+            ['Id=' + name, 'UnitFileState=disabled', 'FragmentPath='].join(
+              '\n',
+            ),
+          )
+          .join('\n\n');
       return query === 'units' ? '' : 'redis-server.service disabled enabled';
     },
   });
@@ -160,10 +200,17 @@ test('respeita limite total e sinaliza truncamento', async () => {
     maxServices: 2,
     runSystemctl: async (_scope, query, names) =>
       query === 'show'
-        ? (names ?? []).map((name) => [
-            'Id=' + name, 'ActiveState=active', 'SubState=running',
-            'UnitFileState=enabled', 'FragmentPath=',
-          ].join('\n')).join('\n\n')
+        ? (names ?? [])
+            .map((name) =>
+              [
+                'Id=' + name,
+                'ActiveState=active',
+                'SubState=running',
+                'UnitFileState=enabled',
+                'FragmentPath=',
+              ].join('\n'),
+            )
+            .join('\n\n')
         : query === 'units'
           ? 'first.service loaded active running First\nsecond.service loaded inactive dead Second'
           : 'first.service enabled enabled\nsecond.service disabled enabled',
@@ -203,34 +250,54 @@ test('observa template, transient, socket activation e fallback sem exibir path'
   const inventory = new SystemdServiceInventory({
     platform: 'linux',
     runSystemctl: async (_scope, query, names) => {
-      if (query === 'units') return 'socket-job@1.service loaded active running job';
-      if (query === 'unit-files') return [
-        'worker@.service static -',
-        'socket-job@1.service transient -',
-        'masked.service masked -',
-      ].join('\n');
-      return (names ?? []).map((name) => [
-        'Id=' + name,
-        'ActiveState=active',
-        'SubState=running',
-        'UnitFileState=' + (name === 'worker@.service' ? 'static' : name === 'masked.service' ? 'masked' : 'transient'),
-        'FragmentPath=/run/systemd/transient/private-unit-path',
-        'Transient=' + (name === 'socket-job@1.service' ? 'yes' : 'no'),
-        'TriggeredBy=' + (name === 'socket-job@1.service' ? 'socket-job.socket' : ''),
-      ].join('\n')).join('\n\n');
+      if (query === 'units')
+        return 'socket-job@1.service loaded active running job';
+      if (query === 'unit-files')
+        return [
+          'worker@.service static -',
+          'socket-job@1.service transient -',
+          'masked.service masked -',
+        ].join('\n');
+      return (names ?? [])
+        .map((name) =>
+          [
+            'Id=' + name,
+            'ActiveState=active',
+            'SubState=running',
+            'UnitFileState=' +
+              (name === 'worker@.service'
+                ? 'static'
+                : name === 'masked.service'
+                  ? 'masked'
+                  : 'transient'),
+            'FragmentPath=/run/systemd/transient/private-unit-path',
+            'Transient=' + (name === 'socket-job@1.service' ? 'yes' : 'no'),
+            'TriggeredBy=' +
+              (name === 'socket-job@1.service' ? 'socket-job.socket' : ''),
+          ].join('\n'),
+        )
+        .join('\n\n');
     },
   });
   const result = await inventory.inspect();
   assert.equal(result.status, 'ready');
-  const template = result.services.find((service) => service.name === 'worker@.service');
+  const template = result.services.find(
+    (service) => service.name === 'worker@.service',
+  );
   assert.equal(template?.unitKind, 'template');
   assert.equal(template?.state, 'running'); // unit may report active, never ready
   assert.equal(template?.readiness, 'unknown');
-  const transient = result.services.find((service) => service.name === 'socket-job@1.service');
+  const transient = result.services.find(
+    (service) => service.name === 'socket-job@1.service',
+  );
   assert.equal(transient?.unitKind, 'transient');
   assert.equal(transient?.fragmentKind, 'runtime');
   assert.match(transient?.diagnostic ?? '', /Socket activation/);
-  assert.equal(result.services.find((service) => service.name === 'masked.service')?.bootState, 'masked');
+  assert.equal(
+    result.services.find((service) => service.name === 'masked.service')
+      ?.bootState,
+    'masked',
+  );
   assert.doesNotMatch(JSON.stringify(result), /private-unit-path/);
 });
 
@@ -238,8 +305,10 @@ test('show permission failure makes one scope partial but preserves discovered s
   const inventory = new SystemdServiceInventory({
     platform: 'linux',
     runSystemctl: async (scope, query) => {
-      if (scope === 'user' && query === 'show') throw new Error('secret systemd path');
-      if (query === 'units') return 'sample.service loaded active running Sample';
+      if (scope === 'user' && query === 'show')
+        throw new Error('secret systemd path');
+      if (query === 'units')
+        return 'sample.service loaded active running Sample';
       return 'sample.service enabled enabled';
     },
   });
