@@ -92,6 +92,12 @@ export type {
 } from './service-lifecycle-plan.js';
 
 export type {
+  ConfirmedLifecycleRequest,
+  ConfirmedLifecycleResult,
+  ConfirmedLifecycleStep,
+} from './service-lifecycle-execution.js';
+
+export type {
   RetentionSettings,
   RetentionSettingsLimits,
   RetentionSettingsSnapshot,
