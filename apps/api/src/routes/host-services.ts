@@ -62,6 +62,10 @@ const serviceSchema = {
     managed: { type: 'boolean', enum: [false] },
     observedAt: { type: 'string' },
     diagnostic: { type: 'string' },
+    activeState: { type: 'string', enum: ['active', 'inactive', 'activating', 'deactivating', 'failed', 'reloading', 'unknown'] },
+    subState: { type: 'string', enum: ['running', 'dead', 'exited', 'failed', 'waiting', 'unknown'] },
+    fragmentKind: { type: 'string', enum: ['persistent', 'runtime', 'none', 'unknown'] },
+    unitKind: { type: 'string', enum: ['regular', 'template', 'instance', 'transient', 'generated'] },
   },
 } as const;
 
@@ -83,8 +87,28 @@ const responseSchema = {
         services: { type: 'array', maxItems: 200, items: serviceSchema },
         sources: { type: 'array', maxItems: 2, items: sourceSchema },
         truncated: { type: 'boolean' },
+        page: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['offset', 'limit', 'hasMore', 'incomplete'],
+          properties: {
+            offset: { type: 'integer' },
+            limit: { type: 'integer' },
+            hasMore: { type: 'boolean' },
+            incomplete: { type: 'boolean' },
+          },
+        },
       },
     },
+  },
+} as const;
+
+const querySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    offset: { type: 'integer', minimum: 0, maximum: 199 },
+    limit: { type: 'integer', minimum: 1, maximum: 100 },
   },
 } as const;
 
@@ -92,16 +116,35 @@ export const hostServiceRoutes: FastifyPluginAsync<Options> = async (
   app,
   options,
 ) => {
-  app.get(
+  app.get<{ Querystring: { offset?: number; limit?: number } }>(
     '/services/inventory',
     {
       schema: {
+        querystring: querySchema,
         response: {
           200: responseSchema,
           ...commonErrorResponseSchemas,
         },
       },
     },
-    async () => ({ inventory: await options.inventory.inspect() }),
+    async (request) => {
+      const inventory = await options.inventory.inspect();
+      const { offset, limit } = request.query;
+      if (offset === undefined && limit === undefined) return { inventory };
+      const start = offset ?? 0;
+      const pageLimit = limit ?? 100;
+      return {
+        inventory: {
+          ...inventory,
+          services: inventory.services.slice(start, start + pageLimit),
+          page: {
+            offset: start,
+            limit: pageLimit,
+            hasMore: inventory.services.length > start + pageLimit,
+            incomplete: inventory.truncated,
+          },
+        },
+      };
+    },
   );
 };
