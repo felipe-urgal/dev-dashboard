@@ -110,7 +110,8 @@ test('project lifecycle preview is authenticated, read-only and hash guarded', a
   assert.notEqual(scopedPlan.planHash, first.planHash);
   const mismatchedHash = await app.inject({
     method: 'GET',
-    url: uri + '&profileId=' + profile.id + '&expectedPlanHash=' + first.planHash,
+    url:
+      uri + '&profileId=' + profile.id + '&expectedPlanHash=' + first.planHash,
     headers,
   });
   assert.equal(mismatchedHash.statusCode, 409);
