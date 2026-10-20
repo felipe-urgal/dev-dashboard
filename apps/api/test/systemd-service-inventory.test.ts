@@ -285,7 +285,7 @@ test('observa template, transient, socket activation e fallback sem exibir path'
     (service) => service.name === 'worker@.service',
   );
   assert.equal(template?.unitKind, 'template');
-  assert.equal(template?.state, 'running'); // unit may report active, never ready
+  assert.equal(template?.state, 'unknown'); // uninstantiated template is not an active service
   assert.equal(template?.readiness, 'unknown');
   const transient = result.services.find(
     (service) => service.name === 'socket-job@1.service',
