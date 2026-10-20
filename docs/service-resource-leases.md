@@ -1,0 +1,36 @@
+# Leases de recursos de lifecycle — proteção entre processos
+
+A issue [#1116](https://github.com/felipe-urgal/dev-dashboard/issues/1116) introduz `ServiceResourceOperationLock` com opção `stateDirectory` para compartilhar bloqueios entre processos da API no **mesmo filesystem local**. A implementação é um mecanismo de segurança, não um novo executor.
+
+## Interface
+
+`new ServiceResourceOperationLock({ stateDirectory: processManager.stateDirectory })`
+
+`await lock.withResources(resourceKeys, async () => { /* operação backend autenticada */ })`
+
+O construtor sem opções continua operando apenas **em memória**, como antes. Quando `stateDirectory` é fornecido, cada recurso usa um nome de diretório `SHA-256(resourceKey)` abaixo de `service-resource-leases-v1` no diretório de estado do processo.
+
+Os recursos são ordenados antes da aquisição e duplicatas são descartadas. Cada `mkdir` exclusivo é atômico em filesystems locais suportados. Uma colisão retorna **409 CONFLICT** e libera todos os recursos obtidos na tentativa, antes de chamar o callback. O código não aguarda um lock nem executa uma operação com apenas parte dos recursos reservada.
+
+## Identidade e diagnóstico
+
+Dentro de cada diretório adquirido, o arquivo `owner.json` contém a versão do protocolo, o identificador do recurso, um token aleatório exclusivo da aquisição, o PID local e o horário da aquisição. As permissões solicitadas são `0700` nos diretórios e `0600` nos arquivos. As mensagens HTTP de erro não expõem caminhos de estado ou metadados.
+
+O `finally` remove somente arquivos de ownership cujo token ainda corresponde à operação, liberando os diretórios em ordem inversa. Nenhuma rotina apaga diretórios desconhecidos à força.
+
+## Recuperação após queda
+
+**Um processo que morre pode deixar leases persistentes. Isso é intencional e seguro.** Não há reaproveitamento por tempo, PID ou remoção de diretórios considerados antigos. Antes de remover manualmente um lease órfão, o operador deve confirmar que nenhuma instância da API ou outro executor ainda está fazendo mutações e reconciliar o estado do Docker Compose/Process Manager e de seus consumidores.
+
+Nunca automatizar `rm -rf` nos locks como rotina de inicialização do Dashboard. Se um lease permanecer após falha, a próxima operação fica bloqueada até uma recuperação explícita.
+
+## Limites antes da ativação de Start/Stop
+
+- Os leases funcionam apenas entre **chamadores cooperantes** com a mesma raiz de estado e o mesmo protocolo; `docker compose` usado pelo terminal, ferramentas externas, outra raiz de estado ou operações antigas que ainda não usam o guard não ficam automaticamente bloqueados.
+- O recurso `compose-project:<projectId>` ainda deve ser adotado pelos owners de Stacks/Compose de forma interoperável com o coordenador, sem deadlock de locks aninhados.
+- Não são locks distribuídos em múltiplas máquinas/NFS, nem um sistema de renovação ou fencing token. Nenhuma mutação deve ser exposta publicamente até haver proteção para todos os fluxos correspondentes.
+- Persistência de Job, reattach, timeouts/cancelamento e reconciliação de alterações parciais continuam pendentes na #1116.
+
+## Testes
+
+`service-resource-operation-lock.test.ts` exercita exclusão entre instâncias com o mesmo diretório, independência entre projetos, rollback de aquisições parciais, liberação no erro, leases órfãos não reivindicáveis e falha segura com diretório de estado inválido.
