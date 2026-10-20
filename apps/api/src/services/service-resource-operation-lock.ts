@@ -200,7 +200,8 @@ export class ServiceResourceOperationLock {
             if (
               !owner ||
               typeof owner !== 'object' ||
-              (owner as { holder?: unknown }).holder !== holder
+              (owner as { holder?: unknown }).holder !== holder ||
+              (owner as { key?: unknown }).key !== lease.key
             ) {
               releaseFailure = true;
               continue;
