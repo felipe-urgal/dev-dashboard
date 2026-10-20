@@ -12,7 +12,7 @@ import {
 
 const props = defineProps<{
   projectId: string;
-  environmentInstanceId?: string;
+  environmentInstanceId?: string | undefined;
 }>();
 const route = useRoute();
 const bindings = ref<ProjectServiceBindingView[]>([]);
