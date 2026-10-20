@@ -394,7 +394,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
           activity: activitySnapshotService,
           journal: new SystemdJournalReader(),
         },
-        options.now ? { now: () => new Date(options.now!) } : {},
+        options.now ? { now: () => new Date(options.now!()) } : {},
       ),
   });
 
