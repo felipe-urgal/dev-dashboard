@@ -189,6 +189,34 @@ test('profile CRUD validates binding identity, env isolation and revisions; neve
   assert.equal(selected.fallback, false);
   assert.equal(selected.profiles.length, 1);
 
+  // A binding may become disabled after a profile was saved. Never silently
+  // resolve to another binding by service name, kind, port or project.
+  context.projectServiceBindingStore.save(
+    'gastos',
+    {
+      environmentInstanceId: ENV,
+      serviceRef: REF,
+      relation: 'required',
+      enabled: false,
+      requiredForStart: true,
+      dependencies: [],
+    },
+    bindingRevision,
+    NOW,
+    binding.id,
+  );
+  const staleView = (await get(url)).json<{
+    profiles: Array<{ staleBindingIds: string[] }>;
+  }>();
+  assert.deepEqual(staleView.profiles[0]?.staleBindingIds, [binding.id]);
+  const staleProfileUpdate = await app.inject({
+    method: 'PUT',
+    url: url + '/' + info.profile.id,
+    headers: HEADERS,
+    payload: { ...createBody, expectedRevision: info.revision },
+  });
+  assert.equal(staleProfileUpdate.statusCode, 409);
+
   const removed = await app.inject({
     method: 'DELETE',
     url: url + '/' + info.profile.id + '?expectedRevision=' + info.revision,
