@@ -31,6 +31,20 @@ same environment. Profile data is stored in versioned, bounded
 overwriting the original file. Deleting a Service Binding referenced by a
 profile via its API is rejected until the profile is updated/removed.
 
+## Using the project panel
+
+Open a project, choose **Diagnóstico**, then **Perfis de serviços do ambiente**.
+Choose `Padrão` to preview all enabled bindings, or select a saved
+`Desenvolvimento`, `Teste`, or `Produção` profile. Use `Novo perfil` or
+`Editar seleção` to choose explicit service bindings for the current
+Environment Instance; a revision conflict requires refreshing before retrying.
+
+The `Prévia Start` / `Prévia Stop` selector displays decisions, shared
+consumers, observed readiness and ports, and omitted resources. It never
+executes services, even when the preview says a resource *would* be started or
+stopped. `Excluir perfil…` removes only the profile after a second confirmation.
+It does not delete or stop any database, process, container or Stack.
+
 ## Semantics and limits
 
 - With no configured profile for an instance, **no existing behavior changes**:
