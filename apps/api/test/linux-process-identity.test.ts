@@ -9,11 +9,20 @@ import {
 
 const BOOT = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa';
 
-function stat(pid: number, comm = 'worker with ) tricky name', tick = '123456789') {
+function stat(
+  pid: number,
+  comm = 'worker with ) tricky name',
+  tick = '123456789',
+) {
   // field 3 = S, field 22 = starttime. 19 tokens from field 3 to 22.
-  return pid + ' (' + comm + ') S ' + [
-    ...Array.from({ length: 18 }, () => '0'), tick, '0',
-  ].join(' ') + '\n';
+  return (
+    pid +
+    ' (' +
+    comm +
+    ') S ' +
+    [...Array.from({ length: 18 }, () => '0'), tick, '0'].join(' ') +
+    '\n'
+  );
 }
 
 test('parses Linux start ticks despite comm spaces and closing parentheses', () => {
@@ -25,9 +34,15 @@ test('parses Linux start ticks despite comm spaces and closing parentheses', () 
 });
 
 test('validates process incarnation without PID-alone identity', () => {
-  assert.equal(isLinuxProcessIdentity({ bootId: BOOT, startTicks: '12345' }), true);
+  assert.equal(
+    isLinuxProcessIdentity({ bootId: BOOT, startTicks: '12345' }),
+    true,
+  );
   assert.equal(isLinuxProcessIdentity({ bootId: BOOT, startTicks: -1 }), false);
-  assert.equal(isLinuxProcessIdentity({ bootId: 'other', startTicks: '123' }), false);
+  assert.equal(
+    isLinuxProcessIdentity({ bootId: 'other', startTicks: '123' }),
+    false,
+  );
   assert.equal(isLinuxProcessIdentity(null), false);
 });
 
