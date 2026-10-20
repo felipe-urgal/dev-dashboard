@@ -35,7 +35,7 @@ export interface ConfirmedLifecycleJob {
   status: 'running' | 'completed' | 'failed' | 'partial';
   stage: 'prepared' | 'invoking' | 'verifying' | 'finished';
   plannedRefs: string[];
-  inFlightRef?: string;
+  inFlightRef?: string | undefined;
   steps: ConfirmedLifecycleStep[];
   startedAt: string;
   updatedAt: string;
