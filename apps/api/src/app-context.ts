@@ -15,6 +15,7 @@ import type { DevelopmentEnvironmentInstanceStore } from './store/development-en
 import type { ProjectStore } from './store/project-store.js';
 import type { StackStore } from './store/stack-store.js';
 import type { ProjectServiceBindingStore } from './store/project-service-binding-store.js';
+import type { ServiceRuntimeProfileStore } from './store/service-runtime-profile-store.js';
 import type { GitService } from './services/git-service.js';
 import type { GitMutationHistoryService } from './services/git-mutation-history-service.js';
 import type { GitWorktreeLifecycleService } from './services/git-worktree-lifecycle-service.js';
@@ -63,6 +64,7 @@ export interface AppContext {
   projectStore: ProjectStore;
   stackStore: StackStore;
   projectServiceBindingStore: ProjectServiceBindingStore;
+  serviceRuntimeProfileStore: ServiceRuntimeProfileStore;
   developmentEnvironmentInstanceStore: DevelopmentEnvironmentInstanceStore;
   gitService: GitService;
   gitMutationHistoryService: GitMutationHistoryService;

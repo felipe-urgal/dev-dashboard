@@ -15,6 +15,7 @@ import { DevelopmentEnvironmentInstanceStore } from './store/development-environ
 import { ProjectStore } from './store/project-store.js';
 import { StackStore } from './store/stack-store.js';
 import { ProjectServiceBindingStore } from './store/project-service-binding-store.js';
+import { ServiceRuntimeProfileStore } from './store/service-runtime-profile-store.js';
 import { DashboardGitService } from './services/dashboard-git-service.js';
 import { GitMutationHistoryService } from './services/git-mutation-history-service.js';
 import { GitWorktreeLifecycleService } from './services/git-worktree-lifecycle-service.js';
@@ -80,6 +81,9 @@ export function createFoundationContextDomain() {
       stateDirectory: processManager.stateDirectory,
     }),
     projectServiceBindingStore: new ProjectServiceBindingStore({
+      stateDirectory: processManager.stateDirectory,
+    }),
+    serviceRuntimeProfileStore: new ServiceRuntimeProfileStore({
       stateDirectory: processManager.stateDirectory,
     }),
     developmentEnvironmentInstanceStore:
