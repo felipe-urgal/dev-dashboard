@@ -170,6 +170,10 @@ export interface AppCompositionOptions {
     Partial<Pick<LocalCiExecutionService, 'capacity' | 'activityJobs'>>;
   securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;
   securityScanSnapshotStore?: Pick<SecurityScanSnapshotStore, 'get' | 'save'>;
+  confirmedLifecycleJobs?: Pick<
+    ConfirmedLifecycleJobJournal,
+    'get' | 'list' | 'activityJobs'
+  >;
   agentBrowserRuntime?: AgentBrowserRuntimePort;
   agentRuntimeApiService?: AgentRuntimeApiServicePort;
 }
@@ -456,10 +460,12 @@ export function createAppComposition(
   );
   // Read-only Activity integration: the internal confirmed coordinator is not
   // registered as a runtime executor or exposed by an HTTP mutation route.
-  const confirmedLifecycleJobs = new ConfirmedLifecycleJobJournal(
-    context.processManager.stateDirectory,
-    options.now ? { now: () => new Date(options.now!()) } : {},
-  );
+  const confirmedLifecycleJobs =
+    options.confirmedLifecycleJobs ??
+    new ConfirmedLifecycleJobJournal(
+      context.processManager.stateDirectory,
+      options.now ? { now: () => new Date(options.now!()) } : {},
+    );
   const activitySnapshotService = new ActivitySnapshotService({
     eventStore: context.activityEventRepository,
     gitHistory: context.gitMutationHistoryService,
@@ -518,6 +524,7 @@ export function createAppComposition(
     productionOverviewService,
     taskContextService,
     activitySnapshotService,
+    confirmedLifecycleJobs,
     attentionCenterService,
     releaseReadinessService,
     migrationOverviewService,
