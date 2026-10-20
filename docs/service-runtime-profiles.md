@@ -45,6 +45,32 @@ executes services, even when the preview says a resource *would* be started or
 stopped. `Excluir perfil…` removes only the profile after a second confirmation.
 It does not delete or stop any database, process, container or Stack.
 
+## Qualification matrix (HTTP, in-memory runtime evidence)
+
+`apps/api/test/service-runtime-profile-isolation.test.ts` exercises the
+actual Fastify routes, persisted revisioned stores, reconciled worktree IDs,
+and a deterministic service catalog. It never starts Compose, accesses
+databases, or makes host lifecycle calls.
+
+| Scenario | Evidence expected |
+| --- | --- |
+| Controle Gastos `test` versus `production` | Distinct binding IDs, service references and observed ports; switching profiles only changes the read-only plan/hash |
+| Primary checkout versus linked worktree | Separate Environment Instance IDs and isolated profile lists; the worktree test DB cannot be adopted by a primary profile |
+| Loto Lab shared cache | Consumer count from both projects retains the shared resource on a scoped Stop plan |
+| Loto Lab with no profile | Existing unscoped plan remains available; no implicit migration or profile |
+| Stale, foreign and disabled binding | HTTP 409/404; no fallback to another database by role/name |
+| Dev Container | Host-level profile configuration and preview are rejected |
+| Production selection | `executable: false` on both Start and Stop previews; no production deployment, migration or DB command |
+| Persistence | Profiles and bindings rehydrate from independently versioned stores |
+
+**Evidence boundary:** the test uses *distinct observed service references and
+ports*, but those values alone cannot establish physical isolation of data,
+volumes, credentials or network namespaces. Real database/volume separation,
+permission boundaries, and Production Contract integrations still require an
+explicit, non-mutating qualification against disposable local infrastructure,
+with no real production endpoints or secrets. Do not interpret a successful
+preview or these tests as proof of production database isolation.
+
 ## Semantics and limits
 
 - With no configured profile for an instance, **no existing behavior changes**:
