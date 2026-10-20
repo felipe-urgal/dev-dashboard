@@ -34,3 +34,11 @@ Nunca automatizar `rm -rf` nos locks como rotina de inicialização do Dashboard
 ## Testes
 
 `service-resource-operation-lock.test.ts` exercita exclusão entre instâncias com o mesmo diretório, independência entre projetos, rollback de aquisições parciais, liberação no erro, leases órfãos não reivindicáveis e falha segura com diretório de estado inválido.
+
+## Identidade do processo no Linux (continuação da #1116)
+
+Novos leases passam a gravar, além de `pid`, o campo `processIdentity`: `bootId` (`/proc/sys/kernel/random/boot_id`) e `startTicks` (campo 22 de `/proc/<pid>/stat`). A combinação reduz o risco de confundir o mesmo número de PID com outro processo criado depois de um reinício ou de reutilização do PID. Não exige privilégios elevados nem envia sinais que terminem processos.
+
+A inspeção devolve `processIdentity: verified-same|different|unverifiable`: compara o marcador com a leitura atual **somente quando o PID está presente**. Leases legados, sem `processIdentity`, continuam compatíveis e recebem evidência `unverifiable`; o sistema jamais remove, renova ou rouba esses locks automaticamente. Quando `/proc` não está disponível, a leitura é inconclusiva, sem fallback para acreditar apenas no PID.
+
+**Isso ainda não constitui fencing ou prova de quiescência.** Mesmo `different` não exclui outro executor, worker ou máquina; mesmo `verified-same` não comprova se o processo está alterando o Compose. Nenhum resultado habilita `retry`, `cancel`, limpeza de lease ou finalização de Job. Essas etapas exigem um protocolo explícito e interoperável de controle do executor.
