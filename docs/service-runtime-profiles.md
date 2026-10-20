@@ -56,6 +56,7 @@ profile via its API is rejected until the profile is updated/removed.
 - The response includes the selected profile's ID, kind and revision. Its
   `planHash` tracks those along with binding revisions and runtime evidence.
   All plans remain `executable: false`; selecting `production` is only a view.
+  A matching plan hash is never an authorization or execution ticket.
 - The UI selection/configuration, per-profile visual diffs and operational
   confirmation are still pending in #1120.
 - Storage follows the existing local, single-writer JSON-store model; it does
