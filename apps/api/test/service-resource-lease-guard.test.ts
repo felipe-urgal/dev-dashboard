@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
-  mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,8 +16,12 @@ import type { ServiceResourceLeaseGuard } from '../src/services/service-resource
 
 const REF = 'compose-project:loto';
 function marker(root: string, key = REF) {
-  return path.join(root, 'service-resource-leases-v1',
-    createHash('sha256').update(key).digest('hex'), 'owner.json');
+  return path.join(
+    root,
+    'service-resource-leases-v1',
+    createHash('sha256').update(key).digest('hex'),
+    'owner.json',
+  );
 }
 
 test('durable guard verifies the original owner and rejects calls after release', async () => {
@@ -29,7 +37,10 @@ test('durable guard verifies the original owner and rejects calls after release'
     });
     assert.equal(result, 'done');
     await assert.rejects(oldGuard.assertOwned(), /no longer owned/);
-    assert.deepEqual(readdirSync(path.join(root, 'service-resource-leases-v1')), []);
+    assert.deepEqual(
+      readdirSync(path.join(root, 'service-resource-leases-v1')),
+      [],
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -44,16 +55,25 @@ test('stolen marker during preflight prevents a second provider dispatch', async
     const started = locks.withResources([REF], async (guard) => {
       await guard.assertOwned();
       const owner = JSON.parse(readFileSync(lease, 'utf8'));
-      writeFileSync(lease, JSON.stringify({
-        ...owner, holder: 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb',
-      }));
+      writeFileSync(
+        lease,
+        JSON.stringify({
+          ...owner,
+          holder: 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb',
+        }),
+      );
       await guard.assertOwned();
       commands += 1;
     });
-    await assert.rejects(started, /lease could not be released|ownership cannot be verified/);
+    await assert.rejects(
+      started,
+      /lease could not be released|ownership cannot be verified/,
+    );
     assert.equal(commands, 0);
-    assert.equal(JSON.parse(readFileSync(lease, 'utf8')).holder,
-      'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+    assert.equal(
+      JSON.parse(readFileSync(lease, 'utf8')).holder,
+      'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb',
+    );
     // Even a process whose old holder was replaced must not delete the new
     // marker. The resulting lock is left for manual recovery.
   } finally {
@@ -68,8 +88,12 @@ test('partial acquisition never calls provider callback or exposes a usable guar
     const second = new ServiceResourceOperationLock({ stateDirectory: root });
     let release!: () => void;
     let signal!: () => void;
-    const held = new Promise<void>((r) => { release = r; });
-    const entered = new Promise<void>((r) => { signal = r; });
+    const held = new Promise<void>((r) => {
+      release = r;
+    });
+    const entered = new Promise<void>((r) => {
+      signal = r;
+    });
     const active = first.withResources(['resource:z'], async () => {
       signal();
       await held;
@@ -95,5 +119,8 @@ test('in-memory guard keeps the old API compatible, but never proves cross-proce
   await lock.withResources(['resource:test'], async (guard) => {
     await guard.assertOwned();
   });
-  assert.equal(await lock.withResources(['resource:test'], async () => 'ok'), 'ok');
+  assert.equal(
+    await lock.withResources(['resource:test'], async () => 'ok'),
+    'ok',
+  );
 });
