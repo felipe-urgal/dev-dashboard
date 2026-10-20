@@ -84,16 +84,26 @@ test('step-writer reports existing repository failure without claiming success',
 test('bounds long service references without truncation or losing stable identity', async () => {
   const events: AppendActivityEventInput[] = [];
   const writer = new ConfirmedServiceLifecycleActivityWriter({
-    activityEvents: { append: async (event) => { events.push(event); return {} as never; } },
+    activityEvents: {
+      append: async (event) => {
+        events.push(event);
+        return {} as never;
+      },
+    },
   });
   const oversized = 'compose:' + 'p'.repeat(150) + ':' + 'service'.repeat(20);
   const step: ConfirmedLifecycleStep = {
-    action: 'stop', serviceRef: oversized,
-    dispositionBefore: 'willStop', state: 'completed',
+    action: 'stop',
+    serviceRef: oversized,
+    dispositionBefore: 'willStop',
+    state: 'completed',
   };
   await writer.append(step, { ...request, action: 'stop' });
   await writer.append(step, { ...request, action: 'stop' });
   assert.equal(events[0]?.resourceRef?.id.length, 83);
   assert.equal(events[0]?.resourceRef?.id, events[1]?.resourceRef?.id);
-  assert.match(events[0]?.resourceRef?.id ?? '', /^compose-ref-sha256:[a-f0-9]{64}$/);
+  assert.match(
+    events[0]?.resourceRef?.id ?? '',
+    /^compose-ref-sha256:[a-f0-9]{64}$/,
+  );
 });

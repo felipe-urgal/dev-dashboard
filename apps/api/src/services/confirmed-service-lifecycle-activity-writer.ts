@@ -54,10 +54,11 @@ export class ConfirmedServiceLifecycleActivityWriter implements ConfirmedLifecyc
         kind: 'compose-service',
         // Activity resource IDs are limited to 256 characters. Preserve short
         // identities; hash longer ones without truncation/collision by prefix.
-        id: step.serviceRef.length <= 256
-          ? step.serviceRef
-          : 'compose-ref-sha256:' + createHash('sha256')
-            .update(step.serviceRef).digest('hex'),
+        id:
+          step.serviceRef.length <= 256
+            ? step.serviceRef
+            : 'compose-ref-sha256:' +
+              createHash('sha256').update(step.serviceRef).digest('hex'),
       },
     });
   }
