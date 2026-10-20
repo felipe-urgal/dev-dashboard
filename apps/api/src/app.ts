@@ -11,6 +11,7 @@ import { agentRuntimeRoutes } from './routes/agent-runtime.js';
 import { stackRoutes } from './routes/stacks.js';
 import { hostServiceRoutes } from './routes/host-services.js';
 import { serviceCatalogRoutes } from './routes/service-catalog.js';
+import { serviceDiagnosticsRoutes } from './routes/service-diagnostics.js';
 import { projectServiceBindingRoutes } from './routes/project-service-bindings.js';
 import { serviceLifecyclePlanRoutes } from './routes/service-lifecycle-plans.js';
 import { confirmedLifecycleReconciliationRoutes } from './routes/confirmed-lifecycle-reconciliation.js';
@@ -53,6 +54,8 @@ import { StackStartService } from './services/stack-start-service.js';
 import { StackStopService } from './services/stack-stop-service.js';
 import { SystemdServiceInventory } from './services/systemd-service-inventory.js';
 import { ServiceCatalogService } from './services/service-catalog-service.js';
+import { ServiceDiagnosticsService } from './services/service-diagnostics-service.js';
+import { SystemdJournalReader } from './services/systemd-journal-reader.js';
 import { ProjectServiceBindingService } from './services/project-service-binding-service.js';
 import { ServiceLifecyclePlanningService } from './services/service-lifecycle-planning-service.js';
 import { ConfirmedLifecycleReconciliationService } from './services/confirmed-lifecycle-reconciliation-service.js';
@@ -107,6 +110,7 @@ import { createAppContext, type AppContext } from './app-context.js';
 export interface BuildAppOptions extends AppCompositionOptions {
   hostServiceInventory?: Pick<SystemdServiceInventory, 'inspect'>;
   serviceCatalog?: Pick<ServiceCatalogService, 'inspect'>;
+  serviceDiagnostics?: Pick<ServiceDiagnosticsService, 'read'>;
   serviceResourceLeaseInspector?: Pick<
     ServiceResourceLeaseInspector,
     'inspect'
@@ -374,6 +378,19 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(serviceCatalogRoutes, {
     prefix: '/api',
     catalog,
+  });
+
+  app.register(serviceDiagnosticsRoutes, {
+    prefix: '/api',
+    diagnostics: options.serviceDiagnostics ?? new ServiceDiagnosticsService({
+      projects: context.projectStore,
+      bindings: context.projectServiceBindingStore,
+      catalog,
+      compose: dockerComposeLifecycleService,
+      processes: context.processManager,
+      activity: activitySnapshotService,
+      journal: new SystemdJournalReader(),
+    }, options.now ? { now: () => new Date(options.now!) } : {}),
   });
 
   app.register(projectServiceBindingRoutes, {
