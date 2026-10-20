@@ -51,3 +51,7 @@ updates:
       time: '09:30'
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 5
+    groups:
+      codeql-actions:
+        patterns:
+          - 'github/codeql-action/*'
