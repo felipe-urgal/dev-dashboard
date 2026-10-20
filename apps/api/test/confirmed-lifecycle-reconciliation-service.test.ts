@@ -20,10 +20,14 @@ const job: ConfirmedLifecycleJob = {
   stage: 'invoking',
   plannedRefs: [DB, REF],
   inFlightRef: REF,
-  steps: [{
-    serviceRef: DB, action: 'start', state: 'completed',
-    dispositionBefore: 'willStart',
-  }],
+  steps: [
+    {
+      serviceRef: DB,
+      action: 'start',
+      state: 'completed',
+      dispositionBefore: 'willStart',
+    },
+  ],
   startedAt: '2026-10-20T11:00:00.000Z',
   updatedAt: '2026-10-20T11:01:00.000Z',
   reconciliationRequired: true,
@@ -54,22 +58,31 @@ function fixture() {
   };
   let fail = false;
   const service = new ConfirmedLifecycleReconciliationService({
-    projects: { findProject: (id) => id === 'loto' || id === 'gastos'
-      ? { id } as never : null },
+    projects: {
+      findProject: (id) =>
+        id === 'loto' || id === 'gastos' ? ({ id } as never) : null,
+    },
     journal: {
-      get: (id) => id === current.id ? current : null,
+      get: (id) => (id === current.id ? current : null),
       list: (projectId?: string) =>
         !projectId || projectId === current.projectId ? [current] : [],
     },
-    catalog: { inspect: async () => {
-      if (fail) throw Error('system host secret in runtime error');
-      return snapshot;
-    } },
+    catalog: {
+      inspect: async () => {
+        if (fail) throw Error('system host secret in runtime error');
+        return snapshot;
+      },
+    },
   });
   return {
-    service, snapshot,
-    setJob: (newJob: ConfirmedLifecycleJob) => { current = newJob; },
-    fail: () => { fail = true; },
+    service,
+    snapshot,
+    setJob: (newJob: ConfirmedLifecycleJob) => {
+      current = newJob;
+    },
+    fail: () => {
+      fail = true;
+    },
   };
 }
 
@@ -80,7 +93,10 @@ test('in-flight start with healthy observed state never authorizes retry or comp
   assert.equal(report.reconciliationRequired, true);
   assert.equal(report.possibleActiveExecution, true);
   assert.equal(report.nodes.length, 2);
-  assert.deepEqual(report.nodes.map((n) => n.journalState), ['completed', 'in-flight']);
+  assert.deepEqual(
+    report.nodes.map((n) => n.journalState),
+    ['completed', 'in-flight'],
+  );
   assert.equal(report.nodes[1]?.assessment, 'matches-target');
   assert.match(report.diagnostics.join(' '), /Do not retry/);
   assert.equal(report.inFlightRef, REF);
@@ -92,7 +108,10 @@ test('catalog partial or runtime unavailable produces unverifiable diagnostics',
   f.snapshot.truncated = true;
   let report = await f.service.inspect('loto', job.id);
   assert.equal(report.observationComplete, false);
-  assert.equal(report.nodes.every((n) => n.assessment === 'unverifiable'), true);
+  assert.equal(
+    report.nodes.every((n) => n.assessment === 'unverifiable'),
+    true,
+  );
   f.fail();
   report = await f.service.inspect('loto', job.id);
   assert.equal(report.observationComplete, false);
@@ -125,12 +144,17 @@ test('unmanaged, cross-project, absent or ambiguous identities fail closed', asy
 test('recorded completion can diverge from later observed service state', async () => {
   const f = fixture();
   f.setJob({
-    ...job, status: 'completed', stage: 'finished',
-    inFlightRef: undefined, reconciliationRequired: false,
+    ...job,
+    status: 'completed',
+    stage: 'finished',
+    inFlightRef: undefined,
+    reconciliationRequired: false,
     steps: [
       ...job.steps,
       {
-        serviceRef: REF, action: 'start', state: 'completed',
+        serviceRef: REF,
+        action: 'start',
+        state: 'completed',
         dispositionBefore: 'willStart',
       },
     ],
@@ -159,5 +183,8 @@ test('list is project scoped and omits confirmation revisions and raw steps', ()
 test('job id in another project is never disclosed', async () => {
   const f = fixture();
   await assert.rejects(f.service.inspect('gastos', job.id), /not found/);
-  await assert.rejects(f.service.inspect('loto', 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb'), /not found/);
+  await assert.rejects(
+    f.service.inspect('loto', 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb'),
+    /not found/,
+  );
 });
