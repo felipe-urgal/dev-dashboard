@@ -90,7 +90,10 @@ export class ConfirmedServiceLifecycleCoordinator {
       locks: ServiceResourceOperationLock;
       events?: ConfirmedLifecycleStepWriter;
       /** Persistent journal is optional for existing internal test consumers. */
-      jobs?: Pick<ConfirmedLifecycleJobJournal, 'begin' | 'beforeStep' | 'step' | 'finish'>;
+      jobs?: Pick<
+        ConfirmedLifecycleJobJournal,
+        'begin' | 'beforeStep' | 'step' | 'finish'
+      >;
     },
     options: { now?: () => Date } = {},
   ) {
@@ -128,7 +131,8 @@ export class ConfirmedServiceLifecycleCoordinator {
         // Durable intent exists BEFORE any provider mutation. A storage error
         // fails closed and cannot turn an uncertain operation into a retry.
         const jobId = this.dependencies.jobs?.begin(
-          request, approved.map((node) => node.serviceRef),
+          request,
+          approved.map((node) => node.serviceRef),
         );
         const steps: ConfirmedLifecycleStep[] = [];
         const conclude = async (result: ConfirmedLifecycleResult) => {
