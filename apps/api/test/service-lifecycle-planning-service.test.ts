@@ -442,7 +442,11 @@ test('profile-scoped Stop retains resources used by another profile in the same 
   assert.equal(fallback.nodes[0]?.disposition, 'willStop');
   profiles.delete('loto', production.id, profiles.revision('loto'));
   const released = await planner.preview(
-    'loto', 'stop', env('loto'), undefined, dev.id,
+    'loto',
+    'stop',
+    env('loto'),
+    undefined,
+    dev.id,
   );
   assert.equal(released.nodes[0]?.disposition, 'willStop');
   await assert.rejects(
