@@ -24,7 +24,9 @@ export async function fetchServiceDiagnostics(
   const query = environmentInstanceId
     ? '?environmentInstanceId=' + encodeURIComponent(environmentInstanceId)
     : '';
-  const response = await requestJson<{ diagnostics: ServiceDiagnosticsSnapshot }>(
+  const response = await requestJson<{
+    diagnostics: ServiceDiagnosticsSnapshot;
+  }>(
     `/api/projects/${encodeURIComponent(projectId)}/services/${encodeURIComponent(serviceRef)}/diagnostics${query}`,
     signal ? { signal } : {},
   );
