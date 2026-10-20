@@ -62,7 +62,8 @@ const eligible = computed(
 );
 const availableKinds = computed<ServiceRuntimeProfileKind[]>(() =>
   (['dev', 'test', 'production'] as const).filter(
-    (kind) => !profiles.value?.profiles.some((profile) => profile.kind === kind),
+    (kind) =>
+      !profiles.value?.profiles.some((profile) => profile.kind === kind),
   ),
 );
 const included = computed(() => {
@@ -75,35 +76,44 @@ const omitted = computed(() => {
   const ids = new Set(current.value.bindingIds);
   return available.value.filter((binding) => !ids.has(binding.id));
 });
-const missing = computed(() =>
-  preview.value?.nodes.filter((node) => node.relation === 'missing') ?? [],
+const missing = computed(
+  () =>
+    preview.value?.nodes.filter((node) => node.relation === 'missing') ?? [],
 );
-const shared = computed(() =>
-  preview.value?.nodes.filter(
-    (node) =>
-      node.consumerCount > 1 ||
-      (current.value !== undefined &&
-        profiles.value?.profiles.some(
-          (profile) =>
-            profile.id !== current.value?.id &&
-            included.value.some(
-              (binding) =>
-                binding.serviceRef === node.serviceRef &&
-                profile.bindingIds.includes(binding.id),
-            ),
-        )),
-  ) ?? [],
+const shared = computed(
+  () =>
+    preview.value?.nodes.filter(
+      (node) =>
+        node.consumerCount > 1 ||
+        (current.value !== undefined &&
+          profiles.value?.profiles.some(
+            (profile) =>
+              profile.id !== current.value?.id &&
+              included.value.some(
+                (binding) =>
+                  binding.serviceRef === node.serviceRef &&
+                  profile.bindingIds.includes(binding.id),
+              ),
+          )),
+    ) ?? [],
 );
-const alreadyReady = computed(() =>
-  preview.value?.nodes.filter((node) => node.disposition === 'alreadyReady') ?? [],
+const alreadyReady = computed(
+  () =>
+    preview.value?.nodes.filter(
+      (node) => node.disposition === 'alreadyReady',
+    ) ?? [],
 );
-const unsupported = computed(() =>
-  preview.value?.nodes.filter((node) => node.disposition === 'unsupported') ?? [],
+const unsupported = computed(
+  () =>
+    preview.value?.nodes.filter((node) => node.disposition === 'unsupported') ??
+    [],
 );
-const wouldChange = computed(() =>
-  preview.value?.nodes.filter(
-    (node) => node.disposition === 'willStart' || node.disposition === 'willStop',
-  ) ?? [],
+const wouldChange = computed(
+  () =>
+    preview.value?.nodes.filter(
+      (node) =>
+        node.disposition === 'willStart' || node.disposition === 'willStop',
+    ) ?? [],
 );
 
 function portsFor(node: ServiceLifecyclePlanNode | undefined): string {
@@ -130,7 +140,8 @@ const rolePortDifferences = computed(() => {
       if (!target || !previous) continue;
       const from = portsFor(previous);
       const to = portsFor(target);
-      if (from !== to) changes.push({ role: chosen.role, before: from, after: to });
+      if (from !== to)
+        changes.push({ role: chosen.role, before: from, after: to });
     }
   }
   return changes;
@@ -154,11 +165,9 @@ function contextChanged(): void {
   void reload('');
 }
 
-watch(
-  () => [props.projectId, props.environmentInstanceId],
-  contextChanged,
-  { immediate: true },
-);
+watch(() => [props.projectId, props.environmentInstanceId], contextChanged, {
+  immediate: true,
+});
 
 async function reload(prefer: string): Promise<void> {
   const request = ++generation;
@@ -186,14 +195,16 @@ async function reload(prefer: string): Promise<void> {
     editor.value = 'none';
     deleting.value = false;
     if (list.bindingsRevision !== bindingList.revision) {
-      error.value = 'Os vínculos mudaram durante a leitura. Atualize antes de editar.';
+      error.value =
+        'Os vínculos mudaram durante a leitura. Atualize antes de editar.';
     }
     void loadPreview();
   } catch {
     if (request === generation) {
       profiles.value = null;
       bindings.value = [];
-      error.value = 'Não foi possível carregar os perfis e vínculos deste ambiente.';
+      error.value =
+        'Não foi possível carregar os perfis e vínculos deste ambiente.';
     }
   } finally {
     if (request === generation) loading.value = false;
@@ -257,13 +268,20 @@ function beginEdit(): void {
   editor.value = 'edit';
   draftKind.value = current.value.kind;
   const valid = new Set(available.value.map((binding) => binding.id));
-  draftBindingIds.value = current.value.bindingIds.filter((id) => valid.has(id));
+  draftBindingIds.value = current.value.bindingIds.filter((id) =>
+    valid.has(id),
+  );
   deleting.value = false;
   error.value = '';
 }
 
 async function save(): Promise<void> {
-  if (!profiles.value || !eligible.value || saving.value || editor.value === 'none')
+  if (
+    !profiles.value ||
+    !eligible.value ||
+    saving.value ||
+    editor.value === 'none'
+  )
     return;
   const request = generation;
   const projectId = props.projectId;
@@ -290,14 +308,21 @@ async function save(): Promise<void> {
     }
   } catch {
     if (request === generation)
-      error.value = 'Não foi possível salvar: revisão ou vínculos alterados. Atualize e revise a seleção.';
+      error.value =
+        'Não foi possível salvar: revisão ou vínculos alterados. Atualize e revise a seleção.';
   } finally {
     if (request === generation) saving.value = false;
   }
 }
 
 async function remove(): Promise<void> {
-  if (!current.value || !profiles.value || !eligible.value || saving.value || !deleting.value)
+  if (
+    !current.value ||
+    !profiles.value ||
+    !eligible.value ||
+    saving.value ||
+    !deleting.value
+  )
     return;
   const request = generation;
   const id = current.value.id;
@@ -316,7 +341,8 @@ async function remove(): Promise<void> {
     }
   } catch {
     if (request === generation)
-      error.value = 'Não foi possível excluir o perfil. Atualize os dados e tente novamente.';
+      error.value =
+        'Não foi possível excluir o perfil. Atualize os dados e tente novamente.';
   } finally {
     if (request === generation) saving.value = false;
   }
@@ -327,7 +353,10 @@ const kindLabel: Record<ServiceRuntimeProfileKind, string> = {
   test: 'Teste',
   production: 'Produção',
 };
-const dispositionLabel: Record<ServiceLifecyclePlanNode['disposition'], string> = {
+const dispositionLabel: Record<
+  ServiceLifecyclePlanNode['disposition'],
+  string
+> = {
   willStart: 'Iniciaria (apenas prévia)',
   willStop: 'Pararia (apenas prévia)',
   alreadyReady: 'Já ativo e pronto',
@@ -343,11 +372,15 @@ const dispositionLabel: Record<ServiceLifecyclePlanNode['disposition'], string> 
       <div>
         <h3 id="runtime-profiles-title">Perfis de serviços do ambiente</h3>
         <p>
-          Selecione um plano de Desenvolvimento, Teste ou Produção.
-          A seleção e a prévia nunca iniciam, param ou alteram serviços.
+          Selecione um plano de Desenvolvimento, Teste ou Produção. A seleção e
+          a prévia nunca iniciam, param ou alteram serviços.
         </p>
       </div>
-      <button type="button" :disabled="loading || saving" @click="reload(selectedId)">
+      <button
+        type="button"
+        :disabled="loading || saving"
+        @click="reload(selectedId)"
+      >
         Atualizar perfis
       </button>
     </header>
@@ -355,7 +388,8 @@ const dispositionLabel: Record<ServiceLifecyclePlanNode['disposition'], string> 
     <p v-if="error" role="alert">{{ error }}</p>
     <template v-if="profiles && !loading">
       <p v-if="partial" role="status">
-        Inventário parcial: a ausência de observação não comprova serviço parado.
+        Inventário parcial: a ausência de observação não comprova serviço
+        parado.
       </p>
       <div class="runtime-profiles-controls">
         <label for="runtime-profile-select">Perfil</label>
@@ -379,19 +413,28 @@ const dispositionLabel: Record<ServiceLifecyclePlanNode['disposition'], string> 
           type="button"
           :disabled="saving || !eligible"
           @click="beginNew"
-        >Novo perfil</button>
+        >
+          Novo perfil
+        </button>
         <button
           v-if="current"
           type="button"
           :disabled="saving || !eligible"
           @click="beginEdit"
-        >Editar seleção</button>
+        >
+          Editar seleção
+        </button>
         <button
           v-if="current && !deleting"
           type="button"
           :disabled="saving || !eligible"
-          @click="deleting = true; editor = 'none'"
-        >Excluir perfil…</button>
+          @click="
+            deleting = true;
+            editor = 'none';
+          "
+        >
+          Excluir perfil…
+        </button>
       </div>
       <p v-if="!current">
         Plano padrão: os vínculos habilitados deste ambiente continuam sendo
@@ -405,70 +448,132 @@ const dispositionLabel: Record<ServiceLifecyclePlanNode['disposition'], string> 
         Perfil com {{ current.staleBindingIds.length }} vínculo(s) ausente(s),
         desabilitado(s) ou movido(s). Edite o perfil antes de gerar um plano.
       </p>
-      <div v-if="deleting && current" class="runtime-profiles-confirm" role="group" aria-label="Confirmar exclusão">
-        <p>Excluir apenas a configuração {{ kindLabel[current.kind] }}? Nenhum serviço será parado.</p>
-        <button type="button" :disabled="saving" @click="remove">Confirmar exclusão</button>
-        <button type="button" :disabled="saving" @click="deleting = false">Cancelar</button>
+      <div
+        v-if="deleting && current"
+        class="runtime-profiles-confirm"
+        role="group"
+        aria-label="Confirmar exclusão"
+      >
+        <p>
+          Excluir apenas a configuração {{ kindLabel[current.kind] }}? Nenhum
+          serviço será parado.
+        </p>
+        <button type="button" :disabled="saving" @click="remove">
+          Confirmar exclusão
+        </button>
+        <button type="button" :disabled="saving" @click="deleting = false">
+          Cancelar
+        </button>
       </div>
-      <form v-if="editor !== 'none'" class="runtime-profiles-editor" @submit.prevent="save">
+      <form
+        v-if="editor !== 'none'"
+        class="runtime-profiles-editor"
+        @submit.prevent="save"
+      >
         <h4>{{ editor === 'new' ? 'Novo perfil' : 'Editar perfil' }}</h4>
         <label for="runtime-profile-kind">Contexto</label>
-        <select id="runtime-profile-kind" v-model="draftKind" :disabled="saving || editor === 'edit'">
+        <select
+          id="runtime-profile-kind"
+          v-model="draftKind"
+          :disabled="saving || editor === 'edit'"
+        >
           <option
             v-for="kind in editor === 'new' ? availableKinds : [draftKind]"
             :key="kind"
             :value="kind"
-          >{{ kindLabel[kind] }}</option>
+          >
+            {{ kindLabel[kind] }}
+          </option>
         </select>
         <fieldset :disabled="saving">
           <legend>Serviços vinculados a este ambiente</legend>
-          <label v-for="binding in available" :key="binding.id" class="runtime-profiles-check">
-            <input v-model="draftBindingIds" type="checkbox" :value="binding.id" />
+          <label
+            v-for="binding in available"
+            :key="binding.id"
+            class="runtime-profiles-check"
+          >
+            <input
+              v-model="draftBindingIds"
+              type="checkbox"
+              :value="binding.id"
+            />
             {{ binding.role ?? binding.serviceRef }} · {{ binding.relation }}
             <small v-if="binding.shared">(compartilhado)</small>
           </label>
-          <p v-if="available.length === 0">Nenhum binding habilitado disponível.</p>
+          <p v-if="available.length === 0">
+            Nenhum binding habilitado disponível.
+          </p>
         </fieldset>
         <p>Escolher um binding não concede permissão de Start/Stop.</p>
-        <button type="submit" :disabled="saving || !eligible">Salvar perfil</button>
-        <button type="button" :disabled="saving" @click="editor = 'none'">Cancelar</button>
+        <button type="submit" :disabled="saving || !eligible">
+          Salvar perfil
+        </button>
+        <button type="button" :disabled="saving" @click="editor = 'none'">
+          Cancelar
+        </button>
       </form>
 
       <div class="runtime-profiles-preview-controls">
         <label for="runtime-plan-action">Simulação</label>
-        <select id="runtime-plan-action" v-model="action" @change="chooseAction">
+        <select
+          id="runtime-plan-action"
+          v-model="action"
+          @change="chooseAction"
+        >
           <option value="start">Prévia Start (não executa)</option>
           <option value="stop">Prévia Stop (não executa)</option>
         </select>
       </div>
-      <p v-if="loadingPreview" role="status">Calculando plano somente leitura…</p>
+      <p v-if="loadingPreview" role="status">
+        Calculando plano somente leitura…
+      </p>
       <p v-if="previewError" role="alert">{{ previewError }}</p>
       <template v-if="preview && !loadingPreview">
         <p class="runtime-profiles-status" role="status">
-          Plano {{ preview.status === 'ready' ? 'sem bloqueios observados' : 'bloqueado' }}
-          · {{ preview.nodes.length }} nó(s)
-          · não executável
+          Plano
+          {{
+            preview.status === 'ready'
+              ? 'sem bloqueios observados'
+              : 'bloqueado'
+          }}
+          · {{ preview.nodes.length }} nó(s) · não executável
         </p>
         <p>
           {{ included.length }} serviços incluídos,
           {{ omitted.length }} omitidos,
-          {{ missing.length + (current?.staleBindingIds.length ?? 0) }} referências ausentes,
-          {{ shared.length }} compartilhados,
-          {{ alreadyReady.length }} já prontos,
-          {{ unsupported.length }} sem suporte e
-          {{ wouldChange.length }} ações potenciais (não executadas).
+          {{
+            missing.length + (current?.staleBindingIds.length ?? 0)
+          }}
+          referências ausentes, {{ shared.length }} compartilhados,
+          {{ alreadyReady.length }} já prontos, {{ unsupported.length }} sem
+          suporte e {{ wouldChange.length }} ações potenciais (não executadas).
         </p>
         <p v-if="current">
           Selecionar este perfil não interrompe serviços omitidos.
-          {{ omitted.length ? 'Excluídos do plano:' : 'Nenhum vínculo omitido.' }}
-          <span v-for="binding in omitted" :key="binding.id" class="runtime-profiles-omitted">
+          {{
+            omitted.length ? 'Excluídos do plano:' : 'Nenhum vínculo omitido.'
+          }}
+          <span
+            v-for="binding in omitted"
+            :key="binding.id"
+            class="runtime-profiles-omitted"
+          >
             {{ binding.role ?? binding.serviceRef }}
-            ({{ portsFor(baseline?.nodes.find((node) => node.serviceRef === binding.serviceRef)) }})
+            ({{
+              portsFor(
+                baseline?.nodes.find(
+                  (node) => node.serviceRef === binding.serviceRef,
+                ),
+              )
+            }})
           </span>
         </p>
         <p v-if="rolePortDifferences.length" role="status">
           Diferenças de portas observadas para papéis equivalentes:
-          <span v-for="item in rolePortDifferences" :key="item.role + item.before + item.after">
+          <span
+            v-for="item in rolePortDifferences"
+            :key="item.role + item.before + item.after"
+          >
             {{ item.role }}: {{ item.before }} → {{ item.after }}.
           </span>
         </p>
@@ -476,12 +581,23 @@ const dispositionLabel: Record<ServiceLifecyclePlanNode['disposition'], string> 
           Sem mudanças de porta comparáveis por papel nos recursos observados.
           Portas de serviços incluídos e omitidos aparecem abaixo.
         </p>
-        <ul v-if="preview.diagnostics.length" class="runtime-profiles-diagnostics">
-          <li v-for="diagnostic in preview.diagnostics" :key="diagnostic">{{ diagnostic }}</li>
+        <ul
+          v-if="preview.diagnostics.length"
+          class="runtime-profiles-diagnostics"
+        >
+          <li v-for="diagnostic in preview.diagnostics" :key="diagnostic">
+            {{ diagnostic }}
+          </li>
         </ul>
         <div class="runtime-profiles-table-wrap">
           <table class="runtime-profiles-table">
-            <caption>Recursos do plano {{ action === 'start' ? 'Start' : 'Stop' }} (somente leitura)</caption>
+            <caption>
+              Recursos do plano
+              {{
+                action === 'start' ? 'Start' : 'Stop'
+              }}
+              (somente leitura)
+            </caption>
             <thead>
               <tr>
                 <th scope="col">Serviço</th>
@@ -494,7 +610,9 @@ const dispositionLabel: Record<ServiceLifecyclePlanNode['disposition'], string> 
             <tbody>
               <tr v-for="node in preview.nodes" :key="node.serviceRef">
                 <th scope="row">{{ node.name }}</th>
-                <td>{{ node.relation }} · {{ node.consumerCount }} consumidor(es)</td>
+                <td>
+                  {{ node.relation }} · {{ node.consumerCount }} consumidor(es)
+                </td>
                 <td>{{ node.state }} / {{ node.readiness }}</td>
                 <td>{{ portsFor(node) }}</td>
                 <td>
@@ -506,11 +624,13 @@ const dispositionLabel: Record<ServiceLifecyclePlanNode['disposition'], string> 
           </table>
         </div>
         <p v-if="preview.nodes.length === 0">
-          Nenhum serviço no plano selecionado. Não há fallback implícito para outro perfil.
+          Nenhum serviço no plano selecionado. Não há fallback implícito para
+          outro perfil.
         </p>
         <p class="runtime-profiles-disclaimer">
-          Observado em {{ new Date(preview.observedAt).toLocaleString('pt-BR') }}.
-          A prévia expira em {{ new Date(preview.expiresAt).toLocaleString('pt-BR') }}.
+          Observado em
+          {{ new Date(preview.observedAt).toLocaleString('pt-BR') }}. A prévia
+          expira em {{ new Date(preview.expiresAt).toLocaleString('pt-BR') }}.
           Evidências e portas podem mudar; o hash não autoriza execução.
         </p>
       </template>
@@ -534,20 +654,67 @@ const dispositionLabel: Record<ServiceLifecyclePlanNode['disposition'], string> 
   align-items: center;
   gap: 0.75rem;
 }
-.runtime-profiles-header { justify-content: space-between; }
-.runtime-profiles-header h3 { margin: 0; }
-.runtime-profiles-header p { margin: 0.35rem 0; }
+.runtime-profiles-header {
+  justify-content: space-between;
+}
+.runtime-profiles-header h3 {
+  margin: 0;
+}
+.runtime-profiles-header p {
+  margin: 0.35rem 0;
+}
 .runtime-profiles-controls,
-.runtime-profiles-preview-controls { margin-block: 1rem; }
-.runtime-profiles select { max-width: 100%; padding: 0.4rem; }
-.runtime-profiles-editor { display: grid; gap: 0.65rem; margin-block: 1rem; }
-.runtime-profiles-editor fieldset { display: grid; gap: 0.5rem; border: 1px solid var(--border-color, #64748b); }
-.runtime-profiles-check { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; overflow-wrap: anywhere; }
-.runtime-profiles-status { font-weight: 600; }
-.runtime-profiles-table-wrap { overflow-x: auto; }
-.runtime-profiles-table { width: 100%; border-collapse: collapse; text-align: left; }
-.runtime-profiles-table th, .runtime-profiles-table td { border-bottom: 1px solid var(--border-color, #64748b); padding: 0.6rem; vertical-align: top; }
-.runtime-profiles-table small { display: block; }
-.runtime-profiles-omitted { display: inline-block; margin: 0.2rem 0.4rem; overflow-wrap: anywhere; }
-.runtime-profiles-disclaimer { font-size: 0.85rem; opacity: 0.85; }
+.runtime-profiles-preview-controls {
+  margin-block: 1rem;
+}
+.runtime-profiles select {
+  max-width: 100%;
+  padding: 0.4rem;
+}
+.runtime-profiles-editor {
+  display: grid;
+  gap: 0.65rem;
+  margin-block: 1rem;
+}
+.runtime-profiles-editor fieldset {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid var(--border-color, #64748b);
+}
+.runtime-profiles-check {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+.runtime-profiles-status {
+  font-weight: 600;
+}
+.runtime-profiles-table-wrap {
+  overflow-x: auto;
+}
+.runtime-profiles-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.runtime-profiles-table th,
+.runtime-profiles-table td {
+  border-bottom: 1px solid var(--border-color, #64748b);
+  padding: 0.6rem;
+  vertical-align: top;
+}
+.runtime-profiles-table small {
+  display: block;
+}
+.runtime-profiles-omitted {
+  display: inline-block;
+  margin: 0.2rem 0.4rem;
+  overflow-wrap: anywhere;
+}
+.runtime-profiles-disclaimer {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
 </style>

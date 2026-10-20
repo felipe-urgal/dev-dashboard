@@ -23,10 +23,17 @@ export interface RuntimeProfileDraft {
   expectedBindingsRevision: string;
 }
 
-function collectionPath(projectId: string, environmentInstanceId: string): string {
-  return '/api/projects/' + encodeURIComponent(projectId) +
-    '/environments/' + encodeURIComponent(environmentInstanceId) +
-    '/service-profiles';
+function collectionPath(
+  projectId: string,
+  environmentInstanceId: string,
+): string {
+  return (
+    '/api/projects/' +
+    encodeURIComponent(projectId) +
+    '/environments/' +
+    encodeURIComponent(environmentInstanceId) +
+    '/service-profiles'
+  );
 }
 
 export function fetchRuntimeProfiles(
@@ -41,8 +48,13 @@ export function saveRuntimeProfile(
   environmentInstanceId: string,
   draft: RuntimeProfileDraft,
   profileId?: string,
-): Promise<{ profile: ServiceRuntimeProfileView; revision: string; bindingsRevision: string }> {
-  const url = collectionPath(projectId, environmentInstanceId) +
+): Promise<{
+  profile: ServiceRuntimeProfileView;
+  revision: string;
+  bindingsRevision: string;
+}> {
+  const url =
+    collectionPath(projectId, environmentInstanceId) +
     (profileId ? '/' + encodeURIComponent(profileId) : '');
   return requestJson(url, {
     method: profileId ? 'PUT' : 'POST',
@@ -59,8 +71,10 @@ export function removeRuntimeProfile(
 ): Promise<{ revision: string }> {
   return requestJson(
     collectionPath(projectId, environmentInstanceId) +
-      '/' + encodeURIComponent(profileId) +
-      '?expectedRevision=' + encodeURIComponent(expectedRevision),
+      '/' +
+      encodeURIComponent(profileId) +
+      '?expectedRevision=' +
+      encodeURIComponent(expectedRevision),
     { method: 'DELETE' },
   );
 }
@@ -74,6 +88,9 @@ export function fetchRuntimeProfilePlan(
   const query = new URLSearchParams({ action, environmentInstanceId });
   if (profileId) query.set('profileId', profileId);
   return requestJson(
-    '/api/projects/' + encodeURIComponent(projectId) + '/service-plan?' + query.toString(),
+    '/api/projects/' +
+      encodeURIComponent(projectId) +
+      '/service-plan?' +
+      query.toString(),
   );
 }

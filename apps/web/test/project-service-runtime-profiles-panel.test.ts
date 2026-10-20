@@ -56,7 +56,11 @@ function binding(id: string, serviceRef: string, environmentInstanceId = ENV) {
     consumerCount: id === TEST_BINDING ? 2 : 1,
   };
 }
-function profile(id: string, kind: 'test' | 'production', bindingIds: string[]) {
+function profile(
+  id: string,
+  kind: 'test' | 'production',
+  bindingIds: string[],
+) {
   return {
     id,
     kind,
@@ -82,10 +86,7 @@ function planNode(ref: string, port: number, disposition = 'alreadyReady') {
     dependencies: [],
   };
 }
-function plan(
-  action: 'start' | 'stop',
-  profileId?: string,
-) {
+function plan(action: 'start' | 'stop', profileId?: string) {
   return {
     target: {
       kind: 'project-environment',
@@ -100,11 +101,19 @@ function plan(
     expiresAt: '2026-10-20T18:00:30.000Z',
     order: profileId ? [TEST_REF] : [TEST_REF, PROD_REF],
     nodes: profileId
-      ? [planNode(TEST_REF, 5544, action === 'stop' ? 'retained' : 'alreadyReady')]
+      ? [
+          planNode(
+            TEST_REF,
+            5544,
+            action === 'stop' ? 'retained' : 'alreadyReady',
+          ),
+        ]
       : [planNode(TEST_REF, 5544), planNode(PROD_REF, 5432)],
     diagnostics: [],
     executable: false,
-    ...(profileId ? { profile: { id: profileId, kind: 'test', revision: REV } } : {}),
+    ...(profileId
+      ? { profile: { id: profileId, kind: 'test', revision: REV } }
+      : {}),
   };
 }
 function profilesWithData() {
@@ -139,8 +148,11 @@ describe('ProjectServiceRuntimeProfilesPanel', () => {
       bindings: [
         binding(TEST_BINDING, TEST_REF),
         binding(PROD_BINDING, PROD_REF),
-        binding('55555555-5555-4555-8555-555555555555', 'compose:loto:foreign',
-          'environment:worktree:loto:one'),
+        binding(
+          '55555555-5555-4555-8555-555555555555',
+          'compose:loto:foreign',
+          'environment:worktree:loto:one',
+        ),
       ],
       partial: false,
     });
@@ -165,7 +177,12 @@ describe('ProjectServiceRuntimeProfilesPanel', () => {
     });
     const wrapper = mountPanel();
     await flushPromises();
-    expect(fetchRuntimeProfilePlan).toHaveBeenCalledWith('gastos', ENV, 'start', undefined);
+    expect(fetchRuntimeProfilePlan).toHaveBeenCalledWith(
+      'gastos',
+      ENV,
+      'start',
+      undefined,
+    );
     expect(wrapper.get('#runtime-profile-select').text()).toContain('Padrão');
     expect(wrapper.findAll('#runtime-profile-select option')).toHaveLength(1);
     expect(wrapper.findAll('tbody tr')).toHaveLength(2);
@@ -179,8 +196,18 @@ describe('ProjectServiceRuntimeProfilesPanel', () => {
     await flushPromises();
     await wrapper.get('#runtime-profile-select').setValue(TEST_ID);
     await flushPromises();
-    expect(fetchRuntimeProfilePlan).toHaveBeenCalledWith('gastos', ENV, 'start', TEST_ID);
-    expect(fetchRuntimeProfilePlan).toHaveBeenCalledWith('gastos', ENV, 'start', undefined);
+    expect(fetchRuntimeProfilePlan).toHaveBeenCalledWith(
+      'gastos',
+      ENV,
+      'start',
+      TEST_ID,
+    );
+    expect(fetchRuntimeProfilePlan).toHaveBeenCalledWith(
+      'gastos',
+      ENV,
+      'start',
+      undefined,
+    );
     expect(wrapper.findAll('tbody tr')).toHaveLength(1);
     expect(wrapper.text()).toContain('compose:gastos:prod-db');
     expect(wrapper.text()).toContain('5432');
@@ -189,7 +216,12 @@ describe('ProjectServiceRuntimeProfilesPanel', () => {
     expect(wrapper.text()).toContain('compartilhados');
     await wrapper.get('#runtime-plan-action').setValue('stop');
     await flushPromises();
-    expect(fetchRuntimeProfilePlan).toHaveBeenCalledWith('gastos', ENV, 'stop', TEST_ID);
+    expect(fetchRuntimeProfilePlan).toHaveBeenCalledWith(
+      'gastos',
+      ENV,
+      'stop',
+      TEST_ID,
+    );
     expect(wrapper.text()).toContain('Preservado');
     expect(wrapper.text()).toContain('não executável');
     expect(saveRuntimeProfile).not.toHaveBeenCalled();
@@ -201,14 +233,18 @@ describe('ProjectServiceRuntimeProfilesPanel', () => {
     await flushPromises();
     await wrapper.get('#runtime-profile-select').setValue(TEST_ID);
     await flushPromises();
-    const edit = wrapper.findAll('button').find((button) => button.text() === 'Editar seleção');
+    const edit = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Editar seleção');
     expect(edit).toBeDefined();
     await edit!.trigger('click');
     const checks = wrapper.findAll('input[type="checkbox"]');
     expect(checks).toHaveLength(2);
     await checks[0]!.setValue(false);
     await checks[1]!.setValue(true);
-    const submit = wrapper.findAll('button').find((button) => button.text() === 'Salvar perfil');
+    const submit = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Salvar perfil');
     await submit!.trigger('click');
     await flushPromises();
     expect(saveRuntimeProfile).toHaveBeenCalledWith(
@@ -229,14 +265,23 @@ describe('ProjectServiceRuntimeProfilesPanel', () => {
     await flushPromises();
     await wrapper.get('#runtime-profile-select').setValue(TEST_ID);
     await flushPromises();
-    const remove = wrapper.findAll('button').find((button) => button.text() === 'Excluir perfil…');
+    const remove = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Excluir perfil…');
     await remove!.trigger('click');
     expect(removeRuntimeProfile).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain('Nenhum serviço será parado');
-    const confirm = wrapper.findAll('button').find((button) => button.text() === 'Confirmar exclusão');
+    const confirm = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Confirmar exclusão');
     await confirm!.trigger('click');
     await flushPromises();
-    expect(removeRuntimeProfile).toHaveBeenCalledWith('gastos', ENV, TEST_ID, REV);
+    expect(removeRuntimeProfile).toHaveBeenCalledWith(
+      'gastos',
+      ENV,
+      TEST_ID,
+      REV,
+    );
   });
 
   it('fails closed on revision drift instead of saving against inconsistent bindings', async () => {
@@ -248,7 +293,9 @@ describe('ProjectServiceRuntimeProfilesPanel', () => {
     const wrapper = mountPanel();
     await flushPromises();
     expect(wrapper.text()).toContain('vínculos mudaram');
-    const create = wrapper.findAll('button').find((button) => button.text() === 'Novo perfil');
+    const create = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Novo perfil');
     expect(create?.attributes('disabled')).toBeDefined();
     expect(fetchRuntimeProfilePlan).not.toHaveBeenCalled();
     expect(saveRuntimeProfile).not.toHaveBeenCalled();
@@ -274,7 +321,10 @@ describe('ProjectServiceRuntimeProfilesPanel', () => {
     });
     await wrapper.setProps({ projectId: 'loto' });
     await flushPromises();
-    expect(fetchRuntimeProfiles).toHaveBeenCalledWith('loto', 'environment:primary:loto');
+    expect(fetchRuntimeProfiles).toHaveBeenCalledWith(
+      'loto',
+      'environment:primary:loto',
+    );
     expect(wrapper.findAll('#runtime-profile-select option')).toHaveLength(1);
     expect(wrapper.text()).not.toContain('Diferenças de portas observadas');
   });
