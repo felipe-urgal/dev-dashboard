@@ -24,7 +24,10 @@ export interface ConfirmedLifecycleRunner {
 }
 
 export interface ConfirmedLifecycleStepWriter {
-  append(step: ConfirmedLifecycleStep, request: ConfirmedLifecycleRequest): Promise<void>;
+  append(
+    step: ConfirmedLifecycleStep,
+    request: ConfirmedLifecycleRequest,
+  ): Promise<void>;
 }
 
 function conflict(message: string): never {
@@ -32,13 +35,17 @@ function conflict(message: string): never {
 }
 
 function plannedNodes(plan: ServiceLifecyclePlan): ServiceLifecyclePlanNode[] {
-  return plan.nodes.filter((node) =>
-    node.disposition === 'willStart' || node.disposition === 'willStop');
+  return plan.nodes.filter(
+    (node) =>
+      node.disposition === 'willStart' || node.disposition === 'willStop',
+  );
 }
 
 function resourceKeys(plan: ServiceLifecyclePlan): string[] {
   const keys = [
-    'environment:' + plan.target.projectId + ':' +
+    'environment:' +
+      plan.target.projectId +
+      ':' +
       plan.target.environmentInstanceId,
   ];
   for (const node of plan.nodes) {
@@ -55,13 +62,16 @@ function compatiblePendingNode(
   actual: ServiceLifecyclePlanNode,
   approved: ServiceLifecyclePlanNode,
 ): boolean {
-  return actual.serviceRef === approved.serviceRef &&
+  return (
+    actual.serviceRef === approved.serviceRef &&
     actual.provider === approved.provider &&
     actual.relation === approved.relation &&
     actual.disposition === approved.disposition &&
     actual.consumerCount === approved.consumerCount &&
-    JSON.stringify(actual.dependencies) === JSON.stringify(approved.dependencies) &&
-    JSON.stringify(actual.ports) === JSON.stringify(approved.ports);
+    JSON.stringify(actual.dependencies) ===
+      JSON.stringify(approved.dependencies) &&
+    JSON.stringify(actual.ports) === JSON.stringify(approved.ports)
+  );
 }
 
 /**
@@ -84,11 +94,15 @@ export class ConfirmedServiceLifecycleCoordinator {
     this.now = options.now ?? (() => new Date());
   }
 
-  public async run(request: ConfirmedLifecycleRequest): Promise<ConfirmedLifecycleResult> {
+  public async run(
+    request: ConfirmedLifecycleRequest,
+  ): Promise<ConfirmedLifecycleResult> {
     const acceptedAt = Date.parse(request.acceptedObservedAt);
     const age = this.now().getTime() - acceptedAt;
     if (!Number.isFinite(acceptedAt) || age < 0 || age > ACCEPTANCE_TTL_MS) {
-      conflict('Accepted lifecycle preview expired; refresh and confirm again.');
+      conflict(
+        'Accepted lifecycle preview expired; refresh and confirm again.',
+      );
     }
     if (
       !/^[a-f0-9]{64}$/.test(request.expectedRevision) ||
@@ -101,86 +115,115 @@ export class ConfirmedServiceLifecycleCoordinator {
     this.ensureApproved(initial, request);
     const approved = plannedNodes(initial);
 
-    return this.dependencies.locks.withResources(resourceKeys(initial), async () => {
-      // Two different projects can share one resource. Revalidate after
-      // taking every lock before invoking a provider-owned lifecycle action.
-      const locked = await this.preview(request, request.expectedPlanHash);
-      this.ensureApproved(locked, request);
-      const steps: ConfirmedLifecycleStep[] = [];
-      for (const node of approved) {
-        let current: ServiceLifecyclePlan;
-        try {
-          current = await this.preview(request);
-          if (current.expectedRevision !== request.expectedRevision ||
-            current.status !== 'ready') {
-            return this.interrupted(request, steps,
-              'Lifecycle plan changed before the next step.');
+    return this.dependencies.locks.withResources(
+      resourceKeys(initial),
+      async () => {
+        // Two different projects can share one resource. Revalidate after
+        // taking every lock before invoking a provider-owned lifecycle action.
+        const locked = await this.preview(request, request.expectedPlanHash);
+        this.ensureApproved(locked, request);
+        const steps: ConfirmedLifecycleStep[] = [];
+        for (const node of approved) {
+          let current: ServiceLifecyclePlan;
+          try {
+            current = await this.preview(request);
+            if (
+              current.expectedRevision !== request.expectedRevision ||
+              current.status !== 'ready'
+            ) {
+              return this.interrupted(
+                request,
+                steps,
+                'Lifecycle plan changed before the next step.',
+              );
+            }
+            const observedNode = current.nodes.find(
+              (candidate) => candidate.serviceRef === node.serviceRef,
+            );
+            if (!observedNode || !compatiblePendingNode(observedNode, node)) {
+              return this.interrupted(
+                request,
+                steps,
+                'Resource identity, ownership or state changed during lifecycle.',
+              );
+            }
+          } catch {
+            return this.interrupted(
+              request,
+              steps,
+              'Resource observation became unavailable during lifecycle.',
+            );
           }
-          const observedNode = current.nodes.find(
-            (candidate) => candidate.serviceRef === node.serviceRef);
-          if (!observedNode || !compatiblePendingNode(observedNode, node)) {
-            return this.interrupted(request, steps,
-              'Resource identity, ownership or state changed during lifecycle.');
-          }
-        } catch {
-          return this.interrupted(request, steps,
-            'Resource observation became unavailable during lifecycle.');
-        }
 
-        // This adapter boundary deliberately supports only Compose for now.
-        // Other providers require their own owner-aware integration.
-        try {
-          await this.dependencies.runner.run(request.action, node);
-        } catch {
-          const failure: ConfirmedLifecycleStep = {
+          // This adapter boundary deliberately supports only Compose for now.
+          // Other providers require their own owner-aware integration.
+          try {
+            await this.dependencies.runner.run(request.action, node);
+          } catch {
+            const failure: ConfirmedLifecycleStep = {
+              serviceRef: node.serviceRef,
+              action: request.action,
+              state: 'failed',
+              dispositionBefore: node.disposition,
+              diagnostic:
+                'The lifecycle owner reported failure; no rollback was attempted.',
+            };
+            steps.push(failure);
+            await this.record(request, failure);
+            return this.interrupted(
+              request,
+              steps,
+              'Lifecycle owner failed; recovery may be required.',
+            );
+          }
+
+          let verified = false;
+          try {
+            const after = await this.preview(request);
+            const actual = after.nodes.find(
+              (candidate) => candidate.serviceRef === node.serviceRef,
+            );
+            verified =
+              request.action === 'start'
+                ? actual?.state === 'running' &&
+                  actual.readiness === 'ready' &&
+                  actual.disposition === 'alreadyReady'
+                : actual?.state === 'stopped';
+          } catch {
+            // A provider may have mutated state before observation failed.
+          }
+          const step: ConfirmedLifecycleStep = {
             serviceRef: node.serviceRef,
             action: request.action,
-            state: 'failed',
+            state: verified ? 'completed' : 'unverified',
             dispositionBefore: node.disposition,
-            diagnostic: 'The lifecycle owner reported failure; no rollback was attempted.',
+            ...(!verified
+              ? {
+                  diagnostic:
+                    'Lifecycle was invoked but final state is not proven.',
+                }
+              : {}),
           };
-          steps.push(failure);
-          await this.record(request, failure);
-          return this.interrupted(request, steps,
-            'Lifecycle owner failed; recovery may be required.');
+          steps.push(step);
+          await this.record(request, step);
+          if (!verified) {
+            return this.interrupted(
+              request,
+              steps,
+              'Final service state could not be verified; recovery may be required.',
+            );
+          }
         }
 
-        let verified = false;
-        try {
-          const after = await this.preview(request);
-          const actual = after.nodes.find((candidate) =>
-            candidate.serviceRef === node.serviceRef);
-          verified = request.action === 'start'
-            ? actual?.state === 'running' && actual.readiness === 'ready' &&
-              actual.disposition === 'alreadyReady'
-            : actual?.state === 'stopped';
-        } catch {
-          // A provider may have mutated state before observation failed.
-        }
-        const step: ConfirmedLifecycleStep = {
-          serviceRef: node.serviceRef,
+        return {
+          projectId: request.projectId,
+          environmentInstanceId: request.environmentInstanceId,
           action: request.action,
-          state: verified ? 'completed' : 'unverified',
-          dispositionBefore: node.disposition,
-          ...(!verified
-            ? { diagnostic: 'Lifecycle was invoked but final state is not proven.' } : {}),
+          status: 'completed',
+          steps,
         };
-        steps.push(step);
-        await this.record(request, step);
-        if (!verified) {
-          return this.interrupted(request, steps,
-            'Final service state could not be verified; recovery may be required.');
-        }
-      }
-
-      return {
-        projectId: request.projectId,
-        environmentInstanceId: request.environmentInstanceId,
-        action: request.action,
-        status: 'completed',
-        steps,
-      };
-    });
+      },
+    );
   }
 
   private async preview(
@@ -188,7 +231,9 @@ export class ConfirmedServiceLifecycleCoordinator {
     expectedPlanHash?: string,
   ): Promise<ServiceLifecyclePlan> {
     return this.dependencies.planner.preview(
-      request.projectId, request.action, request.environmentInstanceId,
+      request.projectId,
+      request.action,
+      request.environmentInstanceId,
       expectedPlanHash,
     );
   }
@@ -206,16 +251,21 @@ export class ConfirmedServiceLifecycleCoordinator {
       plan.status !== 'ready' ||
       plan.executable !== false
     ) {
-      conflict('Lifecycle plan is blocked or no longer matches the confirmation.');
+      conflict(
+        'Lifecycle plan is blocked or no longer matches the confirmation.',
+      );
     }
     for (const node of plannedNodes(plan)) {
       if (
         node.provider !== 'compose' ||
         node.relation !== 'owned' ||
         node.consumerCount !== 1 ||
-        node.disposition !== (request.action === 'start' ? 'willStart' : 'willStop')
+        node.disposition !==
+          (request.action === 'start' ? 'willStart' : 'willStop')
       ) {
-        conflict('Resource lacks a supported, exclusively owned lifecycle adapter.');
+        conflict(
+          'Resource lacks a supported, exclusively owned lifecycle adapter.',
+        );
       }
     }
   }
