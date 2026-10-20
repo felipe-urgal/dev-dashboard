@@ -1,6 +1,4 @@
 import type {
-  ActivityEvent,
-  ActivityJob,
   ManagedProcess,
   ServiceCatalogEntry,
   ServiceDiagnosticsSnapshot,
@@ -151,8 +149,8 @@ export class ServiceDiagnosticsService {
     }
 
     // Reuse Activity/Jobs once: failures are explicitly partial rather than empty history.
-    let events: ActivityEvent[] = [];
-    let jobs: ActivityJob[] = [];
+    let events: ServiceDiagnosticsSnapshot['events'] = [];
+    let jobs: ServiceDiagnosticsSnapshot['jobs'] = [];
     try {
       const activity = await this.deps.activity.readProject(projectId, 100);
       partial ||= activity.partial;
@@ -160,11 +158,17 @@ export class ServiceDiagnosticsService {
         events = activity.events
           .filter((event) => matchesActivityRef(event.resourceRef?.id, entry) &&
             (!event.environmentInstanceId || event.environmentInstanceId === environment))
-          .slice(0, MAX_EVENTS);
+          .slice(0, MAX_EVENTS)
+          .map(({ id, type, status, occurredAt, resourceRef, jobId }) => ({
+            id, type, status, occurredAt, resourceRef, jobId,
+          }));
         jobs = activity.jobs
           .filter((job) => matchesActivityRef(job.resourceRef?.id, entry) &&
             (!job.environmentInstanceId || job.environmentInstanceId === environment))
-          .slice(0, MAX_EVENTS);
+          .slice(0, MAX_EVENTS)
+          .map(({ id, action, status, startedAt, finishedAt, resourceRef }) => ({
+            id, action, status, startedAt, finishedAt, resourceRef,
+          }));
       }
     } catch {
       partial = true;
