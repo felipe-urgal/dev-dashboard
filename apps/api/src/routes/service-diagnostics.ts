@@ -10,8 +10,13 @@ interface Options extends FastifyPluginOptions {
   diagnostics: Pick<ServiceDiagnosticsService, 'read'>;
 }
 
-interface Params { projectId: string; serviceRef: string }
-interface Query { environmentInstanceId?: string }
+interface Params {
+  projectId: string;
+  serviceRef: string;
+}
+interface Query {
+  environmentInstanceId?: string;
+}
 
 const resourceRefSchema = {
   type: 'object',
@@ -31,18 +36,49 @@ const responseSchema = {
       type: 'object',
       additionalProperties: false,
       required: [
-        'serviceRef', 'projectId', 'environmentInstanceId', 'provider', 'source',
-        'status', 'state', 'readiness', 'readAt', 'stale', 'partial',
-        'masked', 'truncated', 'events', 'jobs',
+        'serviceRef',
+        'projectId',
+        'environmentInstanceId',
+        'provider',
+        'source',
+        'status',
+        'state',
+        'readiness',
+        'readAt',
+        'stale',
+        'partial',
+        'masked',
+        'truncated',
+        'events',
+        'jobs',
       ],
       properties: {
         serviceRef: { type: 'string' },
         projectId: { type: 'string' },
         environmentInstanceId: { type: 'string' },
-        provider: { type: 'string', enum: ['systemd', 'docker', 'compose', 'managed-process'] },
-        source: { type: 'string', enum: ['journal', 'compose', 'process', 'none'] },
-        status: { type: 'string', enum: ['available', 'empty', 'unavailable', 'unsupported'] },
-        state: { type: 'string', enum: ['running', 'stopped', 'starting', 'stopping', 'failed', 'unknown'] },
+        provider: {
+          type: 'string',
+          enum: ['systemd', 'docker', 'compose', 'managed-process'],
+        },
+        source: {
+          type: 'string',
+          enum: ['journal', 'compose', 'process', 'none'],
+        },
+        status: {
+          type: 'string',
+          enum: ['available', 'empty', 'unavailable', 'unsupported'],
+        },
+        state: {
+          type: 'string',
+          enum: [
+            'running',
+            'stopped',
+            'starting',
+            'stopping',
+            'failed',
+            'unknown',
+          ],
+        },
         readiness: { type: 'string', enum: ['ready', 'unhealthy', 'unknown'] },
         observedAt: { type: 'string' },
         readAt: { type: 'string' },
@@ -62,7 +98,16 @@ const responseSchema = {
             properties: {
               id: { type: 'string' },
               type: { type: 'string' },
-              status: { type: 'string', enum: ['started', 'succeeded', 'failed', 'cancelled', 'warning'] },
+              status: {
+                type: 'string',
+                enum: [
+                  'started',
+                  'succeeded',
+                  'failed',
+                  'cancelled',
+                  'warning',
+                ],
+              },
               occurredAt: { type: 'string' },
               resourceRef: resourceRefSchema,
               jobId: { type: 'string' },
@@ -79,7 +124,10 @@ const responseSchema = {
             properties: {
               id: { type: 'string' },
               action: { type: 'string' },
-              status: { type: 'string', enum: ['queued', 'running', 'succeeded', 'failed', 'cancelled'] },
+              status: {
+                type: 'string',
+                enum: ['queued', 'running', 'succeeded', 'failed', 'cancelled'],
+              },
               startedAt: { type: 'string' },
               finishedAt: { type: 'string' },
               resourceRef: resourceRefSchema,
@@ -91,22 +139,32 @@ const responseSchema = {
   },
 } as const;
 
-export const serviceDiagnosticsRoutes: FastifyPluginAsync<Options> = async (app, options) => {
+export const serviceDiagnosticsRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  options,
+) => {
   app.get<{ Params: Params; Querystring: Query }>(
     '/projects/:projectId/services/:serviceRef/diagnostics',
     {
       schema: {
         params: {
-          type: 'object', additionalProperties: false, required: ['projectId', 'serviceRef'],
+          type: 'object',
+          additionalProperties: false,
+          required: ['projectId', 'serviceRef'],
           properties: {
             projectId: { type: 'string', minLength: 1, maxLength: 160 },
             serviceRef: { type: 'string', minLength: 1, maxLength: 512 },
           },
         },
         querystring: {
-          type: 'object', additionalProperties: false,
+          type: 'object',
+          additionalProperties: false,
           properties: {
-            environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+            environmentInstanceId: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 512,
+            },
           },
         },
         response: { 200: responseSchema, ...commonErrorResponseSchemas },
@@ -124,7 +182,9 @@ export const serviceDiagnosticsRoutes: FastifyPluginAsync<Options> = async (app,
       } catch (error) {
         if (error instanceof ServiceDiagnosticsError) {
           throw new ApiError({
-            statusCode: 404, code: 'NOT_FOUND', message: error.message,
+            statusCode: 404,
+            code: 'NOT_FOUND',
+            message: error.message,
           });
         }
         throw error;

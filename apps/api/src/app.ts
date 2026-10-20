@@ -382,15 +382,20 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   app.register(serviceDiagnosticsRoutes, {
     prefix: '/api',
-    diagnostics: options.serviceDiagnostics ?? new ServiceDiagnosticsService({
-      projects: context.projectStore,
-      bindings: context.projectServiceBindingStore,
-      catalog,
-      compose: dockerComposeLifecycleService,
-      processes: context.processManager,
-      activity: activitySnapshotService,
-      journal: new SystemdJournalReader(),
-    }, options.now ? { now: () => new Date(options.now!) } : {}),
+    diagnostics:
+      options.serviceDiagnostics ??
+      new ServiceDiagnosticsService(
+        {
+          projects: context.projectStore,
+          bindings: context.projectServiceBindingStore,
+          catalog,
+          compose: dockerComposeLifecycleService,
+          processes: context.processManager,
+          activity: activitySnapshotService,
+          journal: new SystemdJournalReader(),
+        },
+        options.now ? { now: () => new Date(options.now!) } : {},
+      ),
   });
 
   app.register(projectServiceBindingRoutes, {

@@ -37,11 +37,18 @@ test('journal permissions, missing CLI and empty output remain distinguishable',
 
   const noJournal = new SystemdJournalReader({
     platform: 'linux',
-    runner: async () => 'No journal files were opened due to insufficient permissions.',
+    runner: async () =>
+      'No journal files were opened due to insufficient permissions.',
   });
-  assert.equal((await noJournal.read('system', 'postgresql.service')).status, 'unavailable');
+  assert.equal(
+    (await noJournal.read('system', 'postgresql.service')).status,
+    'unavailable',
+  );
 
-  const empty = new SystemdJournalReader({ platform: 'linux', runner: async () => '' });
+  const empty = new SystemdJournalReader({
+    platform: 'linux',
+    runner: async () => '',
+  });
   assert.equal((await empty.read('user', 'fixture.service')).status, 'empty');
 });
 
@@ -54,7 +61,13 @@ test('invalid identity and non-Linux never invoke journalctl', async () => {
       return 'data';
     },
   });
-  assert.equal((await reader.read('user', 'fixture.service')).status, 'unsupported');
-  assert.equal((await reader.read('user', '../foo.service')).status, 'unsupported');
+  assert.equal(
+    (await reader.read('user', 'fixture.service')).status,
+    'unsupported',
+  );
+  assert.equal(
+    (await reader.read('user', '../foo.service')).status,
+    'unsupported',
+  );
   assert.equal(calls, 0);
 });

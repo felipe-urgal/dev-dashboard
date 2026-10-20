@@ -34,7 +34,10 @@ type Dependencies = {
   bindings: Pick<ProjectServiceBindingStore, 'byProject'>;
   catalog: Pick<ServiceCatalogService, 'inspect'>;
   compose: Pick<DockerComposeLifecycleService, 'logs'>;
-  processes: Pick<ProcessManager, 'listProcesses' | 'readServerLog' | 'readWorkerLog' | 'readTestLog'>;
+  processes: Pick<
+    ProcessManager,
+    'listProcesses' | 'readServerLog' | 'readWorkerLog' | 'readTestLog'
+  >;
   activity: Pick<ActivitySnapshotService, 'readProject'>;
   journal: Pick<SystemdJournalReader, 'read'>;
 };
@@ -49,24 +52,44 @@ type ReadResult = {
   readAt?: string;
 };
 
-const unavailable = (source: ReadResult['source'], diagnostic: string): ReadResult => ({
-  source, status: 'unavailable', masked: false, truncated: false, diagnostic,
+const unavailable = (
+  source: ReadResult['source'],
+  diagnostic: string,
+): ReadResult => ({
+  source,
+  status: 'unavailable',
+  masked: false,
+  truncated: false,
+  diagnostic,
 });
 
-function safeContent(content: string): { content: string; masked: boolean; truncated: boolean } {
+function safeContent(content: string): {
+  content: string;
+  masked: boolean;
+  truncated: boolean;
+} {
   const bytes = Buffer.from(content, 'utf8');
   const truncated = bytes.length > MAX_LOG_BYTES;
   const limited = truncated
-    ? bytes.subarray(bytes.length - MAX_LOG_BYTES).toString('utf8').replace(/^\uFFFD+/, '')
+    ? bytes
+        .subarray(bytes.length - MAX_LOG_BYTES)
+        .toString('utf8')
+        .replace(/^\uFFFD+/, '')
     : content;
   const masked = maskSensitiveLogContent(limited);
   return { content: masked.content, masked: masked.masked, truncated };
 }
 
-function matchesActivityRef(ref: string | undefined, entry: ServiceCatalogEntry): boolean {
+function matchesActivityRef(
+  ref: string | undefined,
+  entry: ServiceCatalogEntry,
+): boolean {
   if (!ref) return false;
-  return ref === entry.id ||
-    (entry.provider === 'managed-process' && ref === entry.id.slice('process:'.length));
+  return (
+    ref === entry.id ||
+    (entry.provider === 'managed-process' &&
+      ref === entry.id.slice('process:'.length))
+  );
 }
 
 /** One-shot observations. No polling, log storage, mutations or trust in caller-supplied unit names. */
@@ -86,12 +109,23 @@ export class ServiceDiagnosticsService {
     environmentInstanceId?: string,
   ): Promise<ServiceDiagnosticsSnapshot> {
     const project = this.deps.projects.findProject(projectId);
-    const environment = environmentInstanceId ?? primaryEnvironmentInstanceId(projectId);
-    if (!project || !this.deps.bindings.byProject(projectId).some(
-      (binding) => binding.enabled &&
-        binding.environmentInstanceId === environment && binding.serviceRef === serviceRef,
-    )) {
-      throw new ServiceDiagnosticsError('NOT_FOUND', 'Service binding not found for this project/environment.');
+    const environment =
+      environmentInstanceId ?? primaryEnvironmentInstanceId(projectId);
+    if (
+      !project ||
+      !this.deps.bindings
+        .byProject(projectId)
+        .some(
+          (binding) =>
+            binding.enabled &&
+            binding.environmentInstanceId === environment &&
+            binding.serviceRef === serviceRef,
+        )
+    ) {
+      throw new ServiceDiagnosticsError(
+        'NOT_FOUND',
+        'Service binding not found for this project/environment.',
+      );
     }
 
     const readAt = this.now().toISOString();
@@ -99,51 +133,90 @@ export class ServiceDiagnosticsService {
     let partial = false;
     try {
       const catalog = await this.deps.catalog.inspect();
-      const matches = catalog.entries.filter((candidate) => candidate.id === serviceRef);
+      const matches = catalog.entries.filter(
+        (candidate) => candidate.id === serviceRef,
+      );
       entry = matches.length === 1 ? matches[0] : undefined;
-      partial = catalog.truncated || catalog.status !== 'ready' || matches.length !== 1;
+      partial =
+        catalog.truncated || catalog.status !== 'ready' || matches.length !== 1;
     } catch {
       partial = true;
     }
 
-    const fallbackProvider = serviceRef.startsWith('systemd:') ? 'systemd'
-      : serviceRef.startsWith('compose:') ? 'compose'
-        : serviceRef.startsWith('process:') ? 'managed-process' : 'docker';
+    const fallbackProvider = serviceRef.startsWith('systemd:')
+      ? 'systemd'
+      : serviceRef.startsWith('compose:')
+        ? 'compose'
+        : serviceRef.startsWith('process:')
+          ? 'managed-process'
+          : 'docker';
     const provider = entry?.provider ?? fallbackProvider;
-    let result: ReadResult = unavailable('none', 'Service was not resolved in the current catalog; refresh inventory and binding.');
+    let result: ReadResult = unavailable(
+      'none',
+      'Service was not resolved in the current catalog; refresh inventory and binding.',
+    );
 
     if (entry) {
-      if (entry.provider === 'systemd' && (entry.scope === 'system' || entry.scope === 'user')) {
+      if (
+        entry.provider === 'systemd' &&
+        (entry.scope === 'system' || entry.scope === 'user')
+      ) {
         const journal = await this.deps.journal.read(entry.scope, entry.name);
         result = { source: 'journal', ...journal };
       } else if (entry.provider === 'compose') {
-        const owned = entry.ownership === 'confirmed' && entry.projectId === projectId &&
-          (entry.environmentInstanceId ?? primaryEnvironmentInstanceId(projectId)) === environment;
+        const owned =
+          entry.ownership === 'confirmed' &&
+          entry.projectId === projectId &&
+          (entry.environmentInstanceId ??
+            primaryEnvironmentInstanceId(projectId)) === environment;
         if (!owned) {
-          result = unavailable('compose', 'Compose ownership for this environment is not verified.');
+          result = unavailable(
+            'compose',
+            'Compose ownership for this environment is not verified.',
+          );
         } else {
           try {
-            const log = await this.deps.compose.logs(project, { service: entry.name, tail: 200 });
+            const log = await this.deps.compose.logs(project, {
+              service: entry.name,
+              tail: 200,
+            });
             result = {
-              source: 'compose', status: log.content ? 'available' : 'empty',
-              content: log.content, masked: log.masked, truncated: log.truncated, readAt: log.readAt,
+              source: 'compose',
+              status: log.content ? 'available' : 'empty',
+              content: log.content,
+              masked: log.masked,
+              truncated: log.truncated,
+              readAt: log.readAt,
             };
           } catch {
-            result = unavailable('compose', 'Compose log reader is unavailable or ownership changed.');
+            result = unavailable(
+              'compose',
+              'Compose log reader is unavailable or ownership changed.',
+            );
           }
         }
       } else if (entry.provider === 'managed-process') {
-        const owned = entry.ownership === 'confirmed' && entry.projectId === projectId &&
-          (entry.environmentInstanceId ?? primaryEnvironmentInstanceId(projectId)) === environment;
+        const owned =
+          entry.ownership === 'confirmed' &&
+          entry.projectId === projectId &&
+          (entry.environmentInstanceId ??
+            primaryEnvironmentInstanceId(projectId)) === environment;
         if (!owned) {
-          result = unavailable('process', 'Process ownership for this environment is not verified.');
+          result = unavailable(
+            'process',
+            'Process ownership for this environment is not verified.',
+          );
         } else {
           result = await this.readProcess(entry, projectId, environment);
         }
       } else {
         result = {
-          source: 'none', status: 'unsupported', masked: false, truncated: false,
-          diagnostic: 'Unmanaged Docker containers do not expose logs through this provider.',
+          source: 'none',
+          status: 'unsupported',
+          masked: false,
+          truncated: false,
+          diagnostic:
+            'Unmanaged Docker containers do not expose logs through this provider.',
         };
       }
     }
@@ -156,39 +229,70 @@ export class ServiceDiagnosticsService {
       partial ||= activity.partial;
       if (entry) {
         events = activity.events
-          .filter((event) => matchesActivityRef(event.resourceRef?.id, entry) &&
-            (!event.environmentInstanceId || event.environmentInstanceId === environment))
+          .filter(
+            (event) =>
+              matchesActivityRef(event.resourceRef?.id, entry) &&
+              (!event.environmentInstanceId ||
+                event.environmentInstanceId === environment),
+          )
           .slice(0, MAX_EVENTS)
           .map(({ id, type, status, occurredAt, resourceRef, jobId }) => ({
-            id, type, status, occurredAt, resourceRef, jobId,
+            id,
+            type,
+            status,
+            occurredAt,
+            resourceRef,
+            jobId,
           }));
         jobs = activity.jobs
-          .filter((job) => matchesActivityRef(job.resourceRef?.id, entry) &&
-            (!job.environmentInstanceId || job.environmentInstanceId === environment))
+          .filter(
+            (job) =>
+              matchesActivityRef(job.resourceRef?.id, entry) &&
+              (!job.environmentInstanceId ||
+                job.environmentInstanceId === environment),
+          )
           .slice(0, MAX_EVENTS)
-          .map(({ id, action, status, startedAt, finishedAt, resourceRef }) => ({
-            id, action, status, startedAt, finishedAt, resourceRef,
-          }));
+          .map(
+            ({ id, action, status, startedAt, finishedAt, resourceRef }) => ({
+              id,
+              action,
+              status,
+              startedAt,
+              finishedAt,
+              resourceRef,
+            }),
+          );
       }
     } catch {
       partial = true;
     }
     const observed = entry?.observedAt;
     const observedMs = observed ? Date.parse(observed) : NaN;
-    const stale = !Number.isFinite(observedMs) ||
+    const stale =
+      !Number.isFinite(observedMs) ||
       Math.abs(this.now().getTime() - observedMs) > MAX_AGE_MS;
-    const safe = result.content !== undefined ? safeContent(result.content) : undefined;
+    const safe =
+      result.content !== undefined ? safeContent(result.content) : undefined;
 
     return {
-      serviceRef, projectId, environmentInstanceId: environment, provider,
-      source: result.source, status: result.status, state: entry?.state ?? 'unknown',
-      readiness: entry?.readiness ?? 'unknown', ...(observed ? { observedAt: observed } : {}),
-      readAt: result.readAt ?? readAt, stale,
-      partial: partial || result.status === 'unavailable', masked: (result.masked || safe?.masked) ?? false,
+      serviceRef,
+      projectId,
+      environmentInstanceId: environment,
+      provider,
+      source: result.source,
+      status: result.status,
+      state: entry?.state ?? 'unknown',
+      readiness: entry?.readiness ?? 'unknown',
+      ...(observed ? { observedAt: observed } : {}),
+      readAt: result.readAt ?? readAt,
+      stale,
+      partial: partial || result.status === 'unavailable',
+      masked: (result.masked || safe?.masked) ?? false,
       truncated: (result.truncated || safe?.truncated) ?? false,
       ...(safe ? { content: safe.content } : {}),
       ...(result.diagnostic ? { diagnostic: result.diagnostic } : {}),
-      events, jobs,
+      events,
+      jobs,
     };
   }
 
@@ -199,22 +303,42 @@ export class ServiceDiagnosticsService {
   ): Promise<ReadResult> {
     try {
       const processes = await this.deps.processes.listProcesses();
-      const process = processes.find((item) => 'process:' + item.id === entry.id &&
-        item.projectId === projectId &&
-        (item.environmentInstanceId ?? primaryEnvironmentInstanceId(projectId)) === environment);
-      if (!process) return unavailable('process', 'Managed process identity was removed or changed.');
-      if (process.kind === 'script') return {
-        status: 'unsupported', source: 'process', masked: false, truncated: false,
-        diagnostic: 'Script logs are owned by Script Execution.',
-      };
+      const process = processes.find(
+        (item) =>
+          'process:' + item.id === entry.id &&
+          item.projectId === projectId &&
+          (item.environmentInstanceId ??
+            primaryEnvironmentInstanceId(projectId)) === environment,
+      );
+      if (!process)
+        return unavailable(
+          'process',
+          'Managed process identity was removed or changed.',
+        );
+      if (process.kind === 'script')
+        return {
+          status: 'unsupported',
+          source: 'process',
+          masked: false,
+          truncated: false,
+          diagnostic: 'Script logs are owned by Script Execution.',
+        };
       const log = await this.processLog(process);
-      if (log.processId !== process.id) return unavailable('process', 'Process log identity changed.');
+      if (log.processId !== process.id)
+        return unavailable('process', 'Process log identity changed.');
       return {
-        source: 'process', status: log.content ? 'available' : 'empty',
-        content: log.content, masked: log.masked, truncated: log.truncated, readAt: log.readAt,
+        source: 'process',
+        status: log.content ? 'available' : 'empty',
+        content: log.content,
+        masked: log.masked,
+        truncated: log.truncated,
+        readAt: log.readAt,
       };
     } catch {
-      return unavailable('process', 'Managed process log reader is unavailable.');
+      return unavailable(
+        'process',
+        'Managed process log reader is unavailable.',
+      );
     }
   }
 
@@ -222,12 +346,25 @@ export class ServiceDiagnosticsService {
     const options = { maxBytes: MAX_LOG_BYTES };
     switch (process.kind) {
       case 'server':
-        return this.deps.processes.readServerLog(process.projectId, options, process.environmentInstanceId);
+        return this.deps.processes.readServerLog(
+          process.projectId,
+          options,
+          process.environmentInstanceId,
+        );
       case 'worker':
       case 'webpack':
-        return this.deps.processes.readWorkerLog(process.projectId, process.kind, options, process.environmentInstanceId);
+        return this.deps.processes.readWorkerLog(
+          process.projectId,
+          process.kind,
+          options,
+          process.environmentInstanceId,
+        );
       case 'test':
-        return this.deps.processes.readTestLog(process.projectId, options, process.environmentInstanceId);
+        return this.deps.processes.readTestLog(
+          process.projectId,
+          options,
+          process.environmentInstanceId,
+        );
       case 'script':
         throw new Error('Script logs are not owned by Process Manager.');
     }

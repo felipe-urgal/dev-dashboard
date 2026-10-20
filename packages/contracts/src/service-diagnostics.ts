@@ -27,6 +27,16 @@ export interface ServiceDiagnosticsSnapshot {
   content?: string;
   diagnostic?: string;
   /** Existing bounded Activity/Jobs references, not duplicate log storage. */
-  events: Array<Pick<ActivityEvent, 'id' | 'type' | 'status' | 'occurredAt' | 'resourceRef' | 'jobId'>>;
-  jobs: Array<Pick<ActivityJob, 'id' | 'action' | 'status' | 'startedAt' | 'finishedAt' | 'resourceRef'>>;
+  events: Array<
+    Pick<
+      ActivityEvent,
+      'id' | 'type' | 'status' | 'occurredAt' | 'resourceRef' | 'jobId'
+    >
+  >;
+  jobs: Array<
+    Pick<
+      ActivityJob,
+      'id' | 'action' | 'status' | 'startedAt' | 'finishedAt' | 'resourceRef'
+    >
+  >;
 }
