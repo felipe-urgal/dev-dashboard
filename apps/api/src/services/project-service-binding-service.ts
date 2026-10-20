@@ -373,7 +373,10 @@ export class ProjectServiceBindingService {
   public remove(projectId: string, id: string, expectedRevision: string) {
     this.project(projectId);
     if (this.d.profiles?.byBinding(id).length) {
-      rejected('Binding belongs to a runtime profile. Update the profile first.', 'CONFLICT');
+      rejected(
+        'Binding belongs to a runtime profile. Update the profile first.',
+        'CONFLICT',
+      );
     }
     this.d.store.delete(projectId, id, expectedRevision);
     return { revision: this.d.store.revision(projectId) };

@@ -19,7 +19,10 @@ export class ServiceRuntimeProfileServiceError extends Error {
 }
 
 type Dependencies = {
-  profiles: Pick<ServiceRuntimeProfileStore, 'byProject' | 'revision' | 'save' | 'delete'>;
+  profiles: Pick<
+    ServiceRuntimeProfileStore,
+    'byProject' | 'revision' | 'save' | 'delete'
+  >;
   projects: Pick<ProjectStore, 'findProject'>;
   environments: Pick<DevelopmentEnvironmentInstanceStore, 'findById'>;
   bindings: Pick<ProjectServiceBindingStore, 'byProject' | 'revision'>;
@@ -39,32 +42,51 @@ export class ServiceRuntimeProfileService {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  private checkEnvironment(projectId: string, environmentInstanceId: string): void {
+  private checkEnvironment(
+    projectId: string,
+    environmentInstanceId: string,
+  ): void {
     if (!this.d.projects.findProject(projectId))
       reject('NOT_FOUND', 'Project not found.');
     const env = this.d.environments.findById(environmentInstanceId);
     if (!env || env.projectId !== projectId)
       reject('NOT_FOUND', 'Environment does not belong to this project.');
     if (env.runtime.kind !== 'host')
-      reject('CONFLICT', 'Host service profiles are unavailable inside a Dev Container.');
+      reject(
+        'CONFLICT',
+        'Host service profiles are unavailable inside a Dev Container.',
+      );
   }
 
-  private view(projectId: string, profile: ReturnType<Dependencies['profiles']['byProject']>[number]): ServiceRuntimeProfileView {
-    const bindings = new Map(this.d.bindings.byProject(projectId).map((binding) => [binding.id, binding]));
+  private view(
+    projectId: string,
+    profile: ReturnType<Dependencies['profiles']['byProject']>[number],
+  ): ServiceRuntimeProfileView {
+    const bindings = new Map(
+      this.d.bindings
+        .byProject(projectId)
+        .map((binding) => [binding.id, binding]),
+    );
     return {
       ...profile,
       staleBindingIds: profile.bindingIds.filter((id) => {
         const binding = bindings.get(id);
-        return !binding || !binding.enabled ||
-          binding.environmentInstanceId !== profile.environmentInstanceId;
+        return (
+          !binding ||
+          !binding.enabled ||
+          binding.environmentInstanceId !== profile.environmentInstanceId
+        );
       }),
     };
   }
 
   list(projectId: string, environmentInstanceId: string) {
     this.checkEnvironment(projectId, environmentInstanceId);
-    const profiles = this.d.profiles.byProject(projectId)
-      .filter((profile) => profile.environmentInstanceId === environmentInstanceId)
+    const profiles = this.d.profiles
+      .byProject(projectId)
+      .filter(
+        (profile) => profile.environmentInstanceId === environmentInstanceId,
+      )
       .map((profile) => this.view(projectId, profile));
     return {
       projectId,
@@ -86,17 +108,37 @@ export class ServiceRuntimeProfileService {
   ) {
     this.checkEnvironment(projectId, draft.environmentInstanceId);
     if (expectedBindingsRevision !== this.d.bindings.revision(projectId))
-      reject('CONFLICT', 'Service bindings changed. Refresh before editing the profile.');
+      reject(
+        'CONFLICT',
+        'Service bindings changed. Refresh before editing the profile.',
+      );
     if (new Set(draft.bindingIds).size !== draft.bindingIds.length)
       reject('BAD_REQUEST', 'Binding IDs must be unique.');
-    const bindings = new Map(this.d.bindings.byProject(projectId).map((binding) => [binding.id, binding]));
+    const bindings = new Map(
+      this.d.bindings
+        .byProject(projectId)
+        .map((binding) => [binding.id, binding]),
+    );
     for (const bindingId of draft.bindingIds) {
       const binding = bindings.get(bindingId);
-      if (!binding || !binding.enabled || binding.environmentInstanceId !== draft.environmentInstanceId) {
-        reject('CONFLICT', 'Profile references a missing, disabled or foreign-environment binding.');
+      if (
+        !binding ||
+        !binding.enabled ||
+        binding.environmentInstanceId !== draft.environmentInstanceId
+      ) {
+        reject(
+          'CONFLICT',
+          'Profile references a missing, disabled or foreign-environment binding.',
+        );
       }
     }
-    const profile = this.d.profiles.save(projectId, draft, expectedRevision, this.now(), id);
+    const profile = this.d.profiles.save(
+      projectId,
+      draft,
+      expectedRevision,
+      this.now(),
+      id,
+    );
     return {
       profile: this.view(projectId, profile),
       revision: this.d.profiles.revision(projectId),
@@ -104,9 +146,16 @@ export class ServiceRuntimeProfileService {
     };
   }
 
-  remove(projectId: string, environmentInstanceId: string, id: string, expectedRevision: string) {
+  remove(
+    projectId: string,
+    environmentInstanceId: string,
+    id: string,
+    expectedRevision: string,
+  ) {
     this.checkEnvironment(projectId, environmentInstanceId);
-    const profile = this.d.profiles.byProject(projectId).find((item) => item.id === id);
+    const profile = this.d.profiles
+      .byProject(projectId)
+      .find((item) => item.id === id);
     if (!profile || profile.environmentInstanceId !== environmentInstanceId)
       reject('NOT_FOUND', 'Profile not found for this environment.');
     this.d.profiles.delete(projectId, id, expectedRevision);

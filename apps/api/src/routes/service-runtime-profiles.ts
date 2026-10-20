@@ -22,7 +22,9 @@ interface Body {
   expectedRevision: string;
   expectedBindingsRevision: string;
 }
-interface RevisionQuery { expectedRevision: string }
+interface RevisionQuery {
+  expectedRevision: string;
+}
 
 const revision = { type: 'string', pattern: '^[a-f0-9]{64}$' } as const;
 const params = {
@@ -38,7 +40,12 @@ const params = {
 const body = {
   type: 'object',
   additionalProperties: false,
-  required: ['kind', 'bindingIds', 'expectedRevision', 'expectedBindingsRevision'],
+  required: [
+    'kind',
+    'bindingIds',
+    'expectedRevision',
+    'expectedBindingsRevision',
+  ],
   properties: {
     kind: { type: 'string', enum: ['dev', 'test', 'production'] },
     bindingIds: {
@@ -54,7 +61,16 @@ const body = {
 const profile = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'projectId', 'environmentInstanceId', 'kind', 'bindingIds', 'createdAt', 'updatedAt', 'staleBindingIds'],
+  required: [
+    'id',
+    'projectId',
+    'environmentInstanceId',
+    'kind',
+    'bindingIds',
+    'createdAt',
+    'updatedAt',
+    'staleBindingIds',
+  ],
   properties: {
     id: { type: 'string' },
     projectId: { type: 'string' },
@@ -69,7 +85,14 @@ const profile = {
 const listSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['projectId', 'environmentInstanceId', 'revision', 'bindingsRevision', 'fallback', 'profiles'],
+  required: [
+    'projectId',
+    'environmentInstanceId',
+    'revision',
+    'bindingsRevision',
+    'fallback',
+    'profiles',
+  ],
   properties: {
     projectId: { type: 'string' },
     environmentInstanceId: { type: 'string' },
@@ -94,75 +117,129 @@ const deleteSchema = {
 
 function translate(error: unknown): never {
   if (error instanceof ServiceRuntimeProfileStoreError)
-    throw new ApiError({ statusCode: 409, code: 'CONFLICT', message: error.message });
+    throw new ApiError({
+      statusCode: 409,
+      code: 'CONFLICT',
+      message: error.message,
+    });
   if (error instanceof ServiceRuntimeProfileServiceError)
     throw new ApiError({
-      statusCode: error.code === 'NOT_FOUND' ? 404 : error.code === 'BAD_REQUEST' ? 400 : 409,
+      statusCode:
+        error.code === 'NOT_FOUND'
+          ? 404
+          : error.code === 'BAD_REQUEST'
+            ? 400
+            : 409,
       code: error.code,
       message: error.message,
     });
   throw error;
 }
 
-export const serviceRuntimeProfileRoutes: FastifyPluginAsync<Options> = async (app, options) => {
+export const serviceRuntimeProfileRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  options,
+) => {
   app.get<{ Params: Params }>(
     '/projects/:projectId/environments/:environmentInstanceId/service-profiles',
-    { schema: { params, response: { 200: listSchema, ...commonErrorResponseSchemas } } },
+    {
+      schema: {
+        params,
+        response: { 200: listSchema, ...commonErrorResponseSchemas },
+      },
+    },
     async (request) => {
       try {
-        return options.profiles.list(request.params.projectId, request.params.environmentInstanceId);
-      } catch (error) { return translate(error); }
+        return options.profiles.list(
+          request.params.projectId,
+          request.params.environmentInstanceId,
+        );
+      } catch (error) {
+        return translate(error);
+      }
     },
   );
 
   app.post<{ Params: Params; Body: Body }>(
     '/projects/:projectId/environments/:environmentInstanceId/service-profiles',
-    { schema: { params, body, response: { 200: writeSchema, ...commonErrorResponseSchemas } } },
+    {
+      schema: {
+        params,
+        body,
+        response: { 200: writeSchema, ...commonErrorResponseSchemas },
+      },
+    },
     async (request) => {
       try {
         return options.profiles.save(
           request.params.projectId,
-          { kind: request.body.kind, bindingIds: request.body.bindingIds, environmentInstanceId: request.params.environmentInstanceId },
+          {
+            kind: request.body.kind,
+            bindingIds: request.body.bindingIds,
+            environmentInstanceId: request.params.environmentInstanceId,
+          },
           request.body.expectedRevision,
           request.body.expectedBindingsRevision,
         );
-      } catch (error) { return translate(error); }
+      } catch (error) {
+        return translate(error);
+      }
     },
   );
 
   app.put<{ Params: Params; Body: Body }>(
     '/projects/:projectId/environments/:environmentInstanceId/service-profiles/:profileId',
-    { schema: { params, body, response: { 200: writeSchema, ...commonErrorResponseSchemas } } },
+    {
+      schema: {
+        params,
+        body,
+        response: { 200: writeSchema, ...commonErrorResponseSchemas },
+      },
+    },
     async (request) => {
       try {
         return options.profiles.save(
           request.params.projectId,
-          { kind: request.body.kind, bindingIds: request.body.bindingIds, environmentInstanceId: request.params.environmentInstanceId },
+          {
+            kind: request.body.kind,
+            bindingIds: request.body.bindingIds,
+            environmentInstanceId: request.params.environmentInstanceId,
+          },
           request.body.expectedRevision,
           request.body.expectedBindingsRevision,
           request.params.profileId,
         );
-      } catch (error) { return translate(error); }
+      } catch (error) {
+        return translate(error);
+      }
     },
   );
 
   app.delete<{ Params: Params; Querystring: RevisionQuery }>(
     '/projects/:projectId/environments/:environmentInstanceId/service-profiles/:profileId',
-    { schema: {
-      params,
-      querystring: {
-        type: 'object', additionalProperties: false, required: ['expectedRevision'],
-        properties: { expectedRevision: revision },
+    {
+      schema: {
+        params,
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['expectedRevision'],
+          properties: { expectedRevision: revision },
+        },
+        response: { 200: deleteSchema, ...commonErrorResponseSchemas },
       },
-      response: { 200: deleteSchema, ...commonErrorResponseSchemas },
-    } },
+    },
     async (request) => {
       try {
         return options.profiles.remove(
-          request.params.projectId, request.params.environmentInstanceId,
-          request.params.profileId!, request.query.expectedRevision,
+          request.params.projectId,
+          request.params.environmentInstanceId,
+          request.params.profileId!,
+          request.query.expectedRevision,
         );
-      } catch (error) { return translate(error); }
+      } catch (error) {
+        return translate(error);
+      }
     },
   );
 };

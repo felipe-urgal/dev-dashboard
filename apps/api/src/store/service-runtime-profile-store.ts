@@ -11,7 +11,8 @@ const FILE_NAME = 'service-runtime-profiles.json';
 const MAX_BYTES = 1024 * 1024;
 const MAX_TOTAL = 400;
 const MAX_PER_PROJECT = 60;
-const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 interface Persisted {
   version: 1;
@@ -32,16 +33,23 @@ function valid(value: unknown): value is ServiceRuntimeProfile {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const p = value as Partial<ServiceRuntimeProfile>;
   return (
-    typeof p.id === 'string' && ID_PATTERN.test(p.id) &&
-    typeof p.projectId === 'string' && p.projectId.length > 0 && p.projectId.length <= 160 &&
-    typeof p.environmentInstanceId === 'string' && p.environmentInstanceId.length > 0 &&
+    typeof p.id === 'string' &&
+    ID_PATTERN.test(p.id) &&
+    typeof p.projectId === 'string' &&
+    p.projectId.length > 0 &&
+    p.projectId.length <= 160 &&
+    typeof p.environmentInstanceId === 'string' &&
+    p.environmentInstanceId.length > 0 &&
     p.environmentInstanceId.length <= 512 &&
     (p.kind === 'dev' || p.kind === 'test' || p.kind === 'production') &&
-    Array.isArray(p.bindingIds) && p.bindingIds.length <= 60 &&
+    Array.isArray(p.bindingIds) &&
+    p.bindingIds.length <= 60 &&
     p.bindingIds.every((id) => typeof id === 'string' && ID_PATTERN.test(id)) &&
     new Set(p.bindingIds).size === p.bindingIds.length &&
-    typeof p.createdAt === 'string' && !Number.isNaN(Date.parse(p.createdAt)) &&
-    typeof p.updatedAt === 'string' && !Number.isNaN(Date.parse(p.updatedAt))
+    typeof p.createdAt === 'string' &&
+    !Number.isNaN(Date.parse(p.createdAt)) &&
+    typeof p.updatedAt === 'string' &&
+    !Number.isNaN(Date.parse(p.updatedAt))
   );
 }
 
@@ -68,7 +76,9 @@ export class ServiceRuntimeProfileStore {
   }
 
   byBinding(bindingId: string): ServiceRuntimeProfile[] {
-    return this.list().filter((profile) => profile.bindingIds.includes(bindingId));
+    return this.list().filter((profile) =>
+      profile.bindingIds.includes(bindingId),
+    );
   }
 
   find(id: string): ServiceRuntimeProfile | null {
@@ -91,29 +101,47 @@ export class ServiceRuntimeProfileStore {
   ): ServiceRuntimeProfile {
     this.assertReady(projectId, expectedRevision);
     const previous = id ? this.profiles.get(id) : undefined;
-    if (id && (!previous || previous.projectId !== projectId ||
-      previous.environmentInstanceId !== draft.environmentInstanceId)) {
-      throw new ServiceRuntimeProfileStoreError('CONFLICT', 'Profile changed or no longer exists.');
+    if (
+      id &&
+      (!previous ||
+        previous.projectId !== projectId ||
+        previous.environmentInstanceId !== draft.environmentInstanceId)
+    ) {
+      throw new ServiceRuntimeProfileStoreError(
+        'CONFLICT',
+        'Profile changed or no longer exists.',
+      );
     }
     if (
       this.byProject(projectId).some(
-        (profile) => profile.id !== id &&
+        (profile) =>
+          profile.id !== id &&
           profile.environmentInstanceId === draft.environmentInstanceId &&
           profile.kind === draft.kind,
       )
     ) {
-      throw new ServiceRuntimeProfileStoreError('CONFLICT', 'This environment already has a profile of that kind.');
+      throw new ServiceRuntimeProfileStoreError(
+        'CONFLICT',
+        'This environment already has a profile of that kind.',
+      );
     }
     const ids = [...draft.bindingIds].sort();
     if (
       previous?.environmentInstanceId === draft.environmentInstanceId &&
       previous.kind === draft.kind &&
       JSON.stringify(previous.bindingIds) === JSON.stringify(ids)
-    ) return structuredClone(previous);
+    )
+      return structuredClone(previous);
 
-    if (!previous && (this.profiles.size >= MAX_TOTAL ||
-      this.byProject(projectId).length >= MAX_PER_PROJECT)) {
-      throw new ServiceRuntimeProfileStoreError('LIMIT', 'Runtime profile limit reached.');
+    if (
+      !previous &&
+      (this.profiles.size >= MAX_TOTAL ||
+        this.byProject(projectId).length >= MAX_PER_PROJECT)
+    ) {
+      throw new ServiceRuntimeProfileStoreError(
+        'LIMIT',
+        'Runtime profile limit reached.',
+      );
     }
     const timestamp = now.toISOString();
     const record: ServiceRuntimeProfile = {
@@ -141,7 +169,10 @@ export class ServiceRuntimeProfileStore {
     this.assertReady(projectId, expectedRevision);
     const previous = this.profiles.get(id);
     if (!previous || previous.projectId !== projectId) {
-      throw new ServiceRuntimeProfileStoreError('CONFLICT', 'Profile changed or no longer exists.');
+      throw new ServiceRuntimeProfileStoreError(
+        'CONFLICT',
+        'Profile changed or no longer exists.',
+      );
     }
     this.profiles.delete(id);
     try {
@@ -155,12 +186,14 @@ export class ServiceRuntimeProfileStore {
   private assertReady(projectId: string, expectedRevision: string): void {
     if (!this.available) {
       throw new ServiceRuntimeProfileStoreError(
-        'UNAVAILABLE', 'Unrecognized profile storage; original state was preserved.',
+        'UNAVAILABLE',
+        'Unrecognized profile storage; original state was preserved.',
       );
     }
     if (expectedRevision !== this.revision(projectId)) {
       throw new ServiceRuntimeProfileStoreError(
-        'CONFLICT', 'Runtime profiles changed. Refresh before retrying.',
+        'CONFLICT',
+        'Runtime profiles changed. Refresh before retrying.',
       );
     }
   }
@@ -171,7 +204,8 @@ export class ServiceRuntimeProfileStore {
     try {
       content = readFileSync(this.statePath, 'utf8');
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') this.available = false;
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
+        this.available = false;
       return;
     }
     if (Buffer.byteLength(content, 'utf8') > MAX_BYTES) {
@@ -180,18 +214,34 @@ export class ServiceRuntimeProfileStore {
     }
     try {
       const state: unknown = JSON.parse(content);
-      if (!state || typeof state !== 'object' || Array.isArray(state)) throw Error();
+      if (!state || typeof state !== 'object' || Array.isArray(state))
+        throw Error();
       const parsed = state as Partial<Persisted>;
-      if (parsed.version !== 1 || !Array.isArray(parsed.profiles) ||
-        parsed.profiles.length > MAX_TOTAL || !parsed.profiles.every(valid)) throw Error();
+      if (
+        parsed.version !== 1 ||
+        !Array.isArray(parsed.profiles) ||
+        parsed.profiles.length > MAX_TOTAL ||
+        !parsed.profiles.every(valid)
+      )
+        throw Error();
       const identities = new Set(parsed.profiles.map((p) => p.id));
-      const keys = new Set(parsed.profiles.map(
-        (p) => p.projectId + '\0' + p.environmentInstanceId + '\0' + p.kind,
-      ));
-      if (identities.size !== parsed.profiles.length ||
+      const keys = new Set(
+        parsed.profiles.map(
+          (p) => p.projectId + '\0' + p.environmentInstanceId + '\0' + p.kind,
+        ),
+      );
+      if (
+        identities.size !== parsed.profiles.length ||
         keys.size !== parsed.profiles.length ||
-        parsed.profiles.some((p) => parsed.profiles!.filter((other) => other.projectId === p.projectId).length > MAX_PER_PROJECT)) throw Error();
-      for (const profile of parsed.profiles) this.profiles.set(profile.id, structuredClone(profile));
+        parsed.profiles.some(
+          (p) =>
+            parsed.profiles!.filter((other) => other.projectId === p.projectId)
+              .length > MAX_PER_PROJECT,
+        )
+      )
+        throw Error();
+      for (const profile of parsed.profiles)
+        this.profiles.set(profile.id, structuredClone(profile));
     } catch {
       // Unknown versions and corrupt files are never silently replaced.
       this.available = false;
