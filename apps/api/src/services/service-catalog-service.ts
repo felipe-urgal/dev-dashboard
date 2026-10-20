@@ -17,6 +17,32 @@ import type { DockerContainerObserver } from './docker-container-observer.js';
 
 const MAX_ENTRIES = 250;
 const MAX_PROJECTS = 12;
+const PROVIDER_TIMEOUT_MS = 8_000;
+const READ_ONLY_CAPABILITIES = {
+  observe: 'supported',
+  start: 'unsupported',
+  stop: 'unsupported',
+  restart: 'unsupported',
+  'boot-policy': 'unsupported',
+} as const;
+
+/** A stalled optional provider must not block the other inventories. */
+async function bounded<T>(task: () => Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(task),
+      new Promise<T>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('Provider timed out')),
+          PROVIDER_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 type CatalogDependencies = {
   systemd: Pick<SystemdServiceInventory, 'inspect'>;
@@ -61,9 +87,9 @@ export class ServiceCatalogService {
 
     const [systemdResult, containersResult, processesResult] =
       await Promise.allSettled([
-        this.dependencies.systemd.inspect(),
-        this.dependencies.containers.inspect(),
-        this.dependencies.processManager.listProcesses(),
+        bounded(() => this.dependencies.systemd.inspect()),
+        bounded(() => this.dependencies.containers.inspect()),
+        bounded(() => this.dependencies.processManager.listProcesses()),
       ]);
 
     if (systemdResult.status === 'fulfilled') {
@@ -81,7 +107,11 @@ export class ServiceCatalogService {
           id: service.id,
           provider: 'systemd',
           name: service.name,
+          displayName: service.name,
           scope: service.scope,
+          enabledAtBoot: service.bootState,
+          evidence: { source: 'systemd', identity: service.id },
+          capabilities: READ_ONLY_CAPABILITIES,
           state: service.state,
           readiness: 'unknown',
           ownership: 'unmanaged',
@@ -99,7 +129,14 @@ export class ServiceCatalogService {
     }
 
     const processes =
-      processesResult.status === 'fulfilled' ? processesResult.value : [];
+      processesResult.status === 'fulfilled'
+        ? processesResult.value.slice(0, MAX_ENTRIES)
+        : [];
+    if (
+      processesResult.status === 'fulfilled' &&
+      processesResult.value.length > MAX_ENTRIES
+    )
+      truncated = true;
     if (processesResult.status === 'fulfilled') {
       providers.push({ provider: 'managed-process', status: 'ready' });
       for (const process of processes) {
@@ -108,6 +145,12 @@ export class ServiceCatalogService {
           id: 'process:' + process.id,
           provider: 'managed-process',
           name: process.kind + ' · ' + process.id,
+          displayName: process.kind + ' · ' + process.id,
+          evidence: {
+            source: 'process-manager',
+            identity: 'process:' + process.id,
+          },
+          capabilities: READ_ONLY_CAPABILITIES,
           state: processState(process.status),
           readiness: 'unknown',
           ownership: 'confirmed',
@@ -138,15 +181,18 @@ export class ServiceCatalogService {
     const composeObservations = await Promise.all(
       projects.slice(0, MAX_PROJECTS).map(async (project) => {
         try {
-          const owner = await this.dependencies.composeOwnership.get(project);
+          const owner = await bounded(() =>
+            this.dependencies.composeOwnership.get(project),
+          );
           if (!owner)
             return {
               status: 'ready' as const,
               entries: [] as ServiceCatalogEntry[],
               containerIds: [] as string[],
             };
-          const observation =
-            await this.dependencies.composeProvider.inspect(project);
+          const observation = await bounded(() =>
+            this.dependencies.composeProvider.inspect(project),
+          );
           if (
             observation.state !== 'available' ||
             !observation.runtime ||
@@ -177,6 +223,12 @@ export class ServiceCatalogService {
               id: 'compose:' + project.id + ':' + runtime.service,
               provider: 'compose',
               name: runtime.service,
+              displayName: runtime.service,
+              evidence: {
+                source: 'compose-owner',
+                identity: 'compose:' + project.id + ':' + runtime.service,
+              },
+              capabilities: READ_ONLY_CAPABILITIES,
               state,
               readiness:
                 state === 'running' && runtime.health === 'healthy'
@@ -246,6 +298,12 @@ export class ServiceCatalogService {
           id: 'docker:' + container.id,
           provider: 'docker',
           name: container.name,
+          displayName: container.name,
+          evidence: {
+            source: 'docker-cli',
+            identity: 'docker:' + container.id,
+          },
+          capabilities: READ_ONLY_CAPABILITIES,
           state: container.state,
           readiness: 'unknown',
           ownership: 'unmanaged',
@@ -264,9 +322,11 @@ export class ServiceCatalogService {
 
     const ports = [];
     try {
-      const inspection = await this.dependencies.portInspector.inspect({
-        managedProcesses: processes,
-      });
+      const inspection = await bounded(() =>
+        this.dependencies.portInspector.inspect({
+          managedProcesses: processes,
+        }),
+      );
       providers.push({
         provider: 'ports',
         status:

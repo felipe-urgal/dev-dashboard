@@ -72,6 +72,9 @@ export type {
   ServiceCatalogProviderStatus,
   ServiceCatalogSnapshot,
   ServiceCatalogState,
+  ServiceObservation,
+  ServiceObservationCapabilities,
+  ServiceObservationEvidence,
 } from './service-catalog.js';
 
 export type {

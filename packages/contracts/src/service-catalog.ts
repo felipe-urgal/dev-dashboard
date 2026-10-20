@@ -5,20 +5,42 @@ export type ServiceCatalogProvider =
 export type ServiceCatalogState =
   'running' | 'starting' | 'stopping' | 'stopped' | 'failed' | 'unknown';
 
-export interface ServiceCatalogEntry {
+/** Evidence is descriptive; it is never an authorization or an ownership claim. */
+export interface ServiceObservationCapabilities {
+  observe: 'supported';
+  start: 'unsupported';
+  stop: 'unsupported';
+  restart: 'unsupported';
+  'boot-policy': 'unsupported';
+}
+
+export interface ServiceObservationEvidence {
+  source: 'systemd' | 'docker-cli' | 'compose-owner' | 'process-manager';
+  /** Provider-owned, opaque identity (no shell, PID, file path or credentials). */
+  identity: string;
+}
+
+export interface ServiceObservation {
   id: string;
+  displayName: string;
   provider: ServiceCatalogProvider;
-  name: string;
+  scope: 'user' | 'system' | 'host' | 'environment';
   state: ServiceCatalogState;
   readiness: 'ready' | 'unhealthy' | 'unknown';
-  ownership: 'confirmed' | 'unmanaged' | 'unknown';
-  scope: string;
-  projectId?: string;
-  environmentInstanceId?: string;
-  /** Port evidence does not constitute an ownership grant. */
+  enabledAtBoot?: import('./host-service.js').HostServiceBootState;
   ports: number[];
   observedAt: string;
+  evidence: ServiceObservationEvidence;
+  /** Catalog capabilities do not authorize lifecycle mutations. */
+  capabilities: ServiceObservationCapabilities;
   diagnostic?: string;
+}
+
+export interface ServiceCatalogEntry extends ServiceObservation {
+  name: string;
+  ownership: 'confirmed' | 'unmanaged' | 'unknown';
+  projectId?: string;
+  environmentInstanceId?: string;
 }
 
 export interface ServiceCatalogProviderStatus {
