@@ -23,13 +23,14 @@ const selectedRef = ref('');
 const snapshot = ref<ServiceDiagnosticsSnapshot | null>(null);
 const error = ref('');
 let generation = 0;
+let readGeneration = 0;
+const scopedEnvironment = computed(() => props.environmentInstanceId ?? 'environment:primary:' + props.projectId);
 
 const visible = computed(() =>
   bindings.value.filter(
     (b) =>
       b.enabled &&
-      (!props.environmentInstanceId ||
-        b.environmentInstanceId === props.environmentInstanceId),
+      b.environmentInstanceId === scopedEnvironment.value,
   ),
 );
 
@@ -43,6 +44,7 @@ watch(
 
 async function loadBindings(): Promise<void> {
   const current = ++generation;
+  readGeneration++;
   loading.value = true;
   loadingLogs.value = false;
   bindings.value = [];
@@ -59,8 +61,7 @@ async function loadBindings(): Promise<void> {
     const scoped = response.bindings.filter(
       (b) =>
         b.enabled &&
-        (!props.environmentInstanceId ||
-          b.environmentInstanceId === props.environmentInstanceId),
+        b.environmentInstanceId === scopedEnvironment.value,
     );
     selectedRef.value =
       scoped.find((b) => b.serviceRef === requested)?.serviceRef ??
@@ -77,6 +78,7 @@ async function loadBindings(): Promise<void> {
 async function loadDiagnostics(): Promise<void> {
   if (!selectedRef.value || loadingLogs.value) return;
   const current = generation;
+  const read = ++readGeneration;
   const serviceRef = selectedRef.value;
   loadingLogs.value = true;
   snapshot.value = null;
@@ -87,19 +89,21 @@ async function loadDiagnostics(): Promise<void> {
       serviceRef,
       props.environmentInstanceId,
     );
-    if (generation === current && selectedRef.value === serviceRef) {
+    if (generation === current && read === readGeneration && selectedRef.value === serviceRef) {
       snapshot.value = response;
     }
   } catch {
-    if (generation === current)
+    if (generation === current && read === readGeneration)
       error.value =
         'Leitura indisponível. Atualize os vínculos e tente novamente.';
   } finally {
-    if (generation === current) loadingLogs.value = false;
+    if (generation === current && read === readGeneration) loadingLogs.value = false;
   }
 }
 
 function changeSelection(): void {
+  readGeneration++;
+  loadingLogs.value = false;
   snapshot.value = null;
   error.value = '';
 }
