@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -63,7 +69,10 @@ test('persists intent before mutation, step outcomes and a completed result', ()
     assert.equal(completed.stage, 'finished');
     assert.equal(completed.reconciliationRequired, false);
     assert.deepEqual(reopened.activityJobs('loto'), []);
-    const raw = readFileSync(path.join(root, 'confirmed-lifecycle-jobs-v1', id + '.json'), 'utf8');
+    const raw = readFileSync(
+      path.join(root, 'confirmed-lifecycle-jobs-v1', id + '.json'),
+      'utf8',
+    );
     assert.doesNotMatch(raw, /password=should-never-be-persisted/);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -85,7 +94,10 @@ test('restart with in-flight mutation never replays it and surfaces reconciliati
     assert.equal(job.status, 'failed');
     assert.equal(job.stage, 'reconciliation-required');
     assert.equal(job.cancelSupported, false);
-    assert.throws(() => restarted.begin(REQUEST, [REF]), /journal is unavailable/);
+    assert.throws(
+      () => restarted.begin(REQUEST, [REF]),
+      /journal is unavailable/,
+    );
     assert.throws(() => restarted.step(id, step), /journal is unavailable/);
     assert.throws(() => restarted.finish(id, result), /journal is unavailable/);
   } finally {
@@ -122,7 +134,10 @@ test('corrupted or future-version journal is fail-closed and left untouched', ()
     writeFileSync(file, corrupted);
     const restarted = create(root);
     assert.throws(() => restarted.list(), /journal is unavailable/);
-    assert.throws(() => restarted.begin(REQUEST, [REF]), /journal is unavailable/);
+    assert.throws(
+      () => restarted.begin(REQUEST, [REF]),
+      /journal is unavailable/,
+    );
     assert.equal(readFileSync(file, 'utf8'), corrupted);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -135,16 +150,26 @@ test('validates step order and refuses double-start when record remains running'
     const journal = create(root);
     const id = journal.begin(REQUEST, [REF]);
     assert.throws(() => journal.step(id, step), /journal is unavailable/);
-    assert.throws(() => journal.beforeStep(id, 'compose:loto:other'), /journal is unavailable/);
+    assert.throws(
+      () => journal.beforeStep(id, 'compose:loto:other'),
+      /journal is unavailable/,
+    );
     journal.beforeStep(id, REF);
     assert.throws(() => journal.beforeStep(id, REF), /journal is unavailable/);
-    assert.throws(() => journal.begin(REQUEST, [REF]), /journal is unavailable/);
+    assert.throws(
+      () => journal.begin(REQUEST, [REF]),
+      /journal is unavailable/,
+    );
     journal.step(id, step);
     assert.throws(() => journal.step(id, step), /journal is unavailable/);
     journal.finish(id, result);
     assert.throws(() => journal.finish(id, result), /journal is unavailable/);
-    assert.deepEqual(readdirSync(path.join(root, 'confirmed-lifecycle-jobs-v1'))
-      .filter((name) => name.endsWith('.tmp')), []);
+    assert.deepEqual(
+      readdirSync(path.join(root, 'confirmed-lifecycle-jobs-v1')).filter(
+        (name) => name.endsWith('.tmp'),
+      ),
+      [],
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

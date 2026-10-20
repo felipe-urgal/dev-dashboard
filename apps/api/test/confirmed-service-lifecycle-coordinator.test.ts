@@ -331,29 +331,38 @@ test('the coordinator never double-acquires the Compose owner lock', async () =>
   assert.deepEqual(f.steps, [DB]);
 });
 
-
 test('coordinator persists completed steps and completed job without exposing raw errors', async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), 'coordinator-jobs-'));
   try {
     const f = fixture({ refs: [DB] });
-    const jobs = new ConfirmedLifecycleJobJournal(directory, { now: () => NOW });
-    const coordinator = new ConfirmedServiceLifecycleCoordinator({
-      planner: f.planner,
-      runner: f.runner,
-      locks: new ServiceResourceOperationLock(),
-      jobs,
-    }, { now: () => NOW });
+    const jobs = new ConfirmedLifecycleJobJournal(directory, {
+      now: () => NOW,
+    });
+    const coordinator = new ConfirmedServiceLifecycleCoordinator(
+      {
+        planner: f.planner,
+        runner: f.runner,
+        locks: new ServiceResourceOperationLock(),
+        jobs,
+      },
+      { now: () => NOW },
+    );
 
     const result = await coordinator.run(request());
     assert.equal(result.status, 'completed');
     assert.deepEqual(f.steps, [DB]);
 
-    const reopened = new ConfirmedLifecycleJobJournal(directory, { now: () => NOW });
+    const reopened = new ConfirmedLifecycleJobJournal(directory, {
+      now: () => NOW,
+    });
     const records = reopened.list('loto');
     assert.equal(records.length, 1);
     assert.equal(records[0]?.stage, 'finished');
     assert.equal(records[0]?.status, 'completed');
-    assert.deepEqual(records[0]?.steps.map((s) => s.serviceRef), [DB]);
+    assert.deepEqual(
+      records[0]?.steps.map((s) => s.serviceRef),
+      [DB],
+    );
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -361,17 +370,22 @@ test('coordinator persists completed steps and completed job without exposing ra
 
 test('failure to persist confirmed intent aborts BEFORE the owner is called', async () => {
   const f = fixture({ refs: [DB] });
-  const coordinator = new ConfirmedServiceLifecycleCoordinator({
-    planner: f.planner,
-    runner: f.runner,
-    locks: new ServiceResourceOperationLock(),
-    jobs: {
-      begin: () => { throw new Error('Journal could not persist intent'); },
-      beforeStep: () => undefined,
-      step: () => undefined,
-      finish: () => undefined,
+  const coordinator = new ConfirmedServiceLifecycleCoordinator(
+    {
+      planner: f.planner,
+      runner: f.runner,
+      locks: new ServiceResourceOperationLock(),
+      jobs: {
+        begin: () => {
+          throw new Error('Journal could not persist intent');
+        },
+        beforeStep: () => undefined,
+        step: () => undefined,
+        finish: () => undefined,
+      },
     },
-  }, { now: () => NOW });
+    { now: () => NOW },
+  );
   await assert.rejects(coordinator.run(request()), /could not persist intent/);
   assert.deepEqual(f.steps, []);
 });
@@ -380,25 +394,40 @@ test('uncertain journal write after mutation is never retried and stays in-fligh
   const directory = mkdtempSync(path.join(os.tmpdir(), 'coordinator-jobs-'));
   try {
     const f = fixture({ refs: [DB] });
-    const journal = new ConfirmedLifecycleJobJournal(directory, { now: () => NOW });
-    const coordinator = new ConfirmedServiceLifecycleCoordinator({
-      planner: f.planner,
-      runner: f.runner,
-      locks: new ServiceResourceOperationLock(),
-      jobs: {
-        begin: (...args) => journal.begin(...args),
-        beforeStep: (...args) => journal.beforeStep(...args),
-        step: () => { throw new Error('disk failure after mutation'); },
-        finish: (...args) => journal.finish(...args),
+    const journal = new ConfirmedLifecycleJobJournal(directory, {
+      now: () => NOW,
+    });
+    const coordinator = new ConfirmedServiceLifecycleCoordinator(
+      {
+        planner: f.planner,
+        runner: f.runner,
+        locks: new ServiceResourceOperationLock(),
+        jobs: {
+          begin: (...args) => journal.begin(...args),
+          beforeStep: (...args) => journal.beforeStep(...args),
+          step: () => {
+            throw new Error('disk failure after mutation');
+          },
+          finish: (...args) => journal.finish(...args),
+        },
       },
-    }, { now: () => NOW });
+      { now: () => NOW },
+    );
 
-    await assert.rejects(coordinator.run(request()), /disk failure after mutation/);
+    await assert.rejects(
+      coordinator.run(request()),
+      /disk failure after mutation/,
+    );
     assert.deepEqual(f.steps, [DB]);
-    const reopened = new ConfirmedLifecycleJobJournal(directory, { now: () => NOW });
+    const reopened = new ConfirmedLifecycleJobJournal(directory, {
+      now: () => NOW,
+    });
     assert.equal(reopened.list('loto')[0]?.reconciliationRequired, true);
     assert.equal(reopened.list('loto')[0]?.inFlightRef, DB);
-    assert.throws(() => reopened.begin(request(), [DB]), /journal is unavailable/);
+    assert.throws(
+      () => reopened.begin(request(), [DB]),
+      /journal is unavailable/,
+    );
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
