@@ -239,10 +239,10 @@ export class ServiceDiagnosticsService {
           .map(({ id, type, status, occurredAt, resourceRef, jobId }) => ({
             id,
             type,
-            status,
             occurredAt,
-            resourceRef,
-            jobId,
+            ...(status ? { status } : {}),
+            ...(resourceRef ? { resourceRef } : {}),
+            ...(jobId ? { jobId } : {}),
           }));
         jobs = activity.jobs
           .filter(
