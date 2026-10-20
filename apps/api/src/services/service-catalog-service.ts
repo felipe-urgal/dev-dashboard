@@ -33,7 +33,10 @@ async function bounded<T>(task: () => Promise<T>): Promise<T> {
     return await Promise.race([
       Promise.resolve().then(task),
       new Promise<T>((_resolve, reject) => {
-        timer = setTimeout(() => reject(new Error('Provider timed out')), PROVIDER_TIMEOUT_MS);
+        timer = setTimeout(
+          () => reject(new Error('Provider timed out')),
+          PROVIDER_TIMEOUT_MS,
+        );
       }),
     ]);
   } finally {
@@ -129,7 +132,11 @@ export class ServiceCatalogService {
       processesResult.status === 'fulfilled'
         ? processesResult.value.slice(0, MAX_ENTRIES)
         : [];
-    if (processesResult.status === 'fulfilled' && processesResult.value.length > MAX_ENTRIES) truncated = true;
+    if (
+      processesResult.status === 'fulfilled' &&
+      processesResult.value.length > MAX_ENTRIES
+    )
+      truncated = true;
     if (processesResult.status === 'fulfilled') {
       providers.push({ provider: 'managed-process', status: 'ready' });
       for (const process of processes) {
@@ -139,7 +146,10 @@ export class ServiceCatalogService {
           provider: 'managed-process',
           name: process.kind + ' · ' + process.id,
           displayName: process.kind + ' · ' + process.id,
-          evidence: { source: 'process-manager', identity: 'process:' + process.id },
+          evidence: {
+            source: 'process-manager',
+            identity: 'process:' + process.id,
+          },
           capabilities: READ_ONLY_CAPABILITIES,
           state: processState(process.status),
           readiness: 'unknown',
@@ -171,15 +181,18 @@ export class ServiceCatalogService {
     const composeObservations = await Promise.all(
       projects.slice(0, MAX_PROJECTS).map(async (project) => {
         try {
-          const owner = await bounded(() => this.dependencies.composeOwnership.get(project));
+          const owner = await bounded(() =>
+            this.dependencies.composeOwnership.get(project),
+          );
           if (!owner)
             return {
               status: 'ready' as const,
               entries: [] as ServiceCatalogEntry[],
               containerIds: [] as string[],
             };
-          const observation =
-            await bounded(() => this.dependencies.composeProvider.inspect(project));
+          const observation = await bounded(() =>
+            this.dependencies.composeProvider.inspect(project),
+          );
           if (
             observation.state !== 'available' ||
             !observation.runtime ||
@@ -286,7 +299,10 @@ export class ServiceCatalogService {
           provider: 'docker',
           name: container.name,
           displayName: container.name,
-          evidence: { source: 'docker-cli', identity: 'docker:' + container.id },
+          evidence: {
+            source: 'docker-cli',
+            identity: 'docker:' + container.id,
+          },
           capabilities: READ_ONLY_CAPABILITIES,
           state: container.state,
           readiness: 'unknown',
@@ -306,9 +322,11 @@ export class ServiceCatalogService {
 
     const ports = [];
     try {
-      const inspection = await bounded(() => this.dependencies.portInspector.inspect({
-        managedProcesses: processes,
-      }));
+      const inspection = await bounded(() =>
+        this.dependencies.portInspector.inspect({
+          managedProcesses: processes,
+        }),
+      );
       providers.push({
         provider: 'ports',
         status:
