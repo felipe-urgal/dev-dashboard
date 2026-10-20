@@ -329,6 +329,25 @@ describe('ProjectServiceRuntimeProfilesPanel', () => {
     expect(wrapper.text()).not.toContain('Diferenças de portas observadas');
   });
 
+  it('keeps the production context read-only even when Stop is previewed', async () => {
+    const wrapper = mountPanel();
+    await flushPromises();
+    await wrapper.get('#runtime-profile-select').setValue(PROD_ID);
+    await flushPromises();
+    expect(wrapper.text()).toContain('Production Contract');
+    await wrapper.get('#runtime-plan-action').setValue('stop');
+    await flushPromises();
+    expect(fetchRuntimeProfilePlan).toHaveBeenCalledWith(
+      'gastos',
+      ENV,
+      'stop',
+      PROD_ID,
+    );
+    expect(wrapper.text()).toContain('não executável');
+    expect(saveRuntimeProfile).not.toHaveBeenCalled();
+    expect(removeRuntimeProfile).not.toHaveBeenCalled();
+  });
+
   it('reports read-only preview errors without giving a false green plan', async () => {
     fetchRuntimeProfilePlan.mockRejectedValue(new Error('409'));
     const wrapper = mountPanel();
