@@ -20,6 +20,7 @@ export interface ConfirmedLifecycleRunner {
   run(
     action: ConfirmedLifecycleRequest['action'],
     node: Readonly<ServiceLifecyclePlanNode>,
+    request: Readonly<ConfirmedLifecycleRequest>,
   ): Promise<void>;
 }
 
@@ -158,7 +159,7 @@ export class ConfirmedServiceLifecycleCoordinator {
           // This adapter boundary deliberately supports only Compose for now.
           // Other providers require their own owner-aware integration.
           try {
-            await this.dependencies.runner.run(request.action, node);
+            await this.dependencies.runner.run(request.action, node, request);
           } catch {
             const failure: ConfirmedLifecycleStep = {
               serviceRef: node.serviceRef,
