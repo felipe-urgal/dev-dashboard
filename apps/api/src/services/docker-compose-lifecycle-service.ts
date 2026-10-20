@@ -7,7 +7,7 @@ import type {
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 import type { ComposeStructuredCommand } from './docker-compose-model.js';
-import type { ServiceResourceOperationLock } from './service-resource-operation-lock.js';
+import type { ServiceResourceLeaseGuard, ServiceResourceOperationLock } from './service-resource-operation-lock.js';
 import type {
   DockerComposeOwnershipRecord,
   DockerComposeOwnershipStore,
@@ -235,8 +235,8 @@ export class DockerComposeLifecycleService {
     preflightInput: DockerComposePortPreflightInput = {},
     service?: string,
   ): Promise<DockerComposeStartResult> {
-    return this.withMutation(project, () =>
-      this.startMutation(project, preflightInput, service),
+    return this.withMutation(project, (guard) =>
+      this.startMutation(project, preflightInput, service, guard),
     );
   }
 
@@ -244,6 +244,7 @@ export class DockerComposeLifecycleService {
     project: Project,
     preflightInput: DockerComposePortPreflightInput,
     service?: string,
+    guard?: ServiceResourceLeaseGuard,
   ): Promise<DockerComposeStartResult> {
     const before = await this.provider.inspect(project);
     if (before.state !== 'available' || !before.config) {
@@ -342,6 +343,9 @@ export class DockerComposeLifecycleService {
       throw error;
     }
 
+    // Fail closed if this worker lost its cooperating lease during preflight.
+    // A prior command already dispatched cannot be fenced by this check.
+    await guard?.assertOwned();
     try {
       await this.runCommand(
         startCommand(
@@ -413,16 +417,20 @@ export class DockerComposeLifecycleService {
     project: Project,
     service?: string,
   ): Promise<DockerComposeMutationResult> {
-    return this.withMutation(project, () =>
-      this.stopMutation(project, service),
+    return this.withMutation(project, (guard) =>
+      this.stopMutation(project, service, guard),
     );
   }
 
   private async stopMutation(
     project: Project,
     service?: string,
+    guard?: ServiceResourceLeaseGuard,
   ): Promise<DockerComposeMutationResult> {
     const target = await this.requireOwnedTarget(project, service);
+    // Fail closed if this worker lost its cooperating lease during preflight.
+    // A prior command already dispatched cannot be fenced by this check.
+    await guard?.assertOwned();
     try {
       await this.runCommand(
         stopCommand(target.ownership.composeProjectName, service),
@@ -482,8 +490,8 @@ export class DockerComposeLifecycleService {
     service?: string,
     preflightInput: DockerComposePortPreflightInput = {},
   ): Promise<DockerComposeMutationResult> {
-    return this.withMutation(project, () =>
-      this.restartMutation(project, service, preflightInput),
+    return this.withMutation(project, (guard) =>
+      this.restartMutation(project, service, preflightInput, guard),
     );
   }
 
@@ -491,6 +499,7 @@ export class DockerComposeLifecycleService {
     project: Project,
     service: string | undefined,
     preflightInput: DockerComposePortPreflightInput,
+    guard?: ServiceResourceLeaseGuard,
   ): Promise<DockerComposeMutationResult> {
     const target = await this.requireOwnedTarget(project, service);
     const checked = await this.preflight.inspect(
@@ -520,6 +529,9 @@ export class DockerComposeLifecycleService {
       service,
     );
 
+    // Fail closed if this worker lost its cooperating lease during preflight.
+    // A prior command already dispatched cannot be fenced by this check.
+    await guard?.assertOwned();
     try {
       await this.runCommand(
         restartCommand(target.ownership.composeProjectName, service),
@@ -713,7 +725,7 @@ export class DockerComposeLifecycleService {
 
   private async withMutation<T>(
     project: Project,
-    operation: () => Promise<T>,
+    operation: (guard?: ServiceResourceLeaseGuard) => Promise<T>,
   ): Promise<T> {
     if (this.activeMutations.has(project.id)) {
       throw new DockerComposeLifecycleError(
@@ -727,7 +739,7 @@ export class DockerComposeLifecycleService {
       // The Compose lifecycle owner is the single lock boundary shared by
       // direct Compose HTTP mutations and Stack Start/Stop/Restart. Do not
       // acquire this key again in an outer coordinator (no re-entrant lease).
-      const execute = () => operation();
+      const execute = (guard: ServiceResourceLeaseGuard) => operation(guard);
       return this.resourceLock
         ? await this.resourceLock.withResources(
             ['compose-project:' + project.id],
