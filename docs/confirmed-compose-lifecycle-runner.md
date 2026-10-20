@@ -28,3 +28,7 @@ Esta etapa da [#1116](https://github.com/felipe-urgal/dev-dashboard/issues/1116)
 `confirmed-service-lifecycle-activity-writer.test.ts`: mapeamento de resultados para Activity, redaction, status de erro do repositório.
 
 Referências: #1113, #1116, #1126, #1127.
+
+## Revisão e validação do rollout
+
+Antes de expor uma ação mutável, exigir uma nova verificação de plano/ownership imediatamente antes do comando e confirmar que o mesmo recurso não está em uso por outra execução, inclusive fora do processo atual. Na ausência de evidência suficiente, devolver um diagnóstico sem chamar o owner de Compose. A integração deste PR é deliberadamente apenas um adapter interno testado com doubles.
