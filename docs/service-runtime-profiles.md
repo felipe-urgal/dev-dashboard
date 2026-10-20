@@ -54,7 +54,7 @@ databases, or makes host lifecycle calls.
 
 | Scenario | Evidence expected |
 | --- | --- |
-| Controle Gastos `test` versus `production` | Distinct binding IDs, service references and observed ports; switching profiles only changes the read-only plan/hash |
+| Controle Gastos `test` versus `production` | Distinct binding IDs, service references and observed ports, even when both databases advertise the same friendly name; switching profiles only changes the read-only plan/hash |
 | Primary checkout versus linked worktree | Separate Environment Instance IDs and isolated profile lists; the worktree test DB cannot be adopted by a primary profile |
 | Loto Lab shared cache | Consumer count from both projects retains the shared resource on a scoped Stop plan |
 | Loto Lab with no profile | Existing unscoped plan remains available; no implicit migration or profile |
