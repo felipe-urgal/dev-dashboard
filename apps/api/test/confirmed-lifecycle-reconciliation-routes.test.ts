@@ -77,6 +77,7 @@ test('reconciliation HTTP is authenticated, read-only and project scoped', async
           resourceKey,
           status: 'present' as const,
           ownerProcess: 'unknown' as const,
+          processIdentity: 'unverifiable' as const,
           diagnostic: 'Owner process is not proven.',
         })),
     },
