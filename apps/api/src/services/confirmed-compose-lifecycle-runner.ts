@@ -67,11 +67,18 @@ export class ConfirmedComposeLifecycleRunner implements ConfirmedLifecycleRunner
 
     // Other Environment Instances / worktrees require separate ownership and
     // catalog identity support. They must not implicitly use primary paths.
-    if (request.environmentInstanceId !== primaryEnvironmentInstanceId(request.projectId)) {
-      blocked('Confirmed Compose lifecycle currently requires the primary host environment.');
+    if (
+      request.environmentInstanceId !==
+      primaryEnvironmentInstanceId(request.projectId)
+    ) {
+      blocked(
+        'Confirmed Compose lifecycle currently requires the primary host environment.',
+      );
     }
     const project = this.dependencies.projects.findProject(request.projectId);
-    const environment = this.dependencies.environments.findById(request.environmentInstanceId);
+    const environment = this.dependencies.environments.findById(
+      request.environmentInstanceId,
+    );
     if (
       !project ||
       !environment ||
@@ -85,7 +92,10 @@ export class ConfirmedComposeLifecycleRunner implements ConfirmedLifecycleRunner
 
     const { config, runtime } = await this.requireOwnership(project);
     const definition = config.services.find((item) => item.name === service);
-    if (!definition || !runtime.services.some((item) => item.service === service)) {
+    if (
+      !definition ||
+      !runtime.services.some((item) => item.service === service)
+    ) {
       blocked('Compose service identity is not present in the owned runtime.');
     }
 
@@ -94,7 +104,9 @@ export class ConfirmedComposeLifecycleRunner implements ConfirmedLifecycleRunner
       // recreate declared depends_on services. Until it supports a verified
       // --no-deps flow, reject any such mutation to avoid hidden cascades.
       if (definition.dependsOn.length > 0) {
-        blocked('Compose start could mutate implicit dependencies; no-deps support is required.');
+        blocked(
+          'Compose start could mutate implicit dependencies; no-deps support is required.',
+        );
       }
       await this.dependencies.lifecycle.start(project, {}, service);
     } else {
@@ -104,8 +116,13 @@ export class ConfirmedComposeLifecycleRunner implements ConfirmedLifecycleRunner
         item.dependsOn.includes(service),
       );
       for (const dependent of dependents) {
-        const observed = runtime.services.find((item) => item.service === dependent.name);
-        if (!observed || !['exited', 'created', 'dead'].includes(observed.state)) {
+        const observed = runtime.services.find(
+          (item) => item.service === dependent.name,
+        );
+        if (
+          !observed ||
+          !['exited', 'created', 'dead'].includes(observed.state)
+        ) {
           blocked('Compose service has active or unverified dependents.');
         }
       }
@@ -124,7 +141,9 @@ export class ConfirmedComposeLifecycleRunner implements ConfirmedLifecycleRunner
         this.dependencies.provider.inspect(project),
       ]);
     } catch {
-      return blocked('Compose ownership or observation is currently unavailable.');
+      return blocked(
+        'Compose ownership or observation is currently unavailable.',
+      );
     }
     if (
       !owner ||
