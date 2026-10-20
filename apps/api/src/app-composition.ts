@@ -171,7 +171,8 @@ export interface AppCompositionOptions {
   securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;
   securityScanSnapshotStore?: Pick<SecurityScanSnapshotStore, 'get' | 'save'>;
   confirmedLifecycleJobs?: Pick<
-    ConfirmedLifecycleJobJournal, 'get' | 'list' | 'activityJobs'
+    ConfirmedLifecycleJobJournal,
+    'get' | 'list' | 'activityJobs'
   >;
   agentBrowserRuntime?: AgentBrowserRuntimePort;
   agentRuntimeApiService?: AgentRuntimeApiServicePort;

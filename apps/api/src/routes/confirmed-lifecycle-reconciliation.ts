@@ -4,10 +4,17 @@ import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import type { ConfirmedLifecycleReconciliationService } from '../services/confirmed-lifecycle-reconciliation-service.js';
 
 interface Options extends FastifyPluginOptions {
-  reconciliation: Pick<ConfirmedLifecycleReconciliationService, 'list' | 'inspect'>;
+  reconciliation: Pick<
+    ConfirmedLifecycleReconciliationService,
+    'list' | 'inspect'
+  >;
 }
-interface ProjectParams { projectId: string }
-interface JobParams extends ProjectParams { jobId: string }
+interface ProjectParams {
+  projectId: string;
+}
+interface JobParams extends ProjectParams {
+  jobId: string;
+}
 
 const projectParams = {
   type: 'object',
@@ -30,18 +37,30 @@ const state = {
   enum: ['running', 'completed', 'failed', 'partial'],
 } as const;
 const stage = {
-  type: 'string', enum: ['prepared', 'invoking', 'verifying', 'finished'],
+  type: 'string',
+  enum: ['prepared', 'invoking', 'verifying', 'finished'],
 } as const;
 
 const summarySchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'environmentInstanceId', 'action', 'status', 'stage',
-    'startedAt', 'reconciliationRequired', 'completedSteps'],
+  required: [
+    'id',
+    'environmentInstanceId',
+    'action',
+    'status',
+    'stage',
+    'startedAt',
+    'reconciliationRequired',
+    'completedSteps',
+  ],
   properties: {
-    id: strings, environmentInstanceId: strings,
+    id: strings,
+    environmentInstanceId: strings,
     action: { type: 'string', enum: ['start', 'stop'] },
-    status: state, stage, startedAt: strings,
+    status: state,
+    stage,
+    startedAt: strings,
     reconciliationRequired: { type: 'boolean' },
     inFlightRef: strings,
     completedSteps: { type: 'integer', minimum: 0 },
@@ -52,8 +71,12 @@ const nodeSchema = {
   type: 'object',
   additionalProperties: false,
   required: [
-    'serviceRef', 'journalState', 'observedState', 'readiness',
-    'assessment', 'diagnostic',
+    'serviceRef',
+    'journalState',
+    'observedState',
+    'readiness',
+    'assessment',
+    'diagnostic',
   ],
   properties: {
     serviceRef: strings,
@@ -63,10 +86,21 @@ const nodeSchema = {
     },
     observedState: {
       type: 'string',
-      enum: ['running', 'starting', 'stopping', 'stopped', 'failed', 'unknown', 'missing'],
+      enum: [
+        'running',
+        'starting',
+        'stopping',
+        'stopped',
+        'failed',
+        'unknown',
+        'missing',
+      ],
     },
     readiness: { type: 'string', enum: ['ready', 'unhealthy', 'unknown'] },
-    assessment: { type: 'string', enum: ['matches-target', 'diverged', 'unverifiable'] },
+    assessment: {
+      type: 'string',
+      enum: ['matches-target', 'diverged', 'unverifiable'],
+    },
     diagnostic: strings,
   },
 } as const;
@@ -74,16 +108,31 @@ const detailSchema = {
   type: 'object',
   additionalProperties: false,
   required: [
-    'jobId', 'projectId', 'environmentInstanceId', 'action', 'journalStatus',
-    'stage', 'startedAt', 'updatedAt', 'observationComplete',
-    'reconciliationRequired', 'possibleActiveExecution', 'safeToRetry',
-    'nodes', 'diagnostics',
+    'jobId',
+    'projectId',
+    'environmentInstanceId',
+    'action',
+    'journalStatus',
+    'stage',
+    'startedAt',
+    'updatedAt',
+    'observationComplete',
+    'reconciliationRequired',
+    'possibleActiveExecution',
+    'safeToRetry',
+    'nodes',
+    'diagnostics',
   ],
   properties: {
-    jobId: strings, projectId: strings, environmentInstanceId: strings,
+    jobId: strings,
+    projectId: strings,
+    environmentInstanceId: strings,
     action: { type: 'string', enum: ['start', 'stop'] },
-    journalStatus: state, stage,
-    inFlightRef: strings, startedAt: strings, updatedAt: strings,
+    journalStatus: state,
+    stage,
+    inFlightRef: strings,
+    startedAt: strings,
+    updatedAt: strings,
     observedAt: strings,
     observationComplete: { type: 'boolean' },
     reconciliationRequired: { type: 'boolean' },
@@ -94,40 +143,43 @@ const detailSchema = {
   },
 } as const;
 
-export const confirmedLifecycleReconciliationRoutes: FastifyPluginAsync<Options> =
-  async (app, options) => {
-    app.get<{ Params: ProjectParams }>(
-      '/projects/:projectId/service-jobs',
-      {
-        schema: {
-          params: projectParams,
-          response: {
-            200: {
-              type: 'object', additionalProperties: false,
-              required: ['jobs'],
-              properties: {
-                jobs: { type: 'array', maxItems: 100, items: summarySchema },
-              },
+export const confirmedLifecycleReconciliationRoutes: FastifyPluginAsync<
+  Options
+> = async (app, options) => {
+  app.get<{ Params: ProjectParams }>(
+    '/projects/:projectId/service-jobs',
+    {
+      schema: {
+        params: projectParams,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['jobs'],
+            properties: {
+              jobs: { type: 'array', maxItems: 100, items: summarySchema },
             },
-            ...commonErrorResponseSchemas,
           },
+          ...commonErrorResponseSchemas,
         },
       },
-      async (request) => ({
-        jobs: options.reconciliation.list(request.params.projectId),
-      }),
-    );
-    app.get<{ Params: JobParams }>(
-      '/projects/:projectId/service-jobs/:jobId/reconciliation',
-      {
-        schema: {
-          params: jobParams,
-          response: { 200: detailSchema, ...commonErrorResponseSchemas },
-        },
+    },
+    async (request) => ({
+      jobs: options.reconciliation.list(request.params.projectId),
+    }),
+  );
+  app.get<{ Params: JobParams }>(
+    '/projects/:projectId/service-jobs/:jobId/reconciliation',
+    {
+      schema: {
+        params: jobParams,
+        response: { 200: detailSchema, ...commonErrorResponseSchemas },
       },
-      async (request) =>
-        options.reconciliation.inspect(
-          request.params.projectId, request.params.jobId,
-        ),
-    );
-  };
+    },
+    async (request) =>
+      options.reconciliation.inspect(
+        request.params.projectId,
+        request.params.jobId,
+      ),
+  );
+};
