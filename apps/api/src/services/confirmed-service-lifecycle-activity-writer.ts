@@ -17,22 +17,30 @@ type Dependencies = {
  *
  * This is not yet a durable job identity or reattach mechanism.
  */
-export class ConfirmedServiceLifecycleActivityWriter
-  implements ConfirmedLifecycleStepWriter {
+export class ConfirmedServiceLifecycleActivityWriter implements ConfirmedLifecycleStepWriter {
   public constructor(private readonly dependencies: Dependencies) {}
 
   public async append(
     step: ConfirmedLifecycleStep,
     request: ConfirmedLifecycleRequest,
   ): Promise<void> {
-    const status = step.state === 'completed'
-      ? 'succeeded'
-      : step.state === 'failed' ? 'failed' : 'warning';
+    const status =
+      step.state === 'completed'
+        ? 'succeeded'
+        : step.state === 'failed'
+          ? 'failed'
+          : 'warning';
     // Do not interpolate untrusted runtime error text. Keep the reference
     // for navigation and use stable action/status words for the summary.
-    const summary = 'Lifecycle ' + request.action + ': ' +
-      (step.state === 'completed' ? 'verified' :
-        step.state === 'failed' ? 'owner failed' : 'unverified');
+    const summary =
+      'Lifecycle ' +
+      request.action +
+      ': ' +
+      (step.state === 'completed'
+        ? 'verified'
+        : step.state === 'failed'
+          ? 'owner failed'
+          : 'unverified');
     await this.dependencies.activityEvents.append({
       projectId: request.projectId,
       environmentInstanceId: request.environmentInstanceId,

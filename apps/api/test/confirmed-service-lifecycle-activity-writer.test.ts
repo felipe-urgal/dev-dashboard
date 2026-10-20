@@ -21,34 +21,62 @@ const request: ConfirmedLifecycleRequest = {
 test('records verified, failed and unverified steps with existing Activity domain', async () => {
   const events: AppendActivityEventInput[] = [];
   const writer = new ConfirmedServiceLifecycleActivityWriter({
-    activityEvents: { append: async (event) => { events.push(event); return {} as never; } },
+    activityEvents: {
+      append: async (event) => {
+        events.push(event);
+        return {} as never;
+      },
+    },
   });
   for (const state of ['completed', 'failed', 'unverified'] as const) {
     const step: ConfirmedLifecycleStep = {
-      action: 'start', serviceRef: 'compose:loto:api',
-      dispositionBefore: 'willStart', state,
+      action: 'start',
+      serviceRef: 'compose:loto:api',
+      dispositionBefore: 'willStart',
+      state,
       diagnostic: 'password=not-for-logging',
     };
     await writer.append(step, request);
   }
-  assert.deepEqual(events.map((e) => e.status), ['succeeded', 'failed', 'warning']);
-  assert.equal(events.every((e) =>
-    e.domain === 'compose' &&
-    e.projectId === 'loto' &&
-    e.environmentInstanceId === 'environment:primary:loto' &&
-    e.resourceRef?.id === 'compose:loto:api'), true);
+  assert.deepEqual(
+    events.map((e) => e.status),
+    ['succeeded', 'failed', 'warning'],
+  );
+  assert.equal(
+    events.every(
+      (e) =>
+        e.domain === 'compose' &&
+        e.projectId === 'loto' &&
+        e.environmentInstanceId === 'environment:primary:loto' &&
+        e.resourceRef?.id === 'compose:loto:api',
+    ),
+    true,
+  );
   assert.doesNotMatch(JSON.stringify(events), /password=not-for-logging/);
-  assert.equal(events.every((e) => e.summary.length <= 240), true);
+  assert.equal(
+    events.every((e) => e.summary.length <= 240),
+    true,
+  );
 });
 
 test('step-writer reports existing repository failure without claiming success', async () => {
   const writer = new ConfirmedServiceLifecycleActivityWriter({
     activityEvents: {
-      append: async () => { throw new Error('Activity store unavailable'); },
+      append: async () => {
+        throw new Error('Activity store unavailable');
+      },
     },
   });
-  await assert.rejects(writer.append({
-    action: 'stop', serviceRef: 'compose:loto:db',
-    dispositionBefore: 'willStop', state: 'failed',
-  }, { ...request, action: 'stop' }), /Activity store unavailable/);
+  await assert.rejects(
+    writer.append(
+      {
+        action: 'stop',
+        serviceRef: 'compose:loto:db',
+        dispositionBefore: 'willStop',
+        state: 'failed',
+      },
+      { ...request, action: 'stop' },
+    ),
+    /Activity store unavailable/,
+  );
 });
