@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -68,26 +75,38 @@ test('releases all locks after thrown errors and rejects invalid keys', async ()
   );
 });
 
-
 test('two independent instances in the same state directory serialize shared resources', async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), 'resource-leases-'));
   try {
-    const firstLock = new ServiceResourceOperationLock({ stateDirectory: directory });
-    const secondLock = new ServiceResourceOperationLock({ stateDirectory: directory });
-    let release!: () => void;
-    const held = new Promise<void>((resolve) => { release = resolve; });
-    let entered!: () => void;
-    const active = new Promise<void>((resolve) => { entered = resolve; });
-    const first = firstLock.withResources(['resource:compose:loto:api'], async () => {
-      entered();
-      await held;
+    const firstLock = new ServiceResourceOperationLock({
+      stateDirectory: directory,
     });
+    const secondLock = new ServiceResourceOperationLock({
+      stateDirectory: directory,
+    });
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let entered!: () => void;
+    const active = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const first = firstLock.withResources(
+      ['resource:compose:loto:api'],
+      async () => {
+        entered();
+        await held;
+      },
+    );
     await active;
 
     const root = path.join(directory, 'service-resource-leases-v1');
     const owned = readdirSync(root);
     assert.equal(owned.length, 1);
-    const owner = JSON.parse(readFileSync(path.join(root, owned[0]!, 'owner.json'), 'utf8'));
+    const owner = JSON.parse(
+      readFileSync(path.join(root, owned[0]!, 'owner.json'), 'utf8'),
+    );
     assert.equal(owner.key, 'resource:compose:loto:api');
     assert.equal(owner.pid, process.pid);
 
@@ -98,14 +117,20 @@ test('two independent instances in the same state directory serialize shared res
       /already using one of these resources/,
     );
     assert.equal(
-      await secondLock.withResources(['resource:compose:other:api'], async () => 'independent'),
+      await secondLock.withResources(
+        ['resource:compose:other:api'],
+        async () => 'independent',
+      ),
       'independent',
     );
     release();
     await first;
     assert.deepEqual(readdirSync(root), []);
     assert.equal(
-      await secondLock.withResources(['resource:compose:loto:api'], async () => 'reacquired'),
+      await secondLock.withResources(
+        ['resource:compose:loto:api'],
+        async () => 'reacquired',
+      ),
       'reacquired',
     );
   } finally {
@@ -116,12 +141,20 @@ test('two independent instances in the same state directory serialize shared res
 test('a collision after acquiring one key releases the partial lease set', async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), 'resource-leases-'));
   try {
-    const first = new ServiceResourceOperationLock({ stateDirectory: directory });
-    const second = new ServiceResourceOperationLock({ stateDirectory: directory });
+    const first = new ServiceResourceOperationLock({
+      stateDirectory: directory,
+    });
+    const second = new ServiceResourceOperationLock({
+      stateDirectory: directory,
+    });
     let release!: () => void;
-    const held = new Promise<void>((resolve) => { release = resolve; });
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     let entered!: () => void;
-    const active = new Promise<void>((resolve) => { entered = resolve; });
+    const active = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
     const lock = first.withResources(['resource:z'], async () => {
       entered();
       await held;
@@ -130,9 +163,12 @@ test('a collision after acquiring one key releases the partial lease set', async
 
     // A second operation obtains resource:a, then hits resource:z and must
     // release a before returning a conflict (no partial-lock deadlock).
-    await assert.rejects(second.withResources(['resource:a', 'resource:z'], async () => {
-      throw new Error('must not execute');
-    }), /already using one of these resources/);
+    await assert.rejects(
+      second.withResources(['resource:a', 'resource:z'], async () => {
+        throw new Error('must not execute');
+      }),
+      /already using one of these resources/,
+    );
 
     const root = path.join(directory, 'service-resource-leases-v1');
     const activeZ = createHash('sha256').update('resource:z').digest('hex');
@@ -149,10 +185,14 @@ test('an orphaned lease is fail-closed, never stolen based on PID or age', async
   const directory = mkdtempSync(path.join(os.tmpdir(), 'resource-leases-'));
   try {
     const root = path.join(directory, 'service-resource-leases-v1');
-    const lease = path.join(root,
-      createHash('sha256').update('compose-project:loto').digest('hex'));
+    const lease = path.join(
+      root,
+      createHash('sha256').update('compose-project:loto').digest('hex'),
+    );
     mkdirSync(lease, { recursive: true });
-    const locks = new ServiceResourceOperationLock({ stateDirectory: directory });
+    const locks = new ServiceResourceOperationLock({
+      stateDirectory: directory,
+    });
     await assert.rejects(
       locks.withResources(['compose-project:loto'], async () => 'never run'),
       /already using one of these resources/,
@@ -171,15 +211,21 @@ test('an orphaned lease is fail-closed, never stolen based on PID or age', async
 test('after a failing operation, durable leases are released and safely retried', async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), 'resource-leases-'));
   try {
-    const locks = new ServiceResourceOperationLock({ stateDirectory: directory });
-    await assert.rejects(locks.withResources(['resource:db'], async () => {
-      throw new Error('provider failed');
-    }), /provider failed/);
+    const locks = new ServiceResourceOperationLock({
+      stateDirectory: directory,
+    });
+    await assert.rejects(
+      locks.withResources(['resource:db'], async () => {
+        throw new Error('provider failed');
+      }),
+      /provider failed/,
+    );
     const root = path.join(directory, 'service-resource-leases-v1');
     assert.deepEqual(readdirSync(root), []);
     assert.equal(
-      await new ServiceResourceOperationLock({ stateDirectory: directory })
-        .withResources(['resource:db'], async () => 'safe'),
+      await new ServiceResourceOperationLock({
+        stateDirectory: directory,
+      }).withResources(['resource:db'], async () => 'safe'),
       'safe',
     );
   } finally {
@@ -198,9 +244,11 @@ test('lease-root symlink and permission failures never allow mutation', async ()
     writeFileSync(root, 'not a directory');
     const locks = new ServiceResourceOperationLock({ stateDirectory });
     let mutated = false;
-    await assert.rejects(locks.withResources(['resource:db'], async () => {
-      mutated = true;
-    }));
+    await assert.rejects(
+      locks.withResources(['resource:db'], async () => {
+        mutated = true;
+      }),
+    );
     assert.equal(mutated, false);
   } finally {
     rmSync(directory, { recursive: true, force: true });
