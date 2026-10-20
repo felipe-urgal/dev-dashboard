@@ -305,3 +305,24 @@ test('simultaneous requests for same resource cannot execute inside the lock', a
   release();
   assert.equal((await first).status, 'completed');
 });
+
+test('the coordinator never double-acquires the Compose owner lock', async () => {
+  const f = fixture({ refs: [DB] });
+  const shared = new ServiceResourceOperationLock();
+  const coordinator = new ConfirmedServiceLifecycleCoordinator(
+    {
+      planner: f.planner,
+      locks: shared,
+      runner: {
+        run: (action, node) =>
+          shared.withResources(['compose-project:loto'], () =>
+            f.runner.run(action, node),
+          ),
+      },
+    },
+    { now: () => NOW },
+  );
+  const result = await coordinator.run(request());
+  assert.equal(result.status, 'completed');
+  assert.deepEqual(f.steps, [DB]);
+});

@@ -7,6 +7,7 @@ import type {
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 import type { ComposeStructuredCommand } from './docker-compose-model.js';
+import type { ServiceResourceOperationLock } from './service-resource-operation-lock.js';
 import type {
   DockerComposeOwnershipRecord,
   DockerComposeOwnershipStore,
@@ -203,6 +204,8 @@ export interface DockerComposeLifecycleServiceOptions {
     PortAllocationLeaseRegistry,
     'reserveBatch' | 'release' | 'releaseProject'
   >;
+  /** Shared cross-process lock; opt-in for direct service consumers. */
+  resourceLock?: Pick<ServiceResourceOperationLock, 'withResources'>;
   now?: () => Date;
 }
 
@@ -211,6 +214,7 @@ export class DockerComposeLifecycleService {
   private readonly ownershipStore: DockerComposeLifecycleServiceOptions['ownershipStore'];
   private readonly portLeaseRegistry: DockerComposeLifecycleServiceOptions['portLeaseRegistry'];
   private readonly now: () => Date;
+  private readonly resourceLock: DockerComposeLifecycleServiceOptions['resourceLock'];
   private readonly activeMutations = new Set<string>();
 
   public constructor(
@@ -222,6 +226,7 @@ export class DockerComposeLifecycleService {
     this.supportsWait = options.supportsWait ?? (async () => false);
     this.ownershipStore = options.ownershipStore;
     this.portLeaseRegistry = options.portLeaseRegistry;
+    this.resourceLock = options.resourceLock;
     this.now = options.now ?? (() => new Date());
   }
 
@@ -719,7 +724,16 @@ export class DockerComposeLifecycleService {
 
     this.activeMutations.add(project.id);
     try {
-      return await operation();
+      // The Compose lifecycle owner is the single lock boundary shared by
+      // direct Compose HTTP mutations and Stack Start/Stop/Restart. Do not
+      // acquire this key again in an outer coordinator (no re-entrant lease).
+      const execute = () => operation();
+      return this.resourceLock
+        ? await this.resourceLock.withResources(
+            ['compose-project:' + project.id],
+            execute,
+          )
+        : await execute();
     } finally {
       this.activeMutations.delete(project.id);
     }
