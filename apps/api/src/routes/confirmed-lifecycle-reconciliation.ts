@@ -151,13 +151,17 @@ const detailSchema = {
 const leaseEvidenceSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['resourceKey', 'status', 'ownerProcess', 'diagnostic'],
+  required: ['resourceKey', 'status', 'ownerProcess', 'processIdentity', 'diagnostic'],
   properties: {
     resourceKey: strings,
     status: { type: 'string', enum: ['absent', 'present', 'unverifiable'] },
     ownerProcess: {
       type: 'string',
       enum: ['alive', 'not-observed', 'unknown'],
+    },
+    processIdentity: {
+      type: 'string',
+      enum: ['verified-same', 'different', 'unverifiable'],
     },
     diagnostic: strings,
   },
