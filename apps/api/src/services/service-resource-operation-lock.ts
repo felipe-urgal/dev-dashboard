@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import { ApiError } from '../http/api-error.js';
+import { readLinuxProcessIdentity } from './linux-process-identity.js';
 
 type ResourceLockOptions = {
   /** Optional shared LOCAL filesystem state root, owned by the API user. */
@@ -104,6 +105,8 @@ export class ServiceResourceOperationLock {
                 key,
                 holder,
                 pid: process.pid,
+                // Missing procfs evidence remains unknown, never inferred.
+                processIdentity: readLinuxProcessIdentity(process.pid),
                 acquiredAt: new Date().toISOString(),
               }),
               { flag: 'wx', mode: 0o600 },
