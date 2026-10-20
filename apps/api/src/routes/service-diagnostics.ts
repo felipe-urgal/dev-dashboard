@@ -171,6 +171,20 @@ export const serviceDiagnosticsRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) => {
+      // Fastify's shared AJV settings remove unknown query properties.
+      // Reject them using the raw query before any provider can be accessed.
+      const rawQuery = request.raw.url?.split('?', 2)[1] ?? '';
+      const parameters = new URLSearchParams(rawQuery);
+      if (
+        [...parameters.keys()].some((key) => key !== 'environmentInstanceId') ||
+        parameters.getAll('environmentInstanceId').length > 1
+      ) {
+        throw new ApiError({
+          statusCode: 400,
+          code: 'BAD_REQUEST',
+          message: 'Unsupported or repeated diagnostics query parameter.',
+        });
+      }
       try {
         return {
           diagnostics: await options.diagnostics.read(
