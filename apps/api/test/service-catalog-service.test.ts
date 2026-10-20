@@ -196,6 +196,19 @@ test('joins trusted Compose ownership and managed processes, never adopts extern
   assert.equal(system?.readiness, 'unknown');
   assert.equal(system?.ownership, 'unmanaged');
   assert.equal(system?.ports.length, 0); // 8787 is not an ownership claim.
+  assert.equal(system?.enabledAtBoot, 'enabled');
+  assert.deepEqual(system?.capabilities, {
+    observe: 'supported',
+    start: 'unsupported',
+    stop: 'unsupported',
+    restart: 'unsupported',
+    'boot-policy': 'unsupported',
+  });
+  assert.deepEqual(system?.evidence, {
+    source: 'systemd',
+    identity: 'systemd:system:home-music.service',
+  });
+  assert.equal(system?.displayName, 'home-music.service');
   assert.equal(snapshot.ports.length, 2);
 });
 
