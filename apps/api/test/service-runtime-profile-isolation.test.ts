@@ -57,7 +57,8 @@ function entry(
 ): ServiceCatalogEntry {
   return {
     id,
-    name: id,
+    // Same display name intentionally proves identity is never resolved by name.
+    name: id.includes('db') ? 'PostgreSQL' : id,
     projectId,
     environmentInstanceId,
     provider: 'compose',
@@ -300,6 +301,17 @@ test('HTTP qualification: test, production, worktree and shared Loto runtime rem
   assert.equal(f.inspections, 0);
 
   const originalEvidence = structuredClone(f.catalog);
+  const bindingRevisionBefore = f.context.projectServiceBindingStore.revision(
+    GASTOS,
+  );
+  const profileRevisionBefore = f.context.serviceRuntimeProfileStore.revision(
+    GASTOS,
+  );
+  assert.equal(
+    f.catalog.entries.find((item) => item.id === TEST_DB)?.name,
+    f.catalog.entries.find((item) => item.id === PROD_DB)?.name,
+    'matching display names must not imply interchangeable databases',
+  );
   const testStart = await f.plan(GASTOS, PRIMARY, 'start', testProfile.id);
   assert.deepEqual(testStart.order, [TEST_DB, TEST_API]);
   assert.deepEqual(
@@ -401,6 +413,14 @@ test('HTTP qualification: test, production, worktree and shared Loto runtime rem
   assert.equal(
     f.context.serviceRuntimeProfileStore.byProject(GASTOS).length,
     4,
+  );
+  assert.equal(
+    f.context.projectServiceBindingStore.revision(GASTOS),
+    bindingRevisionBefore,
+  );
+  assert.equal(
+    f.context.serviceRuntimeProfileStore.revision(GASTOS),
+    profileRevisionBefore,
   );
   assert.equal(f.context.projectServiceBindingStore.byProject(LOTO).length, 2);
 
