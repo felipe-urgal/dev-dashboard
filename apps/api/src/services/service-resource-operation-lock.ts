@@ -60,7 +60,9 @@ export class ServiceResourceOperationLock {
 
     // Reserve in-memory synchronously, before the first await.
     if (keys.some((key) => this.held.has(key))) {
-      conflict('A lifecycle operation is already using one of these resources.');
+      conflict(
+        'A lifecycle operation is already using one of these resources.',
+      );
     }
     for (const key of keys) this.held.add(key);
 
@@ -83,7 +85,9 @@ export class ServiceResourceOperationLock {
             await fs.mkdir(directory, { mode: 0o700 });
           } catch (error) {
             if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
-              conflict('A lifecycle operation is already using one of these resources.');
+              conflict(
+                'A lifecycle operation is already using one of these resources.',
+              );
             }
             conflict('Resource lease store is unavailable.');
           }
@@ -119,9 +123,12 @@ export class ServiceResourceOperationLock {
         try {
           const marker = path.join(lease.directory, 'owner.json');
           if (lease.metadataWritten) {
-            const owner: unknown = JSON.parse(await fs.readFile(marker, 'utf8'));
+            const owner: unknown = JSON.parse(
+              await fs.readFile(marker, 'utf8'),
+            );
             if (
-              !owner || typeof owner !== 'object' ||
+              !owner ||
+              typeof owner !== 'object' ||
               (owner as { holder?: unknown }).holder !== holder
             ) {
               releaseFailure = true;
@@ -136,7 +143,9 @@ export class ServiceResourceOperationLock {
       }
       for (const key of keys) this.held.delete(key);
       if (releaseFailure) {
-        conflict('Resource lease could not be released; manual recovery required.');
+        conflict(
+          'Resource lease could not be released; manual recovery required.',
+        );
       }
     }
   }
