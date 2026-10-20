@@ -38,6 +38,19 @@ Os providers `systemd`, `docker`, `compose`, `managed-process` e `ports` reporta
 - Serviços de produção e dependências compartilhadas não são gerenciados pelo inventário. Vínculos explícitos, preview e autorização de mutações pertencem às issues #1115, #1116 e #1117.
 - O catálogo ainda não substitui os painéis especializados Docker Compose, Process Manager, Stacks ou Port Inspector.
 
+## Matriz de observação e permissões
+
+| Provider | Identidade/escopo | Observação | Autoridade concedida pelo inventário |
+| --- | --- | --- | --- |
+| systemd user | `systemd:user:<unit>.service` | Bus do usuário da API; pode não existir | Nenhuma |
+| systemd system | `systemd:system:<unit>.service` | Sem elevação; pode haver acesso parcial | Nenhuma |
+| Docker | `docker:<containerId>` no host da API | Containers inclusive parados, se Docker acessível | Nenhuma |
+| Compose | `compose:<projectId>:<service>` | Exige registro prévio de ownership e resolução de configuração | Nenhuma autorização nova |
+| Managed Process | `process:<processId>` e Environment Instance quando conhecido | Processo registrado no Process Manager | Nenhuma autorização nova |
+| Ports | Porta e endereço observados | Evidência independente, correlacionada apenas por identidade comprovada | Nenhuma |
+
+A API não deve consultar serviços de hosts remotos, nem transformar uma porta ou um PID em vínculo de projeto. Uma rota que responde `partial` continua permitindo verificar providers independentes.
+
 ## Validação recomendada
 
 Executar os testes `docker-container-observer.test.ts`, `service-catalog-service.test.ts`, `service-catalog-routes.test.ts` e os testes systemd/port inspector existentes; validar `npm run check` e os E2E do pipeline antes de disponibilizar mudanças.
