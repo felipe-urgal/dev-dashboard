@@ -51,13 +51,22 @@ const NODE: ServiceLifecyclePlanNode = {
 };
 
 function fixture() {
-  let environment: DevelopmentEnvironmentInstance | null = structuredClone(ENVIRONMENT);
+  let environment: DevelopmentEnvironmentInstance | null =
+    structuredClone(ENVIRONMENT);
   let project: Project | null = structuredClone(PROJECT);
-  let owner: { projectId: string; projectPath: string;
-    composeProjectName: string; startedAt: string } | undefined = {
-      projectId: PROJECT.id, projectPath: PROJECT.path,
-      composeProjectName: 'loto-prod', startedAt: '2026-10-20T08:00:00.000Z',
-    };
+  let owner:
+    | {
+        projectId: string;
+        projectPath: string;
+        composeProjectName: string;
+        startedAt: string;
+      }
+    | undefined = {
+    projectId: PROJECT.id,
+    projectPath: PROJECT.path,
+    composeProjectName: 'loto-prod',
+    startedAt: '2026-10-20T08:00:00.000Z',
+  };
   let inspected: DockerComposeInspection = {
     state: 'available',
     observedAt: '2026-10-20T10:00:00.000Z',
@@ -99,11 +108,20 @@ function fixture() {
     lifecycle,
   });
   return {
-    runner, mutations,
-    setProject: (value: Project | null) => { project = value; },
-    setEnvironment: (value: DevelopmentEnvironmentInstance | null) => { environment = value; },
-    setOwner: (value: typeof owner) => { owner = value; },
-    setInspection: (value: DockerComposeInspection) => { inspected = value; },
+    runner,
+    mutations,
+    setProject: (value: Project | null) => {
+      project = value;
+    },
+    setEnvironment: (value: DevelopmentEnvironmentInstance | null) => {
+      environment = value;
+    },
+    setOwner: (value: typeof owner) => {
+      owner = value;
+    },
+    setInspection: (value: DockerComposeInspection) => {
+      inspected = value;
+    },
     inspection: () => inspected,
   };
 }
@@ -117,44 +135,105 @@ test('delegates start to existing Compose owner for an exclusive primary service
 test('delegates stop only when all declared Compose dependents are proven inactive', async () => {
   const f = fixture();
   f.inspection().config!.services[1]!.dependsOn = ['app'];
-  const request: ConfirmedLifecycleRequest = { ...CONFIRMATION, action: 'stop' };
-  await f.runner.run('stop', {
-    ...NODE, disposition: 'willStop', state: 'running', readiness: 'ready',
-  }, request);
+  const request: ConfirmedLifecycleRequest = {
+    ...CONFIRMATION,
+    action: 'stop',
+  };
+  await f.runner.run(
+    'stop',
+    {
+      ...NODE,
+      disposition: 'willStop',
+      state: 'running',
+      readiness: 'ready',
+    },
+    request,
+  );
   assert.deepEqual(f.mutations, ['stop:loto:app']);
 });
 
 test('rejects forged resource reference, mismatched project, shared and unowned targets', async () => {
   const f = fixture();
-  await assert.rejects(f.runner.run('start', {
-    ...NODE, serviceRef: 'compose:gastos:app',
-  }, CONFIRMATION), /does not belong/);
-  await assert.rejects(f.runner.run('start', {
-    ...NODE, consumerCount: 2,
-  }, CONFIRMATION), /not an authorized/);
-  await assert.rejects(f.runner.run('start', {
-    ...NODE, relation: 'required',
-  }, CONFIRMATION), /not an authorized/);
-  await assert.rejects(f.runner.run('start', {
-    ...NODE, provider: 'systemd',
-  }, CONFIRMATION), /not an authorized/);
-  await assert.rejects(f.runner.run('stop', {
-    ...NODE, disposition: 'willStop',
-  }, CONFIRMATION), /not an authorized/);
+  await assert.rejects(
+    f.runner.run(
+      'start',
+      {
+        ...NODE,
+        serviceRef: 'compose:gastos:app',
+      },
+      CONFIRMATION,
+    ),
+    /does not belong/,
+  );
+  await assert.rejects(
+    f.runner.run(
+      'start',
+      {
+        ...NODE,
+        consumerCount: 2,
+      },
+      CONFIRMATION,
+    ),
+    /not an authorized/,
+  );
+  await assert.rejects(
+    f.runner.run(
+      'start',
+      {
+        ...NODE,
+        relation: 'required',
+      },
+      CONFIRMATION,
+    ),
+    /not an authorized/,
+  );
+  await assert.rejects(
+    f.runner.run(
+      'start',
+      {
+        ...NODE,
+        provider: 'systemd',
+      },
+      CONFIRMATION,
+    ),
+    /not an authorized/,
+  );
+  await assert.rejects(
+    f.runner.run(
+      'stop',
+      {
+        ...NODE,
+        disposition: 'willStop',
+      },
+      CONFIRMATION,
+    ),
+    /not an authorized/,
+  );
   assert.deepEqual(f.mutations, []);
 });
 
 test('rejects worktree or Dev Container environment without adopting primary project', async () => {
   const f = fixture();
-  await assert.rejects(f.runner.run('start', NODE, {
-    ...CONFIRMATION, environmentInstanceId: 'environment:worktree:loto:42',
-  }), /primary host environment/);
+  await assert.rejects(
+    f.runner.run('start', NODE, {
+      ...CONFIRMATION,
+      environmentInstanceId: 'environment:worktree:loto:42',
+    }),
+    /primary host environment/,
+  );
   f.setEnvironment({
-    ...ENVIRONMENT, runtime: { kind: 'devcontainer', containerId: 'test' },
+    ...ENVIRONMENT,
+    runtime: { kind: 'devcontainer', containerId: 'test' },
   } as DevelopmentEnvironmentInstance);
-  await assert.rejects(f.runner.run('start', NODE, CONFIRMATION), /no longer valid/);
+  await assert.rejects(
+    f.runner.run('start', NODE, CONFIRMATION),
+    /no longer valid/,
+  );
   f.setEnvironment(null);
-  await assert.rejects(f.runner.run('start', NODE, CONFIRMATION), /no longer valid/);
+  await assert.rejects(
+    f.runner.run('start', NODE, CONFIRMATION),
+    /no longer valid/,
+  );
   assert.deepEqual(f.mutations, []);
 });
 
@@ -163,13 +242,17 @@ test('refuses missing, mismatched and unverifiable Compose ownership', async () 
   f.setOwner(undefined);
   await assert.rejects(f.runner.run('start', NODE, CONFIRMATION), /ownership/);
   f.setOwner({
-    projectId: 'other', projectPath: PROJECT.path,
-    composeProjectName: 'loto-prod', startedAt: '2026-10-20T08:00:00.000Z',
+    projectId: 'other',
+    projectPath: PROJECT.path,
+    composeProjectName: 'loto-prod',
+    startedAt: '2026-10-20T08:00:00.000Z',
   });
   await assert.rejects(f.runner.run('start', NODE, CONFIRMATION), /ownership/);
   f.setOwner({
-    projectId: PROJECT.id, projectPath: PROJECT.path,
-    composeProjectName: 'loto-prod', startedAt: '2026-10-20T08:00:00.000Z',
+    projectId: PROJECT.id,
+    projectPath: PROJECT.path,
+    composeProjectName: 'loto-prod',
+    startedAt: '2026-10-20T08:00:00.000Z',
   });
   f.inspection().config!.projectName = 'different';
   await assert.rejects(f.runner.run('start', NODE, CONFIRMATION), /ownership/);
@@ -203,23 +286,41 @@ test('refuses stop when dependents are running or missing from observed runtime'
 
 test('rejects unlisted service or missing runtime identity; never trusts node.name', async () => {
   const f = fixture();
-  await assert.rejects(f.runner.run('start', {
-    ...NODE, serviceRef: 'compose:loto:unknown',
-  }, CONFIRMATION), /not present/);
+  await assert.rejects(
+    f.runner.run(
+      'start',
+      {
+        ...NODE,
+        serviceRef: 'compose:loto:unknown',
+      },
+      CONFIRMATION,
+    ),
+    /not present/,
+  );
   const config = f.inspection().config!;
   config.services[0]!.name = 'other-app';
-  await assert.rejects(f.runner.run('start', NODE, CONFIRMATION), /not present/);
+  await assert.rejects(
+    f.runner.run('start', NODE, CONFIRMATION),
+    /not present/,
+  );
   assert.deepEqual(f.mutations, []);
 });
 
 test('does not call owner if project disappears or environment identity drifts', async () => {
   const f = fixture();
   f.setProject(null);
-  await assert.rejects(f.runner.run('start', NODE, CONFIRMATION), /no longer valid/);
+  await assert.rejects(
+    f.runner.run('start', NODE, CONFIRMATION),
+    /no longer valid/,
+  );
   f.setProject(PROJECT);
   f.setEnvironment({
-    ...ENVIRONMENT, source: { kind: 'primary', path: '/other/location' },
+    ...ENVIRONMENT,
+    source: { kind: 'primary', path: '/other/location' },
   });
-  await assert.rejects(f.runner.run('start', NODE, CONFIRMATION), /no longer valid/);
+  await assert.rejects(
+    f.runner.run('start', NODE, CONFIRMATION),
+    /no longer valid/,
+  );
   assert.deepEqual(f.mutations, []);
 });
