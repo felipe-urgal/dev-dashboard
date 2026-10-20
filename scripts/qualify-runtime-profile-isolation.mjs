@@ -165,9 +165,10 @@ async function main() {
         docker('volume', 'create', '--label', LABEL + '=' + prefix, volume);
         volumes.push(volume);
       }
+      // Track a successfully created container before starting it: a
+      // failed startup must still remove the new container and its volume.
       docker(
-        'run',
-        '-d',
+        'create',
         '--pull=never',
         '--name',
         container,
@@ -182,6 +183,7 @@ async function main() {
         IMAGE,
       );
       containers.add(container);
+      docker('start', container);
       assert.equal(
         docker('inspect', '--format', '{{.HostConfig.NetworkMode}}', container),
         'none',
