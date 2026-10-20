@@ -35,3 +35,7 @@ Esta entrega não automatiza essas etapas. Cancelamento/timeout, finalização a
 ## Cobertura de testes
 
 Casos: Job em execução cujo serviço aparenta estar pronto, divergência após Job concluído, catálogo indisponível/parcial, serviço ambíguo/unmanaged/de outro projeto, isolamento HTTP por projeto, autenticação e ausência de mutações.
+
+## Validação de segurança do endpoint
+
+O diagnóstico é refeito a cada GET e não altera o Journal. Respostas de projetos diferentes não permitem descobrir Jobs alheios. Uma consulta com providers indisponíveis produz informação inconclusiva, não autorização. O contrato deve continuar explicitando `safeToRetry: false` mesmo quando o runtime aparentar atender ao plano.
