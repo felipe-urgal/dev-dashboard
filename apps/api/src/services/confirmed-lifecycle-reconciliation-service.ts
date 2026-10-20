@@ -138,8 +138,10 @@ export class ConfirmedLifecycleReconciliationService {
       const owned =
         entry?.ownership === 'confirmed' &&
         entry.projectId === job.projectId &&
-        (entry.environmentInstanceId === undefined ||
-          entry.environmentInstanceId === job.environmentInstanceId);
+        (entry.environmentInstanceId === job.environmentInstanceId ||
+          (entry.environmentInstanceId === undefined &&
+            job.environmentInstanceId ===
+              'environment:primary:' + job.projectId));
       let assessment: LifecycleReconciliationNode['assessment'] =
         'unverifiable';
       let diagnostic =
