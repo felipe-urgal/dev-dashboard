@@ -22,7 +22,10 @@ const MAX_NODES = 200;
 
 interface Dependencies {
   /** Omitted only by independent planner fixtures; requested profiles require this store. */
-  profiles?: Pick<ServiceRuntimeProfileStore, 'find' | 'byProject' | 'revision'>;
+  profiles?: Pick<
+    ServiceRuntimeProfileStore,
+    'find' | 'byProject' | 'revision'
+  >;
   bindings: Pick<
     ProjectServiceBindingStore,
     'byProject' | 'byResource' | 'revision'
@@ -167,10 +170,15 @@ export class ServiceLifecyclePlanningService {
       (binding) => binding.enabled && binding.environmentInstanceId === id,
     );
     const selected = new Set(profile?.bindingIds ?? []);
-    if (profile && profile.bindingIds.some(
-      (bindingId) => !available.some((binding) => binding.id === bindingId),
-    )) {
-      conflict('Runtime profile has missing or disabled bindings. Refresh the profile before planning.');
+    if (
+      profile &&
+      profile.bindingIds.some(
+        (bindingId) => !available.some((binding) => binding.id === bindingId),
+      )
+    ) {
+      conflict(
+        'Runtime profile has missing or disabled bindings. Refresh the profile before planning.',
+      );
     }
     const bindings = profile
       ? available.filter((binding) => selected.has(binding.id))
@@ -205,7 +213,9 @@ export class ServiceLifecyclePlanningService {
       const shared = consumers > 1;
       const usedByAnotherProfile = Boolean(
         profile &&
-          this.dependencies.profiles!.byProject(projectId).some(
+        this.dependencies
+          .profiles!.byProject(projectId)
+          .some(
             (other) =>
               other.id !== profile.id && other.bindingIds.includes(binding.id),
           ),
@@ -244,7 +254,8 @@ export class ServiceLifecyclePlanningService {
           node.diagnostic = 'Another project or environment uses this service.';
         } else if (usedByAnotherProfile) {
           node.disposition = 'retained';
-          node.diagnostic = 'Another runtime profile uses this service; stop is not safe.';
+          node.diagnostic =
+            'Another runtime profile uses this service; stop is not safe.';
         } else if (
           entry.provider === 'compose' ||
           entry.provider === 'managed-process'
@@ -395,7 +406,13 @@ export class ServiceLifecyclePlanningService {
           action,
           expectedRevision,
           ...(profile
-            ? { profile: { id: profile.id, kind: profile.kind, revision: profileRevision } }
+            ? {
+                profile: {
+                  id: profile.id,
+                  kind: profile.kind,
+                  revision: profileRevision,
+                },
+              }
             : {}),
           providerStatus: catalog.status,
           truncated: catalog.truncated,
@@ -421,7 +438,13 @@ export class ServiceLifecyclePlanningService {
       status: diagnostics.length > 0 ? 'blocked' : 'ready',
       expectedRevision,
       ...(profile
-        ? { profile: { id: profile.id, kind: profile.kind, revision: profileRevision! } }
+        ? {
+            profile: {
+              id: profile.id,
+              kind: profile.kind,
+              revision: profileRevision!,
+            },
+          }
         : {}),
       planHash,
       observedAt,

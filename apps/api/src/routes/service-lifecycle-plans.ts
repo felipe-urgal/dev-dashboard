@@ -149,7 +149,8 @@ export const serviceLifecyclePlanRoutes: FastifyPluginAsync<Options> = async (
             expectedPlanHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
             profileId: {
               type: 'string',
-              pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+              pattern:
+                '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
             },
           },
         },
