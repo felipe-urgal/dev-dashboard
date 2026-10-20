@@ -56,6 +56,8 @@ import { ServiceCatalogService } from './services/service-catalog-service.js';
 import { ProjectServiceBindingService } from './services/project-service-binding-service.js';
 import { ServiceLifecyclePlanningService } from './services/service-lifecycle-planning-service.js';
 import { ConfirmedLifecycleReconciliationService } from './services/confirmed-lifecycle-reconciliation-service.js';
+import { ConfirmedLifecycleRecoveryReviewService } from './services/confirmed-lifecycle-recovery-review-service.js';
+import { ServiceResourceLeaseInspector } from './services/service-resource-lease-inspector.js';
 import { DockerContainerObserver } from './services/docker-container-observer.js';
 import { gitWorktreeRoutes } from './routes/git-worktrees.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
@@ -105,6 +107,7 @@ import { createAppContext, type AppContext } from './app-context.js';
 export interface BuildAppOptions extends AppCompositionOptions {
   hostServiceInventory?: Pick<SystemdServiceInventory, 'inspect'>;
   serviceCatalog?: Pick<ServiceCatalogService, 'inspect'>;
+  serviceResourceLeaseInspector?: Pick<ServiceResourceLeaseInspector, 'inspect'>;
   localToken?: string;
   allowedOrigins?: readonly string[];
   context?: AppContext;
@@ -392,13 +395,20 @@ export async function buildApp(options: BuildAppOptions = {}) {
     }),
   });
 
+  const lifecycleReconciliation = new ConfirmedLifecycleReconciliationService({
+    journal: confirmedLifecycleJobs,
+    projects: context.projectStore,
+    catalog,
+  });
   app.register(confirmedLifecycleReconciliationRoutes, {
     prefix: '/api',
-    reconciliation: new ConfirmedLifecycleReconciliationService({
-      journal: confirmedLifecycleJobs,
-      projects: context.projectStore,
-      catalog,
-    }),
+    reconciliation: lifecycleReconciliation,
+    recovery: new ConfirmedLifecycleRecoveryReviewService({
+      reconciliation: lifecycleReconciliation,
+      leases: options.serviceResourceLeaseInspector ??
+        new ServiceResourceLeaseInspector(context.processManager.stateDirectory),
+      activity: context.activityEventRepository,
+    }, options.now ? { now: () => new Date(options.now!()) } : {}),
   });
 
   app.register(stackRoutes, {
