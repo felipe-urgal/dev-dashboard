@@ -265,8 +265,11 @@ export class SystemdServiceInventory {
       let detailsComplete = true;
       if (available) {
         const batches: string[][] = [];
-        for (let i = 0; i < selected.length; i += SHOW_BATCH_SIZE) {
-          batches.push(selected.slice(i, i + SHOW_BATCH_SIZE));
+        // Uninstantiated templates are declarations, not active instances.
+        // Avoid systemctl show on templates (it may load/resolve a unit).
+        const showTargets = selected.filter((name) => !name.includes('@.service'));
+        for (let i = 0; i < showTargets.length; i += SHOW_BATCH_SIZE) {
+          batches.push(showTargets.slice(i, i + SHOW_BATCH_SIZE));
         }
         const results = await Promise.allSettled(
           batches.map((batch) => this.runner(scope, 'show', batch)),
