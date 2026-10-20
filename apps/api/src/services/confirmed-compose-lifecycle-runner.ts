@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import type {
   ConfirmedLifecycleRequest,
   Project,
@@ -85,7 +87,7 @@ export class ConfirmedComposeLifecycleRunner implements ConfirmedLifecycleRunner
       environment.projectId !== project.id ||
       environment.runtime.kind !== 'host' ||
       environment.source.kind !== 'primary' ||
-      environment.source.path !== project.path
+      path.resolve(environment.source.path) !== path.resolve(project.path)
     ) {
       blocked('The Compose project/environment identity is no longer valid.');
     }
@@ -148,7 +150,7 @@ export class ConfirmedComposeLifecycleRunner implements ConfirmedLifecycleRunner
     if (
       !owner ||
       owner.projectId !== project.id ||
-      owner.projectPath !== project.path ||
+      path.resolve(owner.projectPath) !== path.resolve(project.path) ||
       inspection.state !== 'available' ||
       !inspection.config ||
       !inspection.runtime ||
