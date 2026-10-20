@@ -739,7 +739,7 @@ export class DockerComposeLifecycleService {
       // The Compose lifecycle owner is the single lock boundary shared by
       // direct Compose HTTP mutations and Stack Start/Stop/Restart. Do not
       // acquire this key again in an outer coordinator (no re-entrant lease).
-      const execute = (guard: ServiceResourceLeaseGuard) => operation(guard);
+      const execute = (guard?: ServiceResourceLeaseGuard) => operation(guard);
       return this.resourceLock
         ? await this.resourceLock.withResources(
             ['compose-project:' + project.id],
