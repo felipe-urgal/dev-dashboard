@@ -33,6 +33,7 @@ for (const action of ['start', 'stop', 'restart'] as const) {
             if (checkCount > 1) throw new Error('resource lease revoked');
           },
         };
+        await guard.assertOwned();
         return operation(guard);
       },
     };
@@ -75,8 +76,12 @@ for (const action of ['start', 'stop', 'restart'] as const) {
         supportsWait: async () => false,
       },
     );
-    await assert.rejects(service[action](project, 'web' as never),
-      /resource lease revoked/);
+    const invocation = action === 'start'
+      ? service.start(project, {}, 'web')
+      : action === 'stop'
+        ? service.stop(project, 'web')
+        : service.restart(project, 'web');
+    await assert.rejects(invocation, /resource lease revoked/);
     assert.equal(commandCount, 0);
     assert.equal(checkCount, 2);
   });
