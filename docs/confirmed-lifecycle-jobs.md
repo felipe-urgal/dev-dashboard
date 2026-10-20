@@ -1,0 +1,44 @@
+# Jobs persistentes para lifecycle confirmado — etapa interna
+
+A issue [#1116](https://github.com/felipe-urgal/dev-dashboard/issues/1116) acrescenta um journal persistente de execuções confirmadas, **sem criar um novo executor público**. O `ConfirmedServiceLifecycleCoordinator` permanece interno: o `buildApp` não instancia esse coordenador com um runner real nem registra rota POST de Start/Stop.
+
+## Como funciona
+
+`ConfirmedLifecycleJobJournal` usa o diretório de estado do Process Manager, em `confirmed-lifecycle-jobs-v1/`, com um arquivo JSON por UUID de execução. O journal armazena **metadados delimitados**, não stdout/stderr, tokens de confirmação, comandos ou logs completos.
+
+1. Após aprovação e revalidação do plano **dentro dos locks**, o coordenador registra um job `running/prepared` antes de qualquer comando.
+2. **Antes** da invocação do provider, marca `stage=invoking` e `inFlightRef`. Se não conseguir persistir, a mutação não é iniciada.
+3. Após a resposta e verificação observada, acrescenta um step `completed|failed|unverified`, sem o texto bruto do erro do provider.
+4. Ao concluir, grava `completed|failed|partial`, horário e estado de recuperação. Não há rollback automático.
+
+Um arquivo tem limite de 64 KiB, um job tem até 200 steps e o diretório até 1.000 jobs. Atualizações usam escrita temporária com rename; novos IDs usam criação exclusiva. Um arquivo corrompido, de versão desconhecida ou excessivo bloqueia novas gravações (**fail-closed**) e é preservado para diagnóstico.
+
+## Reinício e recuperação
+
+Ao reiniciar a API, registros `running` sem ownership em memória passam a ser apresentados como **`reconciliationRequired`**, preservando `inFlightRef` e os passos comprovados. Essa indicação **não prova** que o processo anterior morreu: pode ainda existir outra instância. A interface deve mostrar estado incerto; nunca reiniciar comandos com base apenas no estado do journal.
+
+Enquanto existir job `running` para o mesmo projeto e ambiente, o journal recusa iniciar outro nesse alvo. O lock de recursos físicos continua sendo exigido: o journal por si só **não** fornece exclusão transacional entre processos. Nenhuma limpeza/retentativa automática de jobs ativos, arquivos de estado ou leases é autorizada.
+
+A reconciliação posterior deve verificar processo owner, Compose runtime, dependencies, estado final dos serviços e locks antes de autorizar nova execução. Um job `partial` concluído mantém `reconciliationRequired=true` para auditoria, mas não é retomado automaticamente.
+
+## Activity e Jobs
+
+O mesmo `ActivitySnapshotService` existente recebe um `activityJobReader` baseado no journal. Jobs não terminados são exibidos com ID reanexável `compose-confirmed:<uuid>`, `resourceRef`, projeto e ambiente, ação e estágio; `reconciliation-required` destaca que a execução não pode ser considerada concluída. `cancelSupported=false` até existir mecanismo real de cancelamento seguro.
+
+**Não há rota adicional de execução, endpoint de replay nem reparação automática.** O leitor de Activity é apenas observacional. Os resultados de cada step continuam podendo ser registrados pelo `ConfirmedServiceLifecycleActivityWriter` já existente, sem armazenamento paralelo de eventos.
+
+## Limites para uma futura interface mutável
+
+- O journal é por job e não substitui um serviço completo de Jobs com scheduler, timeouts/cancelamento/reattach real.
+- Falta integrar o coordinator interno ao fluxo público de confirmação/autorização, fazer compatibilização entre processos, lidar com quedas após a operação e antes do commit e criar recuperação explícita e auditável.
+- Fluxos de Compose já oferecidos pelo Dashboard têm lifecycle próprio e não foram migrados automaticamente para este journal.
+
+## Testes
+
+- Persistência e reabertura de jobs e steps após o reinício.
+- Crash lógico depois de `beforeStep` e antes de registrar o resultado, com marcação `reconciliationRequired` e sem replay.
+- Falha de persistência **antes** da mutação abortando o runner.
+- Falha de persistência **depois** da mutação preservando incerteza e evitando segunda invocação.
+- Isolamento por projeto, UUID bounded, arquivo inválido/versão futura e ausência de diagnósticos sensíveis.
+
+Referências: #1113, #1116, #1126–#1130.
