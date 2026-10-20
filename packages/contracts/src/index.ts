@@ -66,6 +66,11 @@ export type {
 } from './host-service.js';
 
 export type {
+  ServiceDiagnosticsSnapshot,
+  ServiceDiagnosticsStatus,
+} from './service-diagnostics.js';
+
+export type {
   ServiceCatalogEntry,
   ServiceCatalogPortEvidence,
   ServiceCatalogProvider,
