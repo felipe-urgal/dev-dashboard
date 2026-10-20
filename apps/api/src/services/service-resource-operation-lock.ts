@@ -11,9 +11,19 @@ type ResourceLockOptions = {
 };
 
 type AcquiredLease = {
+  key: string;
   directory: string;
   metadataWritten: boolean;
 };
+
+/**
+ * A cooperative ownership check. Must be performed by the lifecycle owner
+ * immediately before it dispatches a provider mutation. This is NOT a
+ * distributed fencing token and cannot stop an already-running command.
+ */
+export interface ServiceResourceLeaseGuard {
+  assertOwned(): Promise<void>;
+}
 
 function conflict(message: string): never {
   throw new ApiError({ statusCode: 409, code: 'CONFLICT', message });
@@ -48,7 +58,7 @@ export class ServiceResourceOperationLock {
 
   public async withResources<T>(
     resourceKeys: readonly string[],
-    operation: () => Promise<T>,
+    operation: (guard: ServiceResourceLeaseGuard) => Promise<T>,
   ): Promise<T> {
     const keys = [...new Set(resourceKeys)].sort();
     if (
@@ -69,6 +79,48 @@ export class ServiceResourceOperationLock {
 
     const acquired: AcquiredLease[] = [];
     const holder = randomUUID();
+    let released = false;
+    // No user-controlled filesystem paths; directories are SHA-256 of keys.
+    const guard: ServiceResourceLeaseGuard = {
+      assertOwned: async () => {
+        if (released || keys.some((key) => !this.held.has(key))) {
+          conflict('Lifecycle resource lease is no longer owned by this operation.');
+        }
+        if (!this.leaseRoot) return;
+        if (acquired.length !== keys.length) {
+          conflict('Lifecycle resource lease acquisition is incomplete.');
+        }
+        try {
+          const root = await fs.lstat(this.leaseRoot);
+          if (!root.isDirectory() || root.isSymbolicLink()) {
+            conflict('Lifecycle resource lease root cannot be verified.');
+          }
+          for (const lease of acquired) {
+            const dir = await fs.lstat(lease.directory);
+            if (!dir.isDirectory() || dir.isSymbolicLink() ||
+              !lease.metadataWritten) {
+              conflict('Lifecycle resource lease is no longer valid.');
+            }
+            const marker = path.join(lease.directory, 'owner.json');
+            const metadata = await fs.lstat(marker);
+            if (!metadata.isFile() || metadata.isSymbolicLink() ||
+              metadata.size > 4096) {
+              conflict('Lifecycle resource lease owner cannot be verified.');
+            }
+            const owner: unknown = JSON.parse(await fs.readFile(marker, 'utf8'));
+            if (!owner || typeof owner !== 'object' ||
+              (owner as {holder?: unknown}).holder !== holder ||
+              (owner as {key?: unknown}).key !== lease.key) {
+              conflict('Lifecycle resource lease ownership has changed.');
+            }
+          }
+        } catch {
+          // Disclose no local paths or contents; never assume a missing marker
+          // means it is safe to dispatch a new provider command.
+          conflict('Lifecycle resource lease ownership cannot be verified.');
+        }
+      },
+    };
     let releaseFailure = false;
     try {
       if (this.leaseRoot) {
@@ -93,6 +145,7 @@ export class ServiceResourceOperationLock {
             conflict('Resource lease store is unavailable.');
           }
           const lease: AcquiredLease = {
+            key,
             directory,
             metadataWritten: false,
           };
@@ -118,8 +171,10 @@ export class ServiceResourceOperationLock {
         }
       }
 
-      return await operation();
+      await guard.assertOwned();
+      return await operation(guard);
     } finally {
+      released = true;
       // Best-effort cleanup of *every* acquired key, even when one cleanup
       // fails. Never force-remove a directory owned by an unknown process.
       for (const lease of acquired.reverse()) {
