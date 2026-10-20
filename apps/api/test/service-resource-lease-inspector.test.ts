@@ -50,7 +50,7 @@ test('reports present owner without claiming its process owns the active mutatio
     }).inspect([KEY]);
     assert.equal(missing[0]?.status, 'present');
     assert.equal(missing[0]?.ownerProcess, 'not-observed');
-    assert.match(missing[0]?.diagnostic ?? '', /verification/);
+    assert.match(missing[0]?.diagnostic ?? '', /cannot be verified/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
