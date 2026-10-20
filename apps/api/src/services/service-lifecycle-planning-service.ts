@@ -14,12 +14,18 @@ import { primaryEnvironmentInstanceId } from '../store/development-environment-i
 import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
 import type { ProjectServiceBindingStore } from '../store/project-service-binding-store.js';
+import type { ServiceRuntimeProfileStore } from '../store/service-runtime-profile-store.js';
 import type { ServiceCatalogService } from './service-catalog-service.js';
 
 const PLAN_TTL_MS = 30_000;
 const MAX_NODES = 200;
 
 interface Dependencies {
+  /** Omitted only by independent planner fixtures; requested profiles require this store. */
+  profiles?: Pick<
+    ServiceRuntimeProfileStore,
+    'find' | 'byProject' | 'revision'
+  >;
   bindings: Pick<
     ProjectServiceBindingStore,
     'byProject' | 'byResource' | 'revision'
@@ -111,6 +117,7 @@ export class ServiceLifecyclePlanningService {
     action: ServiceLifecycleAction,
     environmentInstanceId?: string,
     expectedPlanHash?: string,
+    profileId?: string,
   ): Promise<ServiceLifecyclePlan> {
     if (!this.dependencies.projects.findProject(projectId)) {
       throw new ApiError({
@@ -138,11 +145,44 @@ export class ServiceLifecyclePlanningService {
     } catch {
       conflict('Service observation is unavailable. No plan can be trusted.');
     }
+    // Only backend-persisted profile identities may select service bindings.
+    const profile = profileId
+      ? this.dependencies.profiles?.find(profileId)
+      : undefined;
+    if (
+      profileId &&
+      (!profile ||
+        profile.projectId !== projectId ||
+        profile.environmentInstanceId !== id)
+    ) {
+      throw new ApiError({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+        message: 'Runtime profile not found for this project environment.',
+      });
+    }
+    const profileRevision = profile
+      ? this.dependencies.profiles!.revision(projectId)
+      : undefined;
     const expectedRevision = this.dependencies.bindings.revision(projectId);
     const all = this.dependencies.bindings.byProject(projectId);
-    const bindings = all.filter(
+    const available = all.filter(
       (binding) => binding.enabled && binding.environmentInstanceId === id,
     );
+    const selected = new Set(profile?.bindingIds ?? []);
+    if (
+      profile &&
+      profile.bindingIds.some(
+        (bindingId) => !available.some((binding) => binding.id === bindingId),
+      )
+    ) {
+      conflict(
+        'Runtime profile has missing or disabled bindings. Refresh the profile before planning.',
+      );
+    }
+    const bindings = profile
+      ? available.filter((binding) => selected.has(binding.id))
+      : available;
     const diagnostics: string[] = [];
     if (
       catalog.status !== 'ready' ||
@@ -171,6 +211,15 @@ export class ServiceLifecyclePlanningService {
         this.dependencies.bindings.byResource(binding.serviceRef),
       );
       const shared = consumers > 1;
+      const usedByAnotherProfile = Boolean(
+        profile &&
+        this.dependencies
+          .profiles!.byProject(projectId)
+          .some(
+            (other) =>
+              other.id !== profile.id && other.bindingIds.includes(binding.id),
+          ),
+      );
       const dependencies = [
         ...new Set(binding.dependencies.map((item) => item.serviceRef)),
       ].sort();
@@ -203,6 +252,10 @@ export class ServiceLifecyclePlanningService {
         } else if (shared) {
           node.disposition = 'retained';
           node.diagnostic = 'Another project or environment uses this service.';
+        } else if (usedByAnotherProfile) {
+          node.disposition = 'retained';
+          node.diagnostic =
+            'Another runtime profile uses this service; stop is not safe.';
         } else if (
           entry.provider === 'compose' ||
           entry.provider === 'managed-process'
@@ -352,6 +405,15 @@ export class ServiceLifecyclePlanningService {
           environmentInstanceId: id,
           action,
           expectedRevision,
+          ...(profile
+            ? {
+                profile: {
+                  id: profile.id,
+                  kind: profile.kind,
+                  revision: profileRevision,
+                },
+              }
+            : {}),
           providerStatus: catalog.status,
           truncated: catalog.truncated,
           portEvidence,
@@ -375,6 +437,15 @@ export class ServiceLifecyclePlanningService {
       action,
       status: diagnostics.length > 0 ? 'blocked' : 'ready',
       expectedRevision,
+      ...(profile
+        ? {
+            profile: {
+              id: profile.id,
+              kind: profile.kind,
+              revision: profileRevision!,
+            },
+          }
+        : {}),
       planHash,
       observedAt,
       expiresAt,

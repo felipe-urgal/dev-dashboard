@@ -43,9 +43,22 @@ profile via its API is rejected until the profile is updated/removed.
   port, branch or environment kind.
 - Production profiles do not override the existing Production Contract,
   authorize deployment, grant secrets access or control real services.
-- This increment does **not** yet connect profile selection to the UI or
-  #1116's planner. Profile-specific differential previews and explicit
-  confirmation are separate work still required by #1120.
+- Read-only `GET /api/projects/:projectId/service-plan?action=start|stop`
+  accepts optional `profileId=<saved UUID>` and an exact
+  `environmentInstanceId`. A selected profile plans **only** its enabled
+  binding IDs; stale/foreign IDs are rejected (409/404). Without `profileId`,
+  the existing default planning behavior is unchanged.
+- A selected profile cannot stop a service referenced by another runtime
+  profile of the project: that service is `retained`. Sharing across projects
+  and Environment Instances remains protected. Missing dependencies block
+  Start rather than being adopted; an empty profile does not fall back to
+  all bindings.
+- The response includes the selected profile's ID, kind and revision. Its
+  `planHash` tracks those along with binding revisions and runtime evidence.
+  All plans remain `executable: false`; selecting `production` is only a view.
+  A matching plan hash is never an authorization or execution ticket.
+- The UI selection/configuration, per-profile visual diffs and operational
+  confirmation are still pending in #1120.
 - Storage follows the existing local, single-writer JSON-store model; it does
   not promise transactionality across multiple independently writing
   Dashboard processes.

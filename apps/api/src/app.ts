@@ -427,6 +427,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     planner: new ServiceLifecyclePlanningService({
       bindings: context.projectServiceBindingStore,
+      profiles: context.serviceRuntimeProfileStore,
       projects: context.projectStore,
       environments: context.developmentEnvironmentInstanceStore,
       catalog,

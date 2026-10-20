@@ -13,6 +13,7 @@ interface Query {
   action: 'start' | 'stop';
   environmentInstanceId?: string;
   expectedPlanHash?: string;
+  profileId?: string;
 }
 
 const properties = {
@@ -78,6 +79,16 @@ const responseSchema = {
     action: { type: 'string', enum: ['start', 'stop'] },
     status: { type: 'string', enum: ['ready', 'blocked'] },
     expectedRevision: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    profile: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['id', 'kind', 'revision'],
+      properties: {
+        id: { type: 'string' },
+        kind: { type: 'string', enum: ['dev', 'test', 'production'] },
+        revision: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+      },
+    },
     planHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
     observedAt: { type: 'string' },
     expiresAt: { type: 'string' },
@@ -136,6 +147,11 @@ export const serviceLifecyclePlanRoutes: FastifyPluginAsync<Options> = async (
               maxLength: 512,
             },
             expectedPlanHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+            profileId: {
+              type: 'string',
+              pattern:
+                '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+            },
           },
         },
         response: { 200: responseSchema, ...commonErrorResponseSchemas },
@@ -147,6 +163,7 @@ export const serviceLifecyclePlanRoutes: FastifyPluginAsync<Options> = async (
         request.query.action,
         request.query.environmentInstanceId,
         request.query.expectedPlanHash,
+        request.query.profileId,
       ),
   );
 };
