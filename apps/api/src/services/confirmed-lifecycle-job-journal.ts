@@ -53,30 +53,51 @@ function unavailable(): never {
 }
 
 function valid(record: unknown): record is ConfirmedLifecycleJob {
-  if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
+  if (!record || typeof record !== 'object' || Array.isArray(record))
+    return false;
   const r = record as Partial<ConfirmedLifecycleJob>;
-  return r.version === 1 && typeof r.id === 'string' && ID.test(r.id) &&
-    typeof r.projectId === 'string' && r.projectId.length <= 160 &&
-    typeof r.environmentInstanceId === 'string' && r.environmentInstanceId.length <= 512 &&
+  return (
+    r.version === 1 &&
+    typeof r.id === 'string' &&
+    ID.test(r.id) &&
+    typeof r.projectId === 'string' &&
+    r.projectId.length <= 160 &&
+    typeof r.environmentInstanceId === 'string' &&
+    r.environmentInstanceId.length <= 512 &&
     (r.action === 'start' || r.action === 'stop') &&
-    typeof r.expectedRevision === 'string' && /^[a-f0-9]{64}$/.test(r.expectedRevision) &&
-    typeof r.expectedPlanHash === 'string' && /^[a-f0-9]{64}$/.test(r.expectedPlanHash) &&
+    typeof r.expectedRevision === 'string' &&
+    /^[a-f0-9]{64}$/.test(r.expectedRevision) &&
+    typeof r.expectedPlanHash === 'string' &&
+    /^[a-f0-9]{64}$/.test(r.expectedPlanHash) &&
     ['running', 'completed', 'failed', 'partial'].includes(r.status ?? '') &&
     ['prepared', 'invoking', 'verifying', 'finished'].includes(r.stage ?? '') &&
-    Array.isArray(r.plannedRefs) && r.plannedRefs.length <= MAX_STEPS &&
+    Array.isArray(r.plannedRefs) &&
+    r.plannedRefs.length <= MAX_STEPS &&
     r.plannedRefs.every((s) => typeof s === 'string' && s.length <= 512) &&
-    Array.isArray(r.steps) && r.steps.length <= MAX_STEPS &&
-    r.steps.every((s) =>
-      s && typeof s === 'object' && typeof s.serviceRef === 'string' &&
-      s.serviceRef.length <= 512 &&
-      (s.state === 'completed' || s.state === 'failed' || s.state === 'unverified')) &&
+    Array.isArray(r.steps) &&
+    r.steps.length <= MAX_STEPS &&
+    r.steps.every(
+      (s) =>
+        s &&
+        typeof s === 'object' &&
+        typeof s.serviceRef === 'string' &&
+        s.serviceRef.length <= 512 &&
+        (s.state === 'completed' ||
+          s.state === 'failed' ||
+          s.state === 'unverified'),
+    ) &&
     (r.inFlightRef === undefined ||
-      (typeof r.inFlightRef === 'string' && r.plannedRefs.includes(r.inFlightRef))) &&
-    typeof r.startedAt === 'string' && !Number.isNaN(Date.parse(r.startedAt)) &&
-    typeof r.updatedAt === 'string' && !Number.isNaN(Date.parse(r.updatedAt)) &&
+      (typeof r.inFlightRef === 'string' &&
+        r.plannedRefs.includes(r.inFlightRef))) &&
+    typeof r.startedAt === 'string' &&
+    !Number.isNaN(Date.parse(r.startedAt)) &&
+    typeof r.updatedAt === 'string' &&
+    !Number.isNaN(Date.parse(r.updatedAt)) &&
     (r.finishedAt === undefined ||
-      (typeof r.finishedAt === 'string' && !Number.isNaN(Date.parse(r.finishedAt)))) &&
-    typeof r.reconciliationRequired === 'boolean';
+      (typeof r.finishedAt === 'string' &&
+        !Number.isNaN(Date.parse(r.finishedAt)))) &&
+    typeof r.reconciliationRequired === 'boolean'
+  );
 }
 
 /**
@@ -103,16 +124,24 @@ export class ConfirmedLifecycleJobJournal {
     request: ConfirmedLifecycleRequest,
     plannedRefs: readonly string[],
   ): string {
-    if (plannedRefs.length > MAX_STEPS ||
-      plannedRefs.some((ref) => !ref || ref.length > 512)) unavailable();
+    if (
+      plannedRefs.length > MAX_STEPS ||
+      plannedRefs.some((ref) => !ref || ref.length > 512)
+    )
+      unavailable();
     const records = this.readAll();
     if (records.length >= MAX_JOBS) unavailable();
     // Refuse a new operation in an environment with an unreconciled record.
     // Terminal records do not block unrelated future operations.
-    if (records.some((record) =>
-      record.projectId === request.projectId &&
-      record.environmentInstanceId === request.environmentInstanceId &&
-      record.status === 'running')) unavailable();
+    if (
+      records.some(
+        (record) =>
+          record.projectId === request.projectId &&
+          record.environmentInstanceId === request.environmentInstanceId &&
+          record.status === 'running',
+      )
+    )
+      unavailable();
 
     const id = randomUUID();
     const time = this.now().toISOString();
@@ -135,46 +164,66 @@ export class ConfirmedLifecycleJobJournal {
     try {
       mkdirSync(this.directory, { recursive: true, mode: 0o700 });
       // Atomic create; no overwriting an existing job.
-      writeFileSync(this.file(id), JSON.stringify(job), { flag: 'wx', mode: 0o600 });
-    } catch { unavailable(); }
+      writeFileSync(this.file(id), JSON.stringify(job), {
+        flag: 'wx',
+        mode: 0o600,
+      });
+    } catch {
+      unavailable();
+    }
     this.live.add(id);
     return id;
   }
 
   public beforeStep(id: string, serviceRef: string): void {
     const record = this.owned(id);
-    if (record.status !== 'running' || record.inFlightRef ||
+    if (
+      record.status !== 'running' ||
+      record.inFlightRef ||
       !record.plannedRefs.includes(serviceRef) ||
-      record.steps.some((step) => step.serviceRef === serviceRef)) unavailable();
+      record.steps.some((step) => step.serviceRef === serviceRef)
+    )
+      unavailable();
     this.persist({ ...record, stage: 'invoking', inFlightRef: serviceRef });
   }
 
   public step(id: string, step: ConfirmedLifecycleStep): void {
     const record = this.owned(id);
-    if (record.status !== 'running' || record.inFlightRef !== step.serviceRef ||
-      record.steps.length >= MAX_STEPS) unavailable();
+    if (
+      record.status !== 'running' ||
+      record.inFlightRef !== step.serviceRef ||
+      record.steps.length >= MAX_STEPS
+    )
+      unavailable();
     this.persist({
       ...record,
       stage: 'verifying',
       inFlightRef: undefined,
-      steps: [...record.steps, {
-        serviceRef: step.serviceRef,
-        action: step.action,
-        state: step.state,
-        dispositionBefore: step.dispositionBefore,
-        // Runtime diagnostic text is never persisted in this journal.
-      }],
+      steps: [
+        ...record.steps,
+        {
+          serviceRef: step.serviceRef,
+          action: step.action,
+          state: step.state,
+          dispositionBefore: step.dispositionBefore,
+          // Runtime diagnostic text is never persisted in this journal.
+        },
+      ],
     });
   }
 
   public finish(id: string, result: ConfirmedLifecycleResult): void {
     const record = this.owned(id);
-    if (record.status !== 'running' || record.inFlightRef ||
+    if (
+      record.status !== 'running' ||
+      record.inFlightRef ||
       record.projectId !== result.projectId ||
       record.environmentInstanceId !== result.environmentInstanceId ||
       record.action !== result.action ||
       JSON.stringify(record.steps.map((s) => [s.serviceRef, s.state])) !==
-        JSON.stringify(result.steps.map((s) => [s.serviceRef, s.state]))) unavailable();
+        JSON.stringify(result.steps.map((s) => [s.serviceRef, s.state]))
+    )
+      unavailable();
     this.persist({
       ...record,
       status: result.status,
@@ -196,7 +245,8 @@ export class ConfirmedLifecycleJobJournal {
       if (!valid(item) || item.id !== id) unavailable();
       return {
         ...item,
-        reconciliationRequired: item.status === 'running' && !this.live.has(id) ||
+        reconciliationRequired:
+          (item.status === 'running' && !this.live.has(id)) ||
           item.reconciliationRequired,
       };
     } catch (error) {
@@ -211,8 +261,9 @@ export class ConfirmedLifecycleJobJournal {
       .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
       .map((job) => ({
         ...job,
-        reconciliationRequired: job.reconciliationRequired ||
-          job.status === 'running' && !this.live.has(job.id),
+        reconciliationRequired:
+          job.reconciliationRequired ||
+          (job.status === 'running' && !this.live.has(job.id)),
       }));
   }
 
@@ -229,7 +280,9 @@ export class ConfirmedLifecycleJobJournal {
         status: job.reconciliationRequired ? 'failed' : 'running',
         startedAt: job.startedAt,
         resourceRef: { kind: 'docker-compose-lifecycle', id: job.id },
-        stage: job.reconciliationRequired ? 'reconciliation-required' : job.stage,
+        stage: job.reconciliationRequired
+          ? 'reconciliation-required'
+          : job.stage,
         stageStartedAt: job.updatedAt,
         timingIncomplete: job.reconciliationRequired,
         cancelSupported: false,
@@ -251,8 +304,14 @@ export class ConfirmedLifecycleJobJournal {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
       return unavailable();
     }
-    if (names.length > MAX_JOBS || names.some((name) =>
-      !ID.test(name.replace(/\.json$/, '')) || !name.endsWith('.json'))) unavailable();
+    if (
+      names.length > MAX_JOBS ||
+      names.some(
+        (name) =>
+          !ID.test(name.replace(/\.json$/, '')) || !name.endsWith('.json'),
+      )
+    )
+      unavailable();
     return names.map((name) => {
       const job = this.get(name.slice(0, -5));
       if (!job) unavailable();
