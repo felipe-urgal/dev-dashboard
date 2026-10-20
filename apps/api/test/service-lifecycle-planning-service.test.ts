@@ -418,7 +418,7 @@ test('profile-scoped Stop retains resources used by another profile in the same 
     profiles.revision('loto'),
     NOW,
   );
-  profiles.save(
+  const production = profiles.save(
     'loto',
     {
       environmentInstanceId: env('loto'),
@@ -440,6 +440,15 @@ test('profile-scoped Stop retains resources used by another profile in the same 
   assert.equal(scoped.executable, false);
   const fallback = await planner.preview('loto', 'stop');
   assert.equal(fallback.nodes[0]?.disposition, 'willStop');
+  profiles.delete('loto', production.id, profiles.revision('loto'));
+  const released = await planner.preview(
+    'loto', 'stop', env('loto'), undefined, dev.id,
+  );
+  assert.equal(released.nodes[0]?.disposition, 'willStop');
+  await assert.rejects(
+    planner.preview('loto', 'stop', env('loto'), scoped.planHash, dev.id),
+    /plan changed/i,
+  );
 });
 
 test('stale and cross-environment profile references fail closed', async () => {
