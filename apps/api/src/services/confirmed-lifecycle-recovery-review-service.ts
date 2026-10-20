@@ -66,6 +66,7 @@ export class ConfirmedLifecycleRecoveryReviewService {
         resourceKey,
         status: 'unverifiable',
         ownerProcess: 'unknown',
+        processIdentity: 'unverifiable',
         diagnostic: 'Lease inspection is unavailable.',
       }));
     }
