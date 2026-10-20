@@ -16,7 +16,7 @@ Os providers `systemd`, `docker`, `compose`, `managed-process` e `ports` reporta
 - O inventário de systemd tem no máximo 200 entradas por leitura; o catálogo agrega no máximo 250 entradas, até 100 portas, até 12 projetos Compose, até 100 containers Docker e até 250 processos.
 - Ambas as rotas aceitam `?offset=0&limit=100` (limit entre 1 e 100). Sem parâmetros, preservam o formato legado (sem `page`) para clientes existentes.
 - Com parâmetros, a resposta inclui `page: { offset, limit, hasMore, incomplete }`. `hasMore` representa somente as entradas ainda presentes **na captura limitada atual**; `incomplete=true` indica truncamento anterior e impede assumir que o host foi totalmente enumerado. A página não é um cursor estável: consultas repetidas podem observar estados diferentes.
-- A API usa lista de propriedades systemd obtida em lotes de no máximo 40 units, consultas apenas leitura com timeout de CLI e isolamento de erro por escopo. Providers opcionais do catálogo têm deadline de 8 segundos por consulta; falha/timeout não apaga resultados de outros providers.
+- A API usa lista de propriedades systemd obtida em lotes de no máximo 40 units, não carrega templates sem instância, consultas apenas leitura com timeout de CLI e isolamento de erro por escopo. Providers opcionais do catálogo têm deadline de 8 segundos por consulta; falha/timeout não apaga resultados de outros providers.
 
 ## Semântica de estados
 
