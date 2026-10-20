@@ -1,7 +1,11 @@
 import type { ActivityEvent, ActivityJob } from './activity.js';
-import type { ServiceCatalogProvider, ServiceCatalogState } from './service-catalog.js';
+import type {
+  ServiceCatalogProvider,
+  ServiceCatalogState,
+} from './service-catalog.js';
 
-export type ServiceDiagnosticsStatus = 'available' | 'empty' | 'unavailable' | 'unsupported';
+export type ServiceDiagnosticsStatus =
+  'available' | 'empty' | 'unavailable' | 'unsupported';
 
 /** One on-demand read, never a stored log or a lifecycle authorization. */
 export interface ServiceDiagnosticsSnapshot {

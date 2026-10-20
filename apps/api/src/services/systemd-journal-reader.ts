@@ -21,62 +21,100 @@ type Runner = (scope: HostServiceScope, unit: string) => Promise<string>;
 
 function runJournal(scope: HostServiceScope, unit: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile('journalctl', [
-      ...(scope === 'user' ? ['--user'] : []),
-      '--unit', unit,
-      '--no-pager', '--output=short-iso', '--lines', String(MAX_LINES),
-      '--since=-1 hour',
-    ], {
-      encoding: 'utf8',
-      timeout: TIMEOUT_MS,
-      maxBuffer: MAX_BUFFER_BYTES,
-      windowsHide: true,
-      env: { ...process.env, LC_ALL: 'C' },
-    }, (error, stdout) => error ? reject(error) : resolve(stdout));
+    execFile(
+      'journalctl',
+      [
+        ...(scope === 'user' ? ['--user'] : []),
+        '--unit',
+        unit,
+        '--no-pager',
+        '--output=short-iso',
+        '--lines',
+        String(MAX_LINES),
+        '--since=-1 hour',
+      ],
+      {
+        encoding: 'utf8',
+        timeout: TIMEOUT_MS,
+        maxBuffer: MAX_BUFFER_BYTES,
+        windowsHide: true,
+        env: { ...process.env, LC_ALL: 'C' },
+      },
+      (error, stdout) => (error ? reject(error) : resolve(stdout)),
+    );
   });
 }
 
 function limitedUtf8(value: string): { content: string; truncated: boolean } {
   const buffer = Buffer.from(value, 'utf8');
-  if (buffer.length <= MAX_CONTENT_BYTES) return { content: value, truncated: false };
+  if (buffer.length <= MAX_CONTENT_BYTES)
+    return { content: value, truncated: false };
   // Cut at a UTF-8 boundary and preserve the newest lines. No raw output is stored.
-  const slice = buffer.subarray(buffer.length - MAX_CONTENT_BYTES).toString('utf8');
+  const slice = buffer
+    .subarray(buffer.length - MAX_CONTENT_BYTES)
+    .toString('utf8');
   return { content: slice.replace(/^\uFFFD+/, ''), truncated: true };
 }
 
 /** Accept only server-resolved unit identity; no shell, paths or caller-supplied CLI. */
 export class SystemdJournalReader {
-  public constructor(private readonly options: {
-    platform?: NodeJS.Platform;
-    runner?: Runner;
-  } = {}) {}
+  public constructor(
+    private readonly options: {
+      platform?: NodeJS.Platform;
+      runner?: Runner;
+    } = {},
+  ) {}
 
-  public async read(scope: HostServiceScope, unit: string): Promise<JournalRead> {
-    if (!UNIT_NAME.test(unit)) return {
-      status: 'unsupported', masked: false, truncated: false,
-      diagnostic: 'Unit identity is not a supported service unit.',
-    };
-    if ((this.options.platform ?? process.platform) !== 'linux') return {
-      status: 'unsupported', masked: false, truncated: false,
-      diagnostic: 'Journal reading is available on Linux only.',
-    };
+  public async read(
+    scope: HostServiceScope,
+    unit: string,
+  ): Promise<JournalRead> {
+    if (!UNIT_NAME.test(unit))
+      return {
+        status: 'unsupported',
+        masked: false,
+        truncated: false,
+        diagnostic: 'Unit identity is not a supported service unit.',
+      };
+    if ((this.options.platform ?? process.platform) !== 'linux')
+      return {
+        status: 'unsupported',
+        masked: false,
+        truncated: false,
+        diagnostic: 'Journal reading is available on Linux only.',
+      };
 
     let raw: string;
     try {
       raw = await (this.options.runner ?? runJournal)(scope, unit);
     } catch (error) {
-      const code = error && typeof error === 'object' && 'code' in error
-        ? (error as { code?: unknown }).code : undefined;
-      const reason = code === 'EACCES' || code === 'EPERM'
-        ? 'Journal indisponível por permissão; nenhuma elevação é executada.'
-        : 'Journal indisponível ou inacessível para a sessão atual.';
-      return { status: 'unavailable', masked: false, truncated: false, diagnostic: reason };
+      const code =
+        error && typeof error === 'object' && 'code' in error
+          ? (error as { code?: unknown }).code
+          : undefined;
+      const reason =
+        code === 'EACCES' || code === 'EPERM'
+          ? 'Journal indisponível por permissão; nenhuma elevação é executada.'
+          : 'Journal indisponível ou inacessível para a sessão atual.';
+      return {
+        status: 'unavailable',
+        masked: false,
+        truncated: false,
+        diagnostic: reason,
+      };
     }
     // journalctl may exit successfully with a permission warning; never call it empty.
-    if (/no journal files were opened due to insufficient permissions|permission denied/i.test(raw)) {
+    if (
+      /no journal files were opened due to insufficient permissions|permission denied/i.test(
+        raw,
+      )
+    ) {
       return {
-        status: 'unavailable', masked: false, truncated: false,
-        diagnostic: 'Journal indisponível por permissão; nenhuma elevação é executada.',
+        status: 'unavailable',
+        masked: false,
+        truncated: false,
+        diagnostic:
+          'Journal indisponível por permissão; nenhuma elevação é executada.',
       };
     }
     const bounded = limitedUtf8(raw);
