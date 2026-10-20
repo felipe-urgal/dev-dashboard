@@ -8,7 +8,7 @@ import { requestJson } from './core';
 export async function fetchProjectServiceBindings(
   projectId: string,
   signal?: AbortSignal,
-): Promise<{ bindings: ProjectServiceBindingView[]; partial: boolean }> {
+): Promise<{ revision: string; bindings: ProjectServiceBindingView[]; partial: boolean }> {
   return requestJson(
     `/api/projects/${encodeURIComponent(projectId)}/service-bindings`,
     signal ? { signal } : {},
