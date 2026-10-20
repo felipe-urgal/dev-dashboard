@@ -47,6 +47,7 @@ import { DevContainerStopConfirmationService } from './services/dev-container-st
 import { DockerComposeLifecycleConfirmationService } from './services/docker-compose-lifecycle-confirmation-service.js';
 import { DockerComposeLifecycleExecutionService } from './services/docker-compose-lifecycle-execution-service.js';
 import { DockerComposeLifecycleService } from './services/docker-compose-lifecycle-service.js';
+import { ServiceResourceOperationLock } from './services/service-resource-operation-lock.js';
 import { DockerComposeOwnershipStore } from './services/docker-compose-ownership-store.js';
 import { DockerComposeRecoveryService } from './services/docker-compose-recovery-service.js';
 import { DockerComposePreflightService } from './services/docker-compose-preflight-service.js';
@@ -293,6 +294,9 @@ export function createAppComposition(
       {
         ownershipStore: dockerComposeOwnershipStore,
         portLeaseRegistry: dockerComposePortLeaseRegistry,
+        resourceLock: new ServiceResourceOperationLock({
+          stateDirectory: context.processManager.stateDirectory,
+        }),
         ...(options.now ? { now: () => new Date(options.now!()) } : {}),
       },
     );
