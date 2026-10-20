@@ -35,6 +35,9 @@ const catalogServiceSchema = {
     'id',
     'provider',
     'name',
+    'displayName',
+    'evidence',
+    'capabilities',
     'state',
     'readiness',
     'ownership',
@@ -46,6 +49,32 @@ const catalogServiceSchema = {
     id: { type: 'string' },
     provider: { type: 'string', enum: providerValues },
     name: { type: 'string' },
+    displayName: { type: 'string' },
+    evidence: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['source', 'identity'],
+      properties: {
+        source: { type: 'string', enum: ['systemd', 'docker-cli', 'compose-owner', 'process-manager'] },
+        identity: { type: 'string' },
+      },
+    },
+    capabilities: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['observe', 'start', 'stop', 'restart', 'boot-policy'],
+      properties: {
+        observe: { type: 'string', enum: ['supported'] },
+        start: { type: 'string', enum: ['unsupported'] },
+        stop: { type: 'string', enum: ['unsupported'] },
+        restart: { type: 'string', enum: ['unsupported'] },
+        'boot-policy': { type: 'string', enum: ['unsupported'] },
+      },
+    },
+    enabledAtBoot: {
+      type: 'string',
+      enum: ['enabled', 'disabled', 'static', 'masked', 'indirect', 'linked', 'generated', 'transient', 'unknown'],
+    },
     state: { type: 'string', enum: stateValues },
     readiness: { type: 'string', enum: ['ready', 'unhealthy', 'unknown'] },
     ownership: { type: 'string', enum: ['confirmed', 'unmanaged', 'unknown'] },
@@ -112,8 +141,28 @@ const responseSchema = {
           },
         },
         truncated: { type: 'boolean' },
+        page: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['offset', 'limit', 'hasMore', 'incomplete'],
+          properties: {
+            offset: { type: 'integer' },
+            limit: { type: 'integer' },
+            hasMore: { type: 'boolean' },
+            incomplete: { type: 'boolean' },
+          },
+        },
       },
     },
+  },
+} as const;
+
+const querySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    offset: { type: 'integer', minimum: 0, maximum: 249 },
+    limit: { type: 'integer', minimum: 1, maximum: 100 },
   },
 } as const;
 
@@ -121,13 +170,32 @@ export const serviceCatalogRoutes: FastifyPluginAsync<Options> = async (
   app,
   options,
 ) => {
-  app.get(
+  app.get<{ Querystring: { offset?: number; limit?: number } }>(
     '/services/catalog',
     {
       schema: {
+        querystring: querySchema,
         response: { 200: responseSchema, ...commonErrorResponseSchemas },
       },
     },
-    async () => ({ catalog: await options.catalog.inspect() }),
+    async (request) => {
+      const catalog = await options.catalog.inspect();
+      const { offset, limit } = request.query;
+      if (offset === undefined && limit === undefined) return { catalog };
+      const start = offset ?? 0;
+      const pageLimit = limit ?? 100;
+      return {
+        catalog: {
+          ...catalog,
+          entries: catalog.entries.slice(start, start + pageLimit),
+          page: {
+            offset: start,
+            limit: pageLimit,
+            hasMore: catalog.entries.length > start + pageLimit,
+            incomplete: catalog.truncated,
+          },
+        },
+      };
+    },
   );
 };
