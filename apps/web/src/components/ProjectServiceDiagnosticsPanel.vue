@@ -24,13 +24,13 @@ const snapshot = ref<ServiceDiagnosticsSnapshot | null>(null);
 const error = ref('');
 let generation = 0;
 let readGeneration = 0;
-const scopedEnvironment = computed(() => props.environmentInstanceId ?? 'environment:primary:' + props.projectId);
+const scopedEnvironment = computed(
+  () => props.environmentInstanceId ?? 'environment:primary:' + props.projectId,
+);
 
 const visible = computed(() =>
   bindings.value.filter(
-    (b) =>
-      b.enabled &&
-      b.environmentInstanceId === scopedEnvironment.value,
+    (b) => b.enabled && b.environmentInstanceId === scopedEnvironment.value,
   ),
 );
 
@@ -59,9 +59,7 @@ async function loadBindings(): Promise<void> {
     const requested =
       typeof route.query.serviceRef === 'string' ? route.query.serviceRef : '';
     const scoped = response.bindings.filter(
-      (b) =>
-        b.enabled &&
-        b.environmentInstanceId === scopedEnvironment.value,
+      (b) => b.enabled && b.environmentInstanceId === scopedEnvironment.value,
     );
     selectedRef.value =
       scoped.find((b) => b.serviceRef === requested)?.serviceRef ??
@@ -89,7 +87,11 @@ async function loadDiagnostics(): Promise<void> {
       serviceRef,
       props.environmentInstanceId,
     );
-    if (generation === current && read === readGeneration && selectedRef.value === serviceRef) {
+    if (
+      generation === current &&
+      read === readGeneration &&
+      selectedRef.value === serviceRef
+    ) {
       snapshot.value = response;
     }
   } catch {
@@ -97,7 +99,8 @@ async function loadDiagnostics(): Promise<void> {
       error.value =
         'Leitura indisponível. Atualize os vínculos e tente novamente.';
   } finally {
-    if (generation === current && read === readGeneration) loadingLogs.value = false;
+    if (generation === current && read === readGeneration)
+      loadingLogs.value = false;
   }
 }
 
