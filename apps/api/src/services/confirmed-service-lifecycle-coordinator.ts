@@ -50,11 +50,10 @@ function resourceKeys(plan: ServiceLifecyclePlan): string[] {
       plan.target.environmentInstanceId,
   ];
   for (const node of plan.nodes) {
+    // The coordinator holds per-node + environment locks. The Compose
+    // lifecycle owner holds compose-project:<projectId> around each actual
+    // mutation; acquiring it here too would self-deadlock on the same lease.
     keys.push('resource:' + node.serviceRef);
-    if (node.provider === 'compose') {
-      // Compose ownership is per project, even when individual service names differ.
-      keys.push('compose-project:' + node.serviceRef.split(':')[1]);
-    }
   }
   return keys;
 }
