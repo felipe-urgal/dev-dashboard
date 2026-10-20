@@ -15,9 +15,7 @@ import type {
 
 import { buildApp } from '../src/app.js';
 import { createAppContext } from '../src/app-context.js';
-import {
-  worktreeEnvironmentInstanceId,
-} from '../src/store/development-environment-instance-store.js';
+import { worktreeEnvironmentInstanceId } from '../src/store/development-environment-instance-store.js';
 import { ProjectServiceBindingStore } from '../src/store/project-service-binding-store.js';
 import { ServiceRuntimeProfileStore } from '../src/store/service-runtime-profile-store.js';
 
@@ -95,7 +93,9 @@ function planUrl(
   });
   if (profileId) params.set('profileId', profileId);
   if (expectedPlanHash) params.set('expectedPlanHash', expectedPlanHash);
-  return '/api/projects/' + encodeURIComponent(projectId) + '/service-plan?' + params;
+  return (
+    '/api/projects/' + encodeURIComponent(projectId) + '/service-plan?' + params
+  );
 }
 
 interface ProfileList {
@@ -184,7 +184,9 @@ async function fixture(t: { after(fn: () => Promise<void>): void }) {
   const worktreeDb = saveBinding(GASTOS, WORKTREE, WORKTREE_DB);
   const cache = saveBinding(GASTOS, PRIMARY, SHARED_CACHE);
   const lotoCache = saveBinding(LOTO, LOTO_ENV, SHARED_CACHE, 'required');
-  const lotoApi = saveBinding(LOTO, LOTO_ENV, LOTO_API, 'owned', [SHARED_CACHE]);
+  const lotoApi = saveBinding(LOTO, LOTO_ENV, LOTO_API, 'owned', [
+    SHARED_CACHE,
+  ]);
 
   const app = await buildApp({
     context,
@@ -201,7 +203,8 @@ async function fixture(t: { after(fn: () => Promise<void>): void }) {
     rmSync(stateDirectory, { recursive: true, force: true });
   });
 
-  const get = (url: string) => app.inject({ method: 'GET', url, headers: HEADERS });
+  const get = (url: string) =>
+    app.inject({ method: 'GET', url, headers: HEADERS });
   const list = async (projectId: string, env: string): Promise<ProfileList> => {
     const response = await get(profileUrl(projectId, env));
     assert.equal(response.statusCode, 200, response.body);
@@ -267,10 +270,18 @@ async function fixture(t: { after(fn: () => Promise<void>): void }) {
 test('HTTP qualification: test, production, worktree and shared Loto runtime remain isolated', async (t) => {
   const f = await fixture(t);
   const initialLoto = await f.list(LOTO, LOTO_ENV);
-  assert.equal(initialLoto.fallback, true, 'Loto without profiles keeps legacy behavior');
+  assert.equal(
+    initialLoto.fallback,
+    true,
+    'Loto without profiles keeps legacy behavior',
+  );
   assert.equal((await f.list(GASTOS, PRIMARY)).fallback, true);
   assert.equal((await f.list(GASTOS, WORKTREE)).fallback, true);
-  assert.equal(f.inspections, 0, 'profiles CRUD must not inspect or operate runtimes');
+  assert.equal(
+    f.inspections,
+    0,
+    'profiles CRUD must not inspect or operate runtimes',
+  );
 
   const testProfile = await f.create(GASTOS, PRIMARY, 'test', [
     f.bindings.testDb.id,
@@ -298,9 +309,17 @@ test('HTTP qualification: test, production, worktree and shared Loto runtime rem
   assert.equal(testStart.nodes[0]?.ports[0], 5544);
   assert.equal(testStart.profile?.kind, 'test');
   assert.equal(testStart.executable, false);
-  assert.equal(testStart.nodes.some((node) => node.serviceRef === PROD_DB), false);
+  assert.equal(
+    testStart.nodes.some((node) => node.serviceRef === PROD_DB),
+    false,
+  );
 
-  const productionStart = await f.plan(GASTOS, PRIMARY, 'start', prodProfile.id);
+  const productionStart = await f.plan(
+    GASTOS,
+    PRIMARY,
+    'start',
+    prodProfile.id,
+  );
   assert.deepEqual(productionStart.order, [PROD_DB]);
   assert.equal(productionStart.nodes[0]?.ports[0], 5432);
   assert.equal(productionStart.nodes[0]?.disposition, 'alreadyReady');
@@ -308,24 +327,45 @@ test('HTTP qualification: test, production, worktree and shared Loto runtime rem
   assert.equal(productionStart.executable, false);
   assert.notEqual(testStart.planHash, productionStart.planHash);
   const productionStop = await f.plan(GASTOS, PRIMARY, 'stop', prodProfile.id);
-  assert.equal(productionStop.executable, false, 'production preview cannot stop DB');
-  assert.equal(f.catalog.entries.find((item) => item.id === PROD_DB)?.state, 'running');
+  assert.equal(
+    productionStop.executable,
+    false,
+    'production preview cannot stop DB',
+  );
+  assert.equal(
+    f.catalog.entries.find((item) => item.id === PROD_DB)?.state,
+    'running',
+  );
 
-  const worktreeStart = await f.plan(GASTOS, WORKTREE, 'start', worktreeProfile.id);
+  const worktreeStart = await f.plan(
+    GASTOS,
+    WORKTREE,
+    'start',
+    worktreeProfile.id,
+  );
   assert.deepEqual(worktreeStart.order, [WORKTREE_DB]);
   assert.equal(worktreeStart.nodes[0]?.ports[0], 5545);
   assert.equal(worktreeStart.target.environmentInstanceId, WORKTREE);
   assert.equal(worktreeStart.executable, false);
-  assert.equal(worktreeStart.nodes.some((node) => node.serviceRef === TEST_DB), false);
+  assert.equal(
+    worktreeStart.nodes.some((node) => node.serviceRef === TEST_DB),
+    false,
+  );
 
   const devStop = await f.plan(GASTOS, PRIMARY, 'stop', devProfile.id);
   assert.deepEqual(devStop.order, [SHARED_CACHE]);
   assert.equal(devStop.nodes[0]?.consumerCount, 2);
   assert.equal(devStop.nodes[0]?.disposition, 'retained');
-  assert.match(devStop.nodes[0]?.diagnostic ?? '', /Another project or environment/);
+  assert.match(
+    devStop.nodes[0]?.diagnostic ?? '',
+    /Another project or environment/,
+  );
   const lotoFallback = await f.plan(LOTO, LOTO_ENV, 'stop');
   assert.deepEqual(lotoFallback.order, [LOTO_API, SHARED_CACHE]);
-  assert.equal(lotoFallback.nodes.find((n) => n.serviceRef === SHARED_CACHE)?.disposition, 'retained');
+  assert.equal(
+    lotoFallback.nodes.find((n) => n.serviceRef === SHARED_CACHE)?.disposition,
+    'retained',
+  );
   assert.equal((await f.list(LOTO, LOTO_ENV)).fallback, true);
   assert.equal(
     (await f.list(GASTOS, WORKTREE)).profiles.length,
@@ -338,7 +378,9 @@ test('HTTP qualification: test, production, worktree and shared Loto runtime rem
     'worktree profiles must not appear in primary UI',
   );
 
-  const mismatched = await f.get(planUrl(GASTOS, PRIMARY, 'start', testProfile.id, productionStart.planHash));
+  const mismatched = await f.get(
+    planUrl(GASTOS, PRIMARY, 'start', testProfile.id, productionStart.planHash),
+  );
   assert.equal(mismatched.statusCode, 409, mismatched.body);
   const mutation = await f.app.inject({
     method: 'POST',
@@ -346,9 +388,20 @@ test('HTTP qualification: test, production, worktree and shared Loto runtime rem
     headers: WRITE_HEADERS,
     payload: {},
   });
-  assert.notEqual(mutation.statusCode, 200, 'preview route must not execute POST');
-  assert.deepEqual(f.catalog, originalEvidence, 'no DB/stack/process state mutation');
-  assert.equal(f.context.serviceRuntimeProfileStore.byProject(GASTOS).length, 4);
+  assert.notEqual(
+    mutation.statusCode,
+    200,
+    'preview route must not execute POST',
+  );
+  assert.deepEqual(
+    f.catalog,
+    originalEvidence,
+    'no DB/stack/process state mutation',
+  );
+  assert.equal(
+    f.context.serviceRuntimeProfileStore.byProject(GASTOS).length,
+    4,
+  );
   assert.equal(f.context.projectServiceBindingStore.byProject(LOTO).length, 2);
 
   const restoredProfiles = new ServiceRuntimeProfileStore({
@@ -359,7 +412,9 @@ test('HTTP qualification: test, production, worktree and shared Loto runtime rem
   });
   assert.deepEqual(
     restoredProfiles.byProject(GASTOS).map((item) => item.id),
-    f.context.serviceRuntimeProfileStore.byProject(GASTOS).map((item) => item.id),
+    f.context.serviceRuntimeProfileStore
+      .byProject(GASTOS)
+      .map((item) => item.id),
   );
   assert.equal(restoredBindings.byProject(GASTOS).length, 5);
   assert.equal(restoredProfiles.byProject(LOTO).length, 0);
@@ -367,7 +422,9 @@ test('HTTP qualification: test, production, worktree and shared Loto runtime rem
 
 test('HTTP qualification: reject foreign, stale and Dev Container profile selection', async (t) => {
   const f = await fixture(t);
-  const testProfile = await f.create(GASTOS, PRIMARY, 'test', [f.bindings.testDb.id]);
+  const testProfile = await f.create(GASTOS, PRIMARY, 'test', [
+    f.bindings.testDb.id,
+  ]);
   const primary = await f.list(GASTOS, PRIMARY);
   const loto = await f.list(LOTO, LOTO_ENV);
 
@@ -382,7 +439,11 @@ test('HTTP qualification: reject foreign, stale and Dev Container profile select
       expectedBindingsRevision: primary.bindingsRevision,
     },
   });
-  assert.equal(forbiddenWorktreeBinding.statusCode, 409, forbiddenWorktreeBinding.body);
+  assert.equal(
+    forbiddenWorktreeBinding.statusCode,
+    409,
+    forbiddenWorktreeBinding.body,
+  );
   const forbiddenLotoBinding = await f.app.inject({
     method: 'POST',
     url: profileUrl(LOTO, LOTO_ENV),
@@ -400,15 +461,26 @@ test('HTTP qualification: reject foreign, stale and Dev Container profile select
     404,
   );
   assert.equal(
-    (await f.get(planUrl(GASTOS, WORKTREE, 'start', testProfile.id))).statusCode,
+    (await f.get(planUrl(GASTOS, WORKTREE, 'start', testProfile.id)))
+      .statusCode,
     404,
   );
   assert.equal(
-    (await f.get(planUrl(GASTOS, PRIMARY, 'start', '00000000-0000-4000-8000-000000000000'))).statusCode,
+    (
+      await f.get(
+        planUrl(
+          GASTOS,
+          PRIMARY,
+          'start',
+          '00000000-0000-4000-8000-000000000000',
+        ),
+      )
+    ).statusCode,
     404,
   );
   assert.equal(
-    (await f.app.inject({ method: 'GET', url: profileUrl(GASTOS, PRIMARY) })).statusCode,
+    (await f.app.inject({ method: 'GET', url: profileUrl(GASTOS, PRIMARY) }))
+      .statusCode,
     401,
   );
 
@@ -435,18 +507,28 @@ test('HTTP qualification: reject foreign, stale and Dev Container profile select
     (await f.get(planUrl(GASTOS, PRIMARY, 'start', testProfile.id))).statusCode,
     409,
   );
-  assert.equal(f.context.serviceRuntimeProfileStore.byProject(GASTOS).length, 1);
+  assert.equal(
+    f.context.serviceRuntimeProfileStore.byProject(GASTOS).length,
+    1,
+  );
   assert.equal((await f.list(LOTO, LOTO_ENV)).fallback, true);
 
   // Even an observed worktree may be hosted in a Dev Container. The host
   // service planner/configuration cannot be used to control that runtime.
-  const environment = f.context.developmentEnvironmentInstanceStore.findById(WORKTREE);
+  const environment =
+    f.context.developmentEnvironmentInstanceStore.findById(WORKTREE);
   assert.ok(environment);
   f.context.developmentEnvironmentInstanceStore.upsert({
     ...environment,
     runtime: { kind: 'devcontainer', runtimeId: 'isolated-qa-container' },
   });
   assert.equal((await f.get(profileUrl(GASTOS, WORKTREE))).statusCode, 409);
-  assert.equal((await f.get(planUrl(GASTOS, WORKTREE, 'stop'))).statusCode, 409);
-  assert.equal(f.catalog.entries.find((item) => item.id === PROD_DB)?.state, 'running');
+  assert.equal(
+    (await f.get(planUrl(GASTOS, WORKTREE, 'stop'))).statusCode,
+    409,
+  );
+  assert.equal(
+    f.catalog.entries.find((item) => item.id === PROD_DB)?.state,
+    'running',
+  );
 });
