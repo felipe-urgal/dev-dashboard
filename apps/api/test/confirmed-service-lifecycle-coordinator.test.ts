@@ -8,9 +8,7 @@ import type {
   ServiceLifecyclePlanNode,
 } from '@dev-dashboard/contracts';
 
-import {
-  ConfirmedServiceLifecycleCoordinator,
-} from '../src/services/confirmed-service-lifecycle-coordinator.js';
+import { ConfirmedServiceLifecycleCoordinator } from '../src/services/confirmed-service-lifecycle-coordinator.js';
 import { ServiceResourceOperationLock } from '../src/services/service-resource-operation-lock.js';
 
 const NOW = new Date('2026-10-20T12:00:00.000Z');
@@ -19,7 +17,9 @@ const HASH = 'b'.repeat(64);
 const DB = 'compose:loto:database';
 const API = 'compose:loto:api';
 
-function request(action: ServiceLifecycleAction = 'start'): ConfirmedLifecycleRequest {
+function request(
+  action: ServiceLifecycleAction = 'start',
+): ConfirmedLifecycleRequest {
   return {
     projectId: 'loto',
     environmentInstanceId: 'environment:primary:loto',
@@ -41,12 +41,12 @@ function fixture(
 ) {
   const action = options.action ?? 'start';
   const refs = options.refs ?? [DB, API];
-  const states = new Map(refs.map((ref) => [
-    ref, action === 'start' ? 'stopped' : 'running',
-  ]));
-  const readiness = new Map(refs.map((ref) => [
-    ref, action === 'start' ? 'unknown' : 'ready',
-  ]));
+  const states = new Map(
+    refs.map((ref) => [ref, action === 'start' ? 'stopped' : 'running']),
+  );
+  const readiness = new Map(
+    refs.map((ref) => [ref, action === 'start' ? 'unknown' : 'ready']),
+  );
   let fingerprint = HASH;
   let revision = REVISION;
   let failInspection = false;
@@ -58,10 +58,14 @@ function fixture(
     const nodes: ServiceLifecyclePlanNode[] = order.map((ref) => {
       const state = states.get(ref) ?? 'unknown';
       const ready = readiness.get(ref) ?? 'unknown';
-      const disposition = action === 'start'
-        ? state === 'running' && ready === 'ready'
-          ? 'alreadyReady' : 'willStart'
-        : state === 'stopped' ? 'retained' : 'willStop';
+      const disposition =
+        action === 'start'
+          ? state === 'running' && ready === 'ready'
+            ? 'alreadyReady'
+            : 'willStart'
+          : state === 'stopped'
+            ? 'retained'
+            : 'willStop';
       return {
         serviceRef: ref,
         name: ref,
@@ -95,10 +99,19 @@ function fixture(
   }
 
   const runner = {
-    async run(operation: ServiceLifecycleAction, node: ServiceLifecyclePlanNode) {
+    async run(
+      operation: ServiceLifecycleAction,
+      node: ServiceLifecyclePlanNode,
+    ) {
       steps.push(node.serviceRef);
-      states.set(node.serviceRef, operation === 'start' ? 'running' : 'stopped');
-      readiness.set(node.serviceRef, operation === 'start' ? 'ready' : 'unknown');
+      states.set(
+        node.serviceRef,
+        operation === 'start' ? 'running' : 'stopped',
+      );
+      readiness.set(
+        node.serviceRef,
+        operation === 'start' ? 'ready' : 'unknown',
+      );
     },
   };
   const planner = {
@@ -116,20 +129,37 @@ function fixture(
       return snapshot;
     },
   };
-  const coordinator = new ConfirmedServiceLifecycleCoordinator({
+  const coordinator = new ConfirmedServiceLifecycleCoordinator(
+    {
+      planner,
+      runner,
+      locks: new ServiceResourceOperationLock(),
+      events: {
+        append: async (step) => {
+          events.push(step.serviceRef + ':' + step.state);
+          throw new Error('event repository offline');
+        },
+      },
+    },
+    { now: () => NOW },
+  );
+  return {
+    coordinator,
     planner,
     runner,
-    locks: new ServiceResourceOperationLock(),
-    events: { append: async (step) => {
-      events.push(step.serviceRef + ':' + step.state);
-      throw new Error('event repository offline');
-    } },
-  }, { now: () => NOW });
-  return {
-    coordinator, planner, runner, states, readiness, steps, events,
-    setFingerprint: (v: string) => { fingerprint = v; },
-    setRevision: (v: string) => { revision = v; },
-    failObservation: () => { failInspection = true; },
+    states,
+    readiness,
+    steps,
+    events,
+    setFingerprint: (v: string) => {
+      fingerprint = v;
+    },
+    setRevision: (v: string) => {
+      revision = v;
+    },
+    failObservation: () => {
+      failInspection = true;
+    },
     plan,
   };
 }
@@ -139,7 +169,10 @@ test('confirmed start runs in dependency order and verifies each node independen
   const result = await f.coordinator.run(request());
   assert.equal(result.status, 'completed');
   assert.deepEqual(f.steps, [DB, API]);
-  assert.deepEqual(result.steps.map((step) => step.state), ['completed', 'completed']);
+  assert.deepEqual(
+    result.steps.map((step) => step.state),
+    ['completed', 'completed'],
+  );
   assert.equal(f.events.length, 2); // Activity failures do not provoke retries.
 });
 
@@ -153,13 +186,20 @@ test('confirmed stop runs in reverse order without attempting automatic rollback
 
 test('rejects old confirmation, stale hash, changed revision and blocked plans', async () => {
   const f = fixture();
-  await assert.rejects(f.coordinator.run({
-    ...request(),
-    acceptedObservedAt: new Date(NOW.getTime() - 30_001).toISOString(),
-  }), /preview expired/);
-  await assert.rejects(f.coordinator.run({
-    ...request(), acceptedObservedAt: new Date(NOW.getTime() + 1).toISOString(),
-  }), /preview expired/);
+  await assert.rejects(
+    f.coordinator.run({
+      ...request(),
+      acceptedObservedAt: new Date(NOW.getTime() - 30_001).toISOString(),
+    }),
+    /preview expired/,
+  );
+  await assert.rejects(
+    f.coordinator.run({
+      ...request(),
+      acceptedObservedAt: new Date(NOW.getTime() + 1).toISOString(),
+    }),
+    /preview expired/,
+  );
   f.setFingerprint('c'.repeat(64));
   await assert.rejects(f.coordinator.run(request()), /plan changed/i);
   f.setFingerprint(HASH);
@@ -168,7 +208,10 @@ test('rejects old confirmation, stale hash, changed revision and blocked plans',
   assert.equal(f.steps.length, 0);
 
   const blocked = fixture({ blocked: true });
-  await assert.rejects(blocked.coordinator.run(request()), /blocked or no longer matches/);
+  await assert.rejects(
+    blocked.coordinator.run(request()),
+    /blocked or no longer matches/,
+  );
 });
 
 test('shared or unowned Compose resources never reach runner', async () => {
@@ -189,7 +232,10 @@ test('failure after one completed mutation is reported partial without rollback'
   };
   const result = await f.coordinator.run(request());
   assert.equal(result.status, 'partial');
-  assert.deepEqual(result.steps.map((step) => step.state), ['completed', 'failed']);
+  assert.deepEqual(
+    result.steps.map((step) => step.state),
+    ['completed', 'failed'],
+  );
   assert.equal(f.states.get(DB), 'running');
   assert.equal(f.states.get(API), 'stopped');
   assert.doesNotMatch(JSON.stringify(result), /password-in-error/);
@@ -197,7 +243,9 @@ test('failure after one completed mutation is reported partial without rollback'
 
 test('a mutation that cannot prove final state is reported partial and not retried', async () => {
   const f = fixture({ refs: [DB] });
-  f.runner.run = async (_action, node) => { f.steps.push(node.serviceRef); };
+  f.runner.run = async (_action, node) => {
+    f.steps.push(node.serviceRef);
+  };
   const result = await f.coordinator.run(request());
   assert.equal(result.status, 'partial');
   assert.equal(result.steps[0]?.state, 'unverified');
@@ -221,7 +269,10 @@ test('revalidation stops before next mutation when ownership or observations dri
     await fixtureRunnerRun(action, node);
     unavailable.failObservation();
   };
-  async function fixtureRunnerRun(_action: ServiceLifecycleAction, node: ServiceLifecyclePlanNode) {
+  async function fixtureRunnerRun(
+    _action: ServiceLifecycleAction,
+    node: ServiceLifecyclePlanNode,
+  ) {
     unavailable.steps.push(node.serviceRef);
   }
   const missing = await unavailable.coordinator.run(request());
@@ -232,9 +283,13 @@ test('revalidation stops before next mutation when ownership or observations dri
 test('simultaneous requests for same resource cannot execute inside the lock', async () => {
   const f = fixture({ refs: [DB] });
   let release!: () => void;
-  const held = new Promise<void>((resolve) => { release = resolve; });
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   let started!: () => void;
-  const entered = new Promise<void>((resolve) => { started = resolve; });
+  const entered = new Promise<void>((resolve) => {
+    started = resolve;
+  });
   const original = f.runner.run;
   f.runner.run = async (action, node) => {
     started();
@@ -243,7 +298,10 @@ test('simultaneous requests for same resource cannot execute inside the lock', a
   };
   const first = f.coordinator.run(request());
   await entered;
-  await assert.rejects(f.coordinator.run(request()), /already using one of these resources/);
+  await assert.rejects(
+    f.coordinator.run(request()),
+    /already using one of these resources/,
+  );
   release();
   assert.equal((await first).status, 'completed');
 });
