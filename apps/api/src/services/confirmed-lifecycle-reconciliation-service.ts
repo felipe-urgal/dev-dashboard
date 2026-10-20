@@ -13,7 +13,8 @@ import type { ServiceCatalogService } from './service-catalog-service.js';
 
 export interface LifecycleReconciliationNode {
   serviceRef: string;
-  journalState: 'not-attempted' | 'in-flight' | 'completed' | 'failed' | 'unverified';
+  journalState:
+    'not-attempted' | 'in-flight' | 'completed' | 'failed' | 'unverified';
   observedState: ServiceCatalogEntry['state'] | 'missing';
   readiness: ServiceCatalogEntry['readiness'];
   assessment: 'matches-target' | 'diverged' | 'unverifiable';
@@ -66,9 +67,11 @@ function notFound(): never {
 }
 
 function complete(snapshot: ServiceCatalogSnapshot): boolean {
-  return snapshot.status === 'ready' &&
+  return (
+    snapshot.status === 'ready' &&
     !snapshot.truncated &&
-    snapshot.providers.every((provider) => provider.status === 'ready');
+    snapshot.providers.every((provider) => provider.status === 'ready')
+  );
 }
 
 /**
@@ -81,17 +84,22 @@ export class ConfirmedLifecycleReconciliationService {
 
   public list(projectId: string): LifecycleJobSummary[] {
     if (!this.deps.projects.findProject(projectId)) notFound();
-    return this.deps.journal.list(projectId).slice(0, 100).map((job) => ({
-      id: job.id,
-      environmentInstanceId: job.environmentInstanceId,
-      action: job.action,
-      status: job.status,
-      stage: job.stage,
-      startedAt: job.startedAt,
-      reconciliationRequired: job.reconciliationRequired || job.status === 'running',
-      ...(job.inFlightRef ? { inFlightRef: job.inFlightRef } : {}),
-      completedSteps: job.steps.filter((step) => step.state === 'completed').length,
-    }));
+    return this.deps.journal
+      .list(projectId)
+      .slice(0, 100)
+      .map((job) => ({
+        id: job.id,
+        environmentInstanceId: job.environmentInstanceId,
+        action: job.action,
+        status: job.status,
+        stage: job.stage,
+        startedAt: job.startedAt,
+        reconciliationRequired:
+          job.reconciliationRequired || job.status === 'running',
+        ...(job.inFlightRef ? { inFlightRef: job.inFlightRef } : {}),
+        completedSteps: job.steps.filter((step) => step.state === 'completed')
+          .length,
+      }));
   }
 
   public async inspect(
@@ -119,29 +127,37 @@ export class ConfirmedLifecycleReconciliationService {
 
     const nodes: LifecycleReconciliationNode[] = job.plannedRefs.map((ref) => {
       const written = job.steps.find((step) => step.serviceRef === ref);
-      const journalState = job.inFlightRef === ref ? 'in-flight'
-        : written?.state ?? 'not-attempted';
+      const journalState =
+        job.inFlightRef === ref
+          ? 'in-flight'
+          : (written?.state ?? 'not-attempted');
       const matches = entries.get(ref) ?? [];
       const entry = matches.length === 1 ? matches[0] : undefined;
       const observedState = entry?.state ?? 'missing';
       const readiness = entry?.readiness ?? 'unknown';
-      const owned = entry?.ownership === 'confirmed' &&
+      const owned =
+        entry?.ownership === 'confirmed' &&
         entry.projectId === job.projectId &&
         (entry.environmentInstanceId === undefined ||
           entry.environmentInstanceId === job.environmentInstanceId);
-      let assessment: LifecycleReconciliationNode['assessment'] = 'unverifiable';
-      let diagnostic = 'Current service state or ownership cannot be established.';
+      let assessment: LifecycleReconciliationNode['assessment'] =
+        'unverifiable';
+      let diagnostic =
+        'Current service state or ownership cannot be established.';
 
       if (observationComplete && entry && owned) {
-        const matchesTarget = job.action === 'start'
-          ? entry.state === 'running' && entry.readiness === 'ready'
-          : entry.state === 'stopped';
-        const knownOpposite = job.action === 'start'
-          ? entry.state === 'stopped'
-          : entry.state === 'running' && entry.readiness === 'ready';
+        const matchesTarget =
+          job.action === 'start'
+            ? entry.state === 'running' && entry.readiness === 'ready'
+            : entry.state === 'stopped';
+        const knownOpposite =
+          job.action === 'start'
+            ? entry.state === 'stopped'
+            : entry.state === 'running' && entry.readiness === 'ready';
         if (matchesTarget) {
           assessment = 'matches-target';
-          diagnostic = 'Current state matches the target, but execution history is not proven.';
+          diagnostic =
+            'Current state matches the target, but execution history is not proven.';
         } else if (knownOpposite) {
           assessment = 'diverged';
           diagnostic = 'Current state does not match the requested target.';
@@ -169,19 +185,29 @@ export class ConfirmedLifecycleReconciliationService {
 
     const diagnostics: string[] = [];
     if (!observationComplete) {
-      diagnostics.push('Observations are incomplete or unavailable; manual verification is required.');
+      diagnostics.push(
+        'Observations are incomplete or unavailable; manual verification is required.',
+      );
     }
     if (job.status === 'running') {
-      diagnostics.push('The original process may still be active. Do not retry or remove its locks.');
+      diagnostics.push(
+        'The original process may still be active. Do not retry or remove its locks.',
+      );
     }
     if (job.inFlightRef) {
-      diagnostics.push('An operation may have reached the provider before its result was recorded.');
+      diagnostics.push(
+        'An operation may have reached the provider before its result was recorded.',
+      );
     }
     if (nodes.some((node) => node.assessment !== 'matches-target')) {
-      diagnostics.push('One or more resource states require manual investigation.');
+      diagnostics.push(
+        'One or more resource states require manual investigation.',
+      );
     }
     // Even matching observations are not permission to release a lease/retry.
-    diagnostics.push('No actions were performed. Check all active API instances, leases and dependent services before manual recovery.');
+    diagnostics.push(
+      'No actions were performed. Check all active API instances, leases and dependent services before manual recovery.',
+    );
 
     return {
       jobId: job.id,
@@ -195,7 +221,8 @@ export class ConfirmedLifecycleReconciliationService {
       updatedAt: job.updatedAt,
       ...(snapshot ? { observedAt: snapshot.observedAt } : {}),
       observationComplete,
-      reconciliationRequired: job.reconciliationRequired ||
+      reconciliationRequired:
+        job.reconciliationRequired ||
         job.status === 'running' ||
         nodes.some((node) => node.assessment !== 'matches-target'),
       possibleActiveExecution: job.status === 'running',
