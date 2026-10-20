@@ -107,7 +107,10 @@ import { createAppContext, type AppContext } from './app-context.js';
 export interface BuildAppOptions extends AppCompositionOptions {
   hostServiceInventory?: Pick<SystemdServiceInventory, 'inspect'>;
   serviceCatalog?: Pick<ServiceCatalogService, 'inspect'>;
-  serviceResourceLeaseInspector?: Pick<ServiceResourceLeaseInspector, 'inspect'>;
+  serviceResourceLeaseInspector?: Pick<
+    ServiceResourceLeaseInspector,
+    'inspect'
+  >;
   localToken?: string;
   allowedOrigins?: readonly string[];
   context?: AppContext;
@@ -403,12 +406,18 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(confirmedLifecycleReconciliationRoutes, {
     prefix: '/api',
     reconciliation: lifecycleReconciliation,
-    recovery: new ConfirmedLifecycleRecoveryReviewService({
-      reconciliation: lifecycleReconciliation,
-      leases: options.serviceResourceLeaseInspector ??
-        new ServiceResourceLeaseInspector(context.processManager.stateDirectory),
-      activity: context.activityEventRepository,
-    }, options.now ? { now: () => new Date(options.now!()) } : {}),
+    recovery: new ConfirmedLifecycleRecoveryReviewService(
+      {
+        reconciliation: lifecycleReconciliation,
+        leases:
+          options.serviceResourceLeaseInspector ??
+          new ServiceResourceLeaseInspector(
+            context.processManager.stateDirectory,
+          ),
+        activity: context.activityEventRepository,
+      },
+      options.now ? { now: () => new Date(options.now!()) } : {},
+    ),
   });
 
   app.register(stackRoutes, {

@@ -45,7 +45,10 @@ export class ConfirmedLifecycleRecoveryReviewService {
     jobId: string,
   ): Promise<LifecycleRecoveryEvidence> {
     // Validates project/job ownership before consulting lease data.
-    const reconciliation = await this.deps.reconciliation.inspect(projectId, jobId);
+    const reconciliation = await this.deps.reconciliation.inspect(
+      projectId,
+      jobId,
+    );
     const physicalKeys = [
       'environment:' + projectId + ':' + reconciliation.environmentInstanceId,
       ...reconciliation.nodes.map((node) => 'resource:' + node.serviceRef),
@@ -73,7 +76,9 @@ export class ConfirmedLifecycleRecoveryReviewService {
       'Do not clear leases, retry, terminate a process or mark this job completed based on this report.',
     ];
     if (leases.some((lease) => lease.status !== 'absent')) {
-      diagnostics.push('One or more local resource leases are present or unverifiable.');
+      diagnostics.push(
+        'One or more local resource leases are present or unverifiable.',
+      );
     }
 
     return {
@@ -98,7 +103,11 @@ export class ConfirmedLifecycleRecoveryReviewService {
   public async recordReview(
     projectId: string,
     jobId: string,
-  ): Promise<{ recorded: true; safeToRetry: false; leaseReleaseAuthorized: false }> {
+  ): Promise<{
+    recorded: true;
+    safeToRetry: false;
+    leaseReleaseAuthorized: false;
+  }> {
     const evidence = await this.inspect(projectId, jobId);
     await this.deps.activity.append({
       projectId: evidence.projectId,
@@ -106,7 +115,8 @@ export class ConfirmedLifecycleRecoveryReviewService {
       domain: 'compose',
       type: 'compose.lifecycle-recovery-reviewed',
       status: 'warning',
-      summary: 'Recovery evidence reviewed; no retry, release or completion authorized.',
+      summary:
+        'Recovery evidence reviewed; no retry, release or completion authorized.',
       jobId: 'compose-confirmed:' + jobId,
       resourceRef: {
         kind: 'docker-compose-lifecycle',
