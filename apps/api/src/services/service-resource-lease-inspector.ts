@@ -39,7 +39,10 @@ export class ServiceResourceLeaseInspector {
   private readonly root: string;
   private readonly processExists: (pid: number) => LeaseProcessObservation;
 
-  public constructor(stateDirectory: string, options: LeaseInspectorOptions = {}) {
+  public constructor(
+    stateDirectory: string,
+    options: LeaseInspectorOptions = {},
+  ) {
     this.root = path.join(stateDirectory, 'service-resource-leases-v1');
     this.processExists = options.processExists ?? probeProcess;
   }
@@ -72,7 +75,8 @@ export class ServiceResourceLeaseInspector {
             resourceKey,
             status: 'absent',
             ownerProcess: 'unknown',
-            diagnostic: 'No local lease root was observed; other executors remain possible.',
+            diagnostic:
+              'No local lease root was observed; other executors remain possible.',
           };
         }
         return unknown('Local lease root could not be inspected.');
@@ -88,7 +92,8 @@ export class ServiceResourceLeaseInspector {
             resourceKey,
             status: 'absent',
             ownerProcess: 'unknown',
-            diagnostic: 'No cooperating local lease observed for this resource.',
+            diagnostic:
+              'No cooperating local lease observed for this resource.',
           };
         }
         return unknown('Lease entry could not be inspected.');
@@ -122,11 +127,12 @@ export class ServiceResourceLeaseInspector {
           resourceKey,
           status: 'present',
           ownerProcess,
-          diagnostic: ownerProcess === 'alive'
-            ? 'Lease owner PID exists locally; identity and active mutation are not proven.'
-            : ownerProcess === 'not-observed'
-              ? 'Lease owner PID was not observed locally; recovery still requires verification.'
-              : 'Lease owner process could not be verified.',
+          diagnostic:
+            ownerProcess === 'alive'
+              ? 'Lease owner PID exists locally; identity and active mutation are not proven.'
+              : ownerProcess === 'not-observed'
+                ? 'Lease owner PID was not observed locally; recovery still requires verification.'
+                : 'Lease owner process could not be verified.',
         };
       } catch {
         return unknown('Lease owner evidence is unreadable or invalid.');
