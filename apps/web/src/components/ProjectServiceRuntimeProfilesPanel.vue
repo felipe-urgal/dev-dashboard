@@ -20,7 +20,7 @@ import {
 
 const props = defineProps<{
   projectId: string;
-  environmentInstanceId?: string;
+  environmentInstanceId?: string | undefined;
 }>();
 
 const environmentId = computed(
