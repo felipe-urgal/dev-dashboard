@@ -70,3 +70,26 @@ jobs:
 
       - name: Qualify terminal and critical Git flows
         run: npm run test:e2e --workspace=@dev-dashboard/web -- dashboard-terminal-qualification.spec.ts project-git-pull-request.spec.ts project-worktrees-environments.spec.ts project-git-history.spec.ts project-tests.spec.ts project-dependencies.spec.ts project-dev-container.spec.ts project-compose.spec.ts project-production.spec.ts project-environment.spec.ts project-database.spec.ts database-explorer-privacy.spec.ts
+
+  runtime-physical-isolation:
+    name: Disposable PostgreSQL Isolation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Pull fixture PostgreSQL image
+        run: docker pull postgres:16-alpine
+
+      - name: Qualify disposable DB volumes and real Git worktrees
+        env:
+          RUNTIME_ISOLATION_QUALIFY: '1'
+        run: node scripts/qualify-runtime-profile-isolation.mjs
+
