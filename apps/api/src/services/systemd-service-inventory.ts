@@ -142,7 +142,10 @@ function parseDetails(output: string): Map<string, UnitDetails> {
   for (const block of output.split(/\r?\n\r?\n/)) {
     const record: UnitDetails = {};
     for (const line of block.split(/\r?\n/)) {
-      const match = /^(Id|ActiveState|SubState|UnitFileState|FragmentPath|Transient|TriggeredBy)=(.*)$/.exec(line);
+      const match =
+        /^(Id|ActiveState|SubState|UnitFileState|FragmentPath|Transient|TriggeredBy)=(.*)$/.exec(
+          line,
+        );
       if (match?.[1]) record[match[1]] = match[2] ?? '';
     }
     if (safeUnit(record.Id)) result.set(record.Id, record);
@@ -150,14 +153,18 @@ function parseDetails(output: string): Map<string, UnitDetails> {
   return result;
 }
 
-function fragmentKind(path: string | undefined): 'persistent' | 'runtime' | 'none' | 'unknown' {
+function fragmentKind(
+  path: string | undefined,
+): 'persistent' | 'runtime' | 'none' | 'unknown' {
   if (path === '') return 'none';
   if (path?.startsWith('/run/')) return 'runtime';
   if (path?.startsWith('/')) return 'persistent';
   return 'unknown';
 }
 
-function activeState(value: string | undefined): NonNullable<HostServiceObservation['activeState']> {
+function activeState(
+  value: string | undefined,
+): NonNullable<HostServiceObservation['activeState']> {
   switch (value) {
     case 'active':
     case 'inactive':
@@ -171,7 +178,9 @@ function activeState(value: string | undefined): NonNullable<HostServiceObservat
   }
 }
 
-function subState(value: string | undefined): NonNullable<HostServiceObservation['subState']> {
+function subState(
+  value: string | undefined,
+): NonNullable<HostServiceObservation['subState']> {
   switch (value) {
     case 'running':
     case 'dead':
@@ -245,9 +254,10 @@ export class SystemdServiceInventory {
 
       const names = [...new Set([...units.keys(), ...unitFiles.keys()])].sort();
       // Keep at least half the budget available for the system scope.
-      const scopeBudget = scope === 'user'
-        ? Math.max(1, Math.floor(this.maxServices / 2))
-        : this.maxServices - services.length;
+      const scopeBudget =
+        scope === 'user'
+          ? Math.max(1, Math.floor(this.maxServices / 2))
+          : this.maxServices - services.length;
       const selected = names.slice(0, Math.max(0, scopeBudget));
       if (selected.length !== names.length) truncated = true;
 
@@ -280,7 +290,11 @@ export class SystemdServiceInventory {
 
       sources.push({
         scope,
-        status: !available ? 'unavailable' : complete && detailsComplete ? 'ready' : 'partial',
+        status: !available
+          ? 'unavailable'
+          : complete && detailsComplete
+            ? 'ready'
+            : 'partial',
         ...(!complete || !detailsComplete
           ? {
               diagnostic:
@@ -291,21 +305,23 @@ export class SystemdServiceInventory {
 
       for (const name of selected) {
         const detail = details.get(name);
-        const state = detail?.ActiveState && detail.SubState
-          ? systemdState(detail.ActiveState, detail.SubState)
-          : units.get(name) ?? 'unknown';
+        const state =
+          detail?.ActiveState && detail.SubState
+            ? systemdState(detail.ActiveState, detail.SubState)
+            : (units.get(name) ?? 'unknown');
         const boot = detail?.UnitFileState
           ? bootState(detail.UnitFileState)
-          : unitFiles.get(name) ?? 'unknown';
-        const unitKind = detail?.Transient === 'yes' || boot === 'transient'
-          ? 'transient' as const
-          : boot === 'generated'
-            ? 'generated' as const
-            : name.includes('@.service')
-              ? 'template' as const
-              : name.includes('@')
-                ? 'instance' as const
-                : 'regular' as const;
+          : (unitFiles.get(name) ?? 'unknown');
+        const unitKind =
+          detail?.Transient === 'yes' || boot === 'transient'
+            ? ('transient' as const)
+            : boot === 'generated'
+              ? ('generated' as const)
+              : name.includes('@.service')
+                ? ('template' as const)
+                : name.includes('@')
+                  ? ('instance' as const)
+                  : ('regular' as const);
         services.push({
           id: 'systemd:' + scope + ':' + name,
           provider: 'systemd',
@@ -314,11 +330,13 @@ export class SystemdServiceInventory {
           state,
           readiness: 'unknown',
           bootState: boot,
-          ...(detail ? {
-            activeState: activeState(detail.ActiveState),
-            subState: subState(detail.SubState),
-            fragmentKind: fragmentKind(detail.FragmentPath),
-          } : {}),
+          ...(detail
+            ? {
+                activeState: activeState(detail.ActiveState),
+                subState: subState(detail.SubState),
+                fragmentKind: fragmentKind(detail.FragmentPath),
+              }
+            : {}),
           unitKind,
           managed: false,
           observedAt,
