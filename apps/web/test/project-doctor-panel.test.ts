@@ -14,6 +14,10 @@ vi.mock('../src/api', () => ({
   fetchProjectDoctor,
 }));
 
+vi.mock('../src/components/ProjectServiceDiagnosticsPanel.vue', () => ({
+  default: { template: '<div class="service-diagnostics-stub" />' },
+}));
+
 import ProjectDoctorPanel from '../src/components/ProjectDoctorPanel.vue';
 
 const project: Project = {
