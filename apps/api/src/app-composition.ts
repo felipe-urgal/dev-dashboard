@@ -47,6 +47,7 @@ import { DevContainerStopConfirmationService } from './services/dev-container-st
 import { DockerComposeLifecycleConfirmationService } from './services/docker-compose-lifecycle-confirmation-service.js';
 import { DockerComposeLifecycleExecutionService } from './services/docker-compose-lifecycle-execution-service.js';
 import { DockerComposeLifecycleService } from './services/docker-compose-lifecycle-service.js';
+import { ConfirmedLifecycleJobJournal } from './services/confirmed-lifecycle-job-journal.js';
 import { ServiceResourceOperationLock } from './services/service-resource-operation-lock.js';
 import { DockerComposeOwnershipStore } from './services/docker-compose-ownership-store.js';
 import { DockerComposeRecoveryService } from './services/docker-compose-recovery-service.js';
@@ -453,6 +454,12 @@ export function createAppComposition(
   const agentRuntimeRealtimeService = new AgentRuntimeRealtimeService(
     agentRuntimeApiService,
   );
+  // Read-only Activity integration: the internal confirmed coordinator is not
+  // registered as a runtime executor or exposed by an HTTP mutation route.
+  const confirmedLifecycleJobs = new ConfirmedLifecycleJobJournal(
+    context.processManager.stateDirectory,
+    options.now ? { now: () => new Date(options.now!()) } : {},
+  );
   const activitySnapshotService = new ActivitySnapshotService({
     eventStore: context.activityEventRepository,
     gitHistory: context.gitMutationHistoryService,
@@ -473,6 +480,7 @@ export function createAppComposition(
       context.projectDependenciesPtyService,
       devContainerLifecycleExecutionService,
       dockerComposeLifecycleExecutionService,
+      confirmedLifecycleJobs,
       deploymentService,
       ...(migrationMutationExecutionService
         ? [migrationMutationExecutionService]

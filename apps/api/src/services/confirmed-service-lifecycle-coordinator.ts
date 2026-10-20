@@ -8,6 +8,7 @@ import type {
 
 import { ApiError } from '../http/api-error.js';
 import type { ServiceLifecyclePlanningService } from './service-lifecycle-planning-service.js';
+import type { ConfirmedLifecycleJobJournal } from './confirmed-lifecycle-job-journal.js';
 import { ServiceResourceOperationLock } from './service-resource-operation-lock.js';
 
 const ACCEPTANCE_TTL_MS = 30_000;
@@ -88,6 +89,11 @@ export class ConfirmedServiceLifecycleCoordinator {
       runner: ConfirmedLifecycleRunner;
       locks: ServiceResourceOperationLock;
       events?: ConfirmedLifecycleStepWriter;
+      /** Persistent journal is optional for existing internal test consumers. */
+      jobs?: Pick<
+        ConfirmedLifecycleJobJournal,
+        'begin' | 'beforeStep' | 'step' | 'finish'
+      >;
     },
     options: { now?: () => Date } = {},
   ) {
@@ -122,7 +128,21 @@ export class ConfirmedServiceLifecycleCoordinator {
         // taking every lock before invoking a provider-owned lifecycle action.
         const locked = await this.preview(request, request.expectedPlanHash);
         this.ensureApproved(locked, request);
+        // Durable intent exists BEFORE any provider mutation. A storage error
+        // fails closed and cannot turn an uncertain operation into a retry.
+        const jobId = this.dependencies.jobs?.begin(
+          request,
+          approved.map((node) => node.serviceRef),
+        );
         const steps: ConfirmedLifecycleStep[] = [];
+        const conclude = async (result: ConfirmedLifecycleResult) => {
+          if (jobId) this.dependencies.jobs?.finish(jobId, result);
+          return result;
+        };
+        const interrupted = async (
+          completedSteps: ConfirmedLifecycleStep[],
+          diagnostic: string,
+        ) => conclude(this.interrupted(request, completedSteps, diagnostic));
         for (const node of approved) {
           let current: ServiceLifecyclePlan;
           try {
@@ -131,8 +151,7 @@ export class ConfirmedServiceLifecycleCoordinator {
               current.expectedRevision !== request.expectedRevision ||
               current.status !== 'ready'
             ) {
-              return this.interrupted(
-                request,
+              return interrupted(
                 steps,
                 'Lifecycle plan changed before the next step.',
               );
@@ -141,15 +160,13 @@ export class ConfirmedServiceLifecycleCoordinator {
               (candidate) => candidate.serviceRef === node.serviceRef,
             );
             if (!observedNode || !compatiblePendingNode(observedNode, node)) {
-              return this.interrupted(
-                request,
+              return interrupted(
                 steps,
                 'Resource identity, ownership or state changed during lifecycle.',
               );
             }
           } catch {
-            return this.interrupted(
-              request,
+            return interrupted(
               steps,
               'Resource observation became unavailable during lifecycle.',
             );
@@ -157,6 +174,9 @@ export class ConfirmedServiceLifecycleCoordinator {
 
           // This adapter boundary deliberately supports only Compose for now.
           // Other providers require their own owner-aware integration.
+          // Mark in-flight BEFORE invoking the owner. If the API dies at any
+          // point afterward, this job must be reconciled, never replayed.
+          if (jobId) this.dependencies.jobs?.beforeStep(jobId, node.serviceRef);
           try {
             await this.dependencies.runner.run(request.action, node, request);
           } catch {
@@ -168,10 +188,10 @@ export class ConfirmedServiceLifecycleCoordinator {
               diagnostic:
                 'The lifecycle owner reported failure; no rollback was attempted.',
             };
+            if (jobId) this.dependencies.jobs?.step(jobId, failure);
             steps.push(failure);
             await this.record(request, failure);
-            return this.interrupted(
-              request,
+            return interrupted(
               steps,
               'Lifecycle owner failed; recovery may be required.',
             );
@@ -204,24 +224,24 @@ export class ConfirmedServiceLifecycleCoordinator {
                 }
               : {}),
           };
+          if (jobId) this.dependencies.jobs?.step(jobId, step);
           steps.push(step);
           await this.record(request, step);
           if (!verified) {
-            return this.interrupted(
-              request,
+            return interrupted(
               steps,
               'Final service state could not be verified; recovery may be required.',
             );
           }
         }
 
-        return {
+        return conclude({
           projectId: request.projectId,
           environmentInstanceId: request.environmentInstanceId,
           action: request.action,
           status: 'completed',
           steps,
-        };
+        });
       },
     );
   }
