@@ -11,8 +11,18 @@ Ambas as rotas usam a autenticação local existente do Dashboard.
 
 Os providers `systemd`, `docker`, `compose`, `managed-process` e `ports` reportam estados de disponibilidade separados. A resposta tem limites de tamanho; `truncated: true` significa que **nem todos** os serviços/portas conhecidos foram incluídos. Não use o catálogo como fonte única para operações administrativas.
 
+### Limites e paginação
+
+- O inventário de systemd tem no máximo 200 entradas por leitura; o catálogo agrega no máximo 250 entradas, até 100 portas, até 12 projetos Compose, até 100 containers Docker e até 250 processos.
+- Ambas as rotas aceitam `?offset=0&limit=100` (limit entre 1 e 100). Sem parâmetros, preservam o formato legado (sem `page`) para clientes existentes.
+- Com parâmetros, a resposta inclui `page: { offset, limit, hasMore, incomplete }`. `hasMore` representa somente as entradas ainda presentes **na captura limitada atual**; `incomplete=true` indica truncamento anterior e impede assumir que o host foi totalmente enumerado. A página não é um cursor estável: consultas repetidas podem observar estados diferentes.
+- A API usa lista de propriedades systemd obtida em lotes de no máximo 40 units, consultas apenas leitura com timeout de CLI e isolamento de erro por escopo. Providers opcionais do catálogo têm deadline de 8 segundos por consulta; falha/timeout não apaga resultados de outros providers.
+
 ## Semântica de estados
 
+- `displayName`, `evidence.source` e `evidence.identity` identificam a origem observada; **não** comprovam autorização para mutação. O contrato unificado `ServiceObservation` reporta `capabilities.observe=supported` e `start/stop/restart/boot-policy=unsupported` neste endpoint read-only. Controle explícito, quando existir, possui contrato separado de vínculos e confirmação.
+- `enabledAtBoot` é apenas a projeção observada de `UnitFileState` para units systemd (inclusive `static`, `masked`, `transient` e `unknown`); não indica se estão executando. `activeState`/`subState` são observados separadamente de readiness.
+- `fragmentKind` indica somente classe genérica de origem da unit; o `FragmentPath` original não é retornado. Templates, instâncias, units transient e generated são classificados sem atribuir gerenciamento. Socket activation não comprova health.
 - `state=running` significa que o runtime foi observado ativo; **não** significa que a aplicação está pronta para requisições.
 - `readiness=ready` é exposto somente para serviços Compose com health check que retorna `healthy`; os demais ficam `unknown` salvo evidência específica.
 - `ownership=confirmed` representa um registro de ownership resolvido nos domínios Compose/Process Manager existentes. Contêineres Docker vistos apenas pelo CLI e unidades systemd são `unmanaged`, mesmo quando seus nomes sugerem vínculo com um projeto.
@@ -21,6 +31,7 @@ Os providers `systemd`, `docker`, `compose`, `managed-process` e `ports` reporta
 
 ## Falhas e limitações
 
+- Diagnóstico read-only em Linux, sem alterar serviços reais: `systemctl --user list-units --type=service --all`, `systemctl list-unit-files --type=service`, `docker container ls --all` e `ss -ltnp`. Comandos dependem das permissões disponíveis na sessão da API, especialmente o bus `--user` (que pode não existir em containers).
 - O Dashboard não usa `sudo` e não eleva permissões para consultar serviços. DBus/systemd inacessível, Docker ausente ou falta de permissão produzem status `partial`, `unavailable` ou `unsupported`, sem revelar erro bruto de ferramenta.
 - A inspeção Compose é restrita a registros de ownership previamente persistidos para projetos conhecidos; projetos sem registro não são adotados.
 - Observação Docker usa `docker container ls --all` apenas para listar containers do host. Não executa `docker start`, `docker stop` ou `docker inspect`.
