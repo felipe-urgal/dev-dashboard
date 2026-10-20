@@ -23,11 +23,16 @@ const report: LifecycleReconciliationReport = {
   reconciliationRequired: true,
   possibleActiveExecution: true,
   safeToRetry: false,
-  nodes: [{
-    serviceRef: REF, journalState: 'in-flight',
-    observedState: 'running', readiness: 'ready',
-    assessment: 'matches-target', diagnostic: 'Observed state matches target.',
-  }],
+  nodes: [
+    {
+      serviceRef: REF,
+      journalState: 'in-flight',
+      observedState: 'running',
+      readiness: 'ready',
+      assessment: 'matches-target',
+      diagnostic: 'Observed state matches target.',
+    },
+  ],
   diagnostics: [],
 };
 
@@ -35,35 +40,45 @@ function harness() {
   const events: AppendActivityEventInput[] = [];
   const inspected: string[][] = [];
   let broken = false;
-  const service = new ConfirmedLifecycleRecoveryReviewService({
-    reconciliation: {
-      inspect: async (project, job) => {
-        if (project !== 'loto' || job !== JOB) {
-          throw new Error('Lifecycle job not found for project.');
-        }
-        return report;
+  const service = new ConfirmedLifecycleRecoveryReviewService(
+    {
+      reconciliation: {
+        inspect: async (project, job) => {
+          if (project !== 'loto' || job !== JOB) {
+            throw new Error('Lifecycle job not found for project.');
+          }
+          return report;
+        },
+      },
+      leases: {
+        inspect: (keys) => {
+          if (broken) throw new Error('Host FS secret path');
+          inspected.push([...keys]);
+          return keys.map((resourceKey) => ({
+            resourceKey,
+            status: 'present' as const,
+            ownerProcess: 'not-observed' as const,
+            diagnostic: 'PID no longer observed; does not prove safety.',
+          }));
+        },
+      },
+      activity: {
+        append: async (event) => {
+          events.push(event);
+          return {} as never;
+        },
       },
     },
-    leases: {
-      inspect: (keys) => {
-        if (broken) throw new Error('Host FS secret path');
-        inspected.push([...keys]);
-        return keys.map((resourceKey) => ({
-          resourceKey,
-          status: 'present' as const,
-          ownerProcess: 'not-observed' as const,
-          diagnostic: 'PID no longer observed; does not prove safety.',
-        }));
-      },
+    { now: () => new Date('2026-10-20T12:01:00.000Z') },
+  );
+  return {
+    service,
+    events,
+    inspected,
+    failLeases: () => {
+      broken = true;
     },
-    activity: {
-      append: async (event) => {
-        events.push(event);
-        return {} as never;
-      },
-    },
-  }, { now: () => new Date('2026-10-20T12:01:00.000Z') });
-  return { service, events, inspected, failLeases: () => { broken = true; } };
+  };
 }
 
 test('inspects Compose owner, resource and environment locks without granting recovery', async () => {
@@ -88,7 +103,9 @@ test('records a sanitized Activity review, not a completion or restart authoriza
   const x = harness();
   const result = await x.service.recordReview('loto', JOB);
   assert.deepEqual(result, {
-    recorded: true, safeToRetry: false, leaseReleaseAuthorized: false,
+    recorded: true,
+    safeToRetry: false,
+    leaseReleaseAuthorized: false,
   });
   assert.equal(x.events.length, 1);
   assert.equal(x.events[0]?.type, 'compose.lifecycle-recovery-reviewed');
