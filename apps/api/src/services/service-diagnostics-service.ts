@@ -257,9 +257,9 @@ export class ServiceDiagnosticsService {
               id,
               action,
               status,
-              startedAt,
-              finishedAt,
-              resourceRef,
+              ...(startedAt ? { startedAt } : {}),
+              ...(finishedAt ? { finishedAt } : {}),
+              ...(resourceRef ? { resourceRef } : {}),
             }),
           );
       }
