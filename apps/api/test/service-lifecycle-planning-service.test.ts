@@ -10,6 +10,7 @@ import type {
 
 import { ServiceLifecyclePlanningService } from '../src/services/service-lifecycle-planning-service.js';
 import { ProjectServiceBindingStore } from '../src/store/project-service-binding-store.js';
+import { ServiceRuntimeProfileStore } from '../src/store/service-runtime-profile-store.js';
 
 const NOW = new Date('2026-10-19T16:00:00.000Z');
 const dbRef = 'systemd:system:postgresql.service';
@@ -60,6 +61,7 @@ const draft = (
 
 function fixture() {
   const store = new ProjectServiceBindingStore();
+  const profiles = new ServiceRuntimeProfileStore();
   const entries: ServiceCatalogEntry[] = [
     service(dbRef),
     service(apiRef, { state: 'stopped', readiness: 'unknown', ports: [5200] }),
@@ -80,18 +82,23 @@ function fixture() {
   const planner = new ServiceLifecyclePlanningService(
     {
       bindings: store,
+      profiles,
       projects: {
         findProject: (projectId: string) =>
           projects.find((p) => p.id === projectId) ?? null,
       },
       environments: {
         findById: (id: string) => {
-          const project = projects.find((p) => env(p.id) === id);
+          const project = projects.find((p) =>
+            env(p.id) === id || id === 'environment:worktree:' + p.id + ':one',
+          );
           return project
             ? {
                 id,
                 projectId: project.id,
-                source: { kind: 'primary' as const, path: project.path },
+                source: id === env(project.id)
+                  ? { kind: 'primary' as const, path: project.path }
+                  : { kind: 'worktree' as const, path: project.path + '/w1', worktreeId: 'one' },
                 runtime: { kind: 'host' as const },
                 lifecycle: 'ready' as const,
               }
@@ -118,7 +125,7 @@ function fixture() {
       store.revision(projectId),
       NOW,
     );
-  return { planner, store, snapshot, entries, bind };
+  return { planner, store, profiles, snapshot, entries, bind };
 }
 
 test('start orders prerequisites first and requires readiness rather than a running port', async () => {
@@ -256,4 +263,129 @@ test('missing project or mismatched environment is rejected without any mutation
     planner.preview('loto', 'start', env('gastos')),
     /Environment not found/,
   );
+});
+
+test('selected dev/test profiles use exact binding IDs and change the plan hash', async () => {
+  const { planner, bind, store, profiles } = fixture();
+  const db = bind('loto', dbRef, 'required');
+  const api = bind('loto', apiRef, 'owned', [dbRef]);
+  const testProfile = profiles.save('loto', {
+    environmentInstanceId: env('loto'), kind: 'test', bindingIds: [db.id],
+  }, profiles.revision('loto'), NOW);
+  const devProfile = profiles.save('loto', {
+    environmentInstanceId: env('loto'), kind: 'dev', bindingIds: [db.id, api.id],
+  }, profiles.revision('loto'), NOW);
+  const unscoped = await planner.preview('loto', 'start');
+  const testPlan = await planner.preview('loto', 'start', env('loto'), undefined, testProfile.id);
+  const devPlan = await planner.preview('loto', 'start', env('loto'), undefined, devProfile.id);
+  assert.deepEqual(testPlan.order, [dbRef]);
+  assert.deepEqual(devPlan.order, [dbRef, apiRef]);
+  assert.deepEqual(unscoped.order, devPlan.order);
+  assert.equal(testPlan.profile?.kind, 'test');
+  assert.equal(devPlan.profile?.revision, profiles.revision('loto'));
+  assert.equal(testPlan.executable, false);
+  assert.notEqual(testPlan.planHash, devPlan.planHash);
+  assert.notEqual(testPlan.planHash, unscoped.planHash);
+  await planner.preview('loto', 'start', env('loto'), testPlan.planHash, testProfile.id);
+
+  profiles.save('loto', {
+    environmentInstanceId: env('loto'), kind: 'test', bindingIds: [db.id, api.id],
+  }, profiles.revision('loto'), NOW, testProfile.id);
+  await assert.rejects(
+    planner.preview('loto', 'start', env('loto'), testPlan.planHash, testProfile.id),
+    /plan changed/i,
+  );
+  assert.equal(store.byProject('loto').length, 2);
+});
+
+test('profile-scoped Start blocks omitted dependencies; empty selection is not fallback', async () => {
+  const { planner, bind, profiles } = fixture();
+  bind('loto', dbRef, 'required');
+  const api = bind('loto', apiRef, 'owned', [dbRef]);
+  const selected = profiles.save('loto', {
+    environmentInstanceId: env('loto'), kind: 'test', bindingIds: [api.id],
+  }, profiles.revision('loto'), NOW);
+  const start = await planner.preview('loto', 'start', env('loto'), undefined, selected.id);
+  assert.equal(start.status, 'blocked');
+  assert.equal(start.nodes.find((node) => node.serviceRef === dbRef)?.relation, 'missing');
+  assert.equal(start.nodes.find((node) => node.serviceRef === apiRef)?.disposition, 'blocked');
+  const empty = profiles.save('loto', {
+    environmentInstanceId: env('loto'), kind: 'dev', bindingIds: [],
+  }, profiles.revision('loto'), NOW);
+  const result = await planner.preview('loto', 'stop', env('loto'), undefined, empty.id);
+  assert.equal(result.status, 'blocked');
+  assert.deepEqual(result.nodes, []);
+  assert.equal(result.executable, false);
+});
+
+test('profile-scoped Stop retains resources used by another profile in the same environment', async () => {
+  const { planner, bind, entries, profiles } = fixture();
+  entries.find((item) => item.id === apiRef)!.state = 'running';
+  entries.find((item) => item.id === apiRef)!.readiness = 'ready';
+  const binding = bind('loto', apiRef, 'owned');
+  const dev = profiles.save('loto', {
+    environmentInstanceId: env('loto'), kind: 'dev', bindingIds: [binding.id],
+  }, profiles.revision('loto'), NOW);
+  profiles.save('loto', {
+    environmentInstanceId: env('loto'), kind: 'production', bindingIds: [binding.id],
+  }, profiles.revision('loto'), NOW);
+  const scoped = await planner.preview('loto', 'stop', env('loto'), undefined, dev.id);
+  assert.equal(scoped.nodes[0]?.disposition, 'retained');
+  assert.match(scoped.nodes[0]?.diagnostic ?? '', /Another runtime profile/);
+  assert.equal(scoped.executable, false);
+  const fallback = await planner.preview('loto', 'stop');
+  assert.equal(fallback.nodes[0]?.disposition, 'willStop');
+});
+
+test('stale and cross-environment profile references fail closed', async () => {
+  const { planner, bind, store, profiles } = fixture();
+  const binding = bind('loto', dbRef, 'required');
+  const selection = profiles.save('loto', {
+    environmentInstanceId: env('loto'), kind: 'test', bindingIds: [binding.id],
+  }, profiles.revision('loto'), NOW);
+  await assert.rejects(
+    planner.preview('gastos', 'start', env('gastos'), undefined, selection.id),
+    /Runtime profile not found/,
+  );
+  await assert.rejects(
+    planner.preview('loto', 'start', 'environment:worktree:loto:one', undefined, selection.id),
+    /Runtime profile not found/,
+  );
+  store.save('loto', {
+    serviceRef: dbRef,
+    relation: 'required',
+    enabled: false,
+    requiredForStart: true,
+    dependencies: [],
+    environmentInstanceId: env('loto'),
+  }, store.revision('loto'), NOW, binding.id);
+  await assert.rejects(
+    planner.preview('loto', 'start', env('loto'), undefined, selection.id),
+    /missing or disabled bindings/,
+  );
+  // Without a profile, a disabled binding still uses the established empty fallback.
+  const fallback = await planner.preview('loto', 'start');
+  assert.equal(fallback.executable, false);
+  assert.equal(fallback.status, 'blocked');
+});
+
+test('independent worktree profile selects only its own environment bindings', async () => {
+  const { planner, store, profiles } = fixture();
+  const worktree = 'environment:worktree:loto:one';
+  const primary = store.save('loto', {
+    ...draft(apiRef, 'owned'), environmentInstanceId: env('loto'),
+  }, store.revision('loto'), NOW);
+  const secondary = store.save('loto', {
+    ...draft(dbRef, 'required'), environmentInstanceId: worktree,
+  }, store.revision('loto'), NOW);
+  const workProfile = profiles.save('loto', {
+    environmentInstanceId: worktree, kind: 'test', bindingIds: [secondary.id],
+  }, profiles.revision('loto'), NOW);
+  profiles.save('loto', {
+    environmentInstanceId: env('loto'), kind: 'test', bindingIds: [primary.id],
+  }, profiles.revision('loto'), NOW);
+  const workPlan = await planner.preview('loto', 'start', worktree, undefined, workProfile.id);
+  assert.deepEqual(workPlan.order, [dbRef]);
+  assert.equal(workPlan.target.environmentInstanceId, worktree);
+  assert.equal(workPlan.executable, false);
 });

@@ -65,6 +65,11 @@ test('project lifecycle preview is authenticated, read-only and hash guarded', a
       },
     ],
   };
+  const profile = context.serviceRuntimeProfileStore.save('loto', {
+    environmentInstanceId: 'environment:primary:loto',
+    kind: 'test',
+    bindingIds: [context.projectServiceBindingStore.byProject('loto')[0]!.id],
+  }, context.serviceRuntimeProfileStore.revision('loto'), new Date('2026-10-19T16:00:00.000Z'));
   const app = await buildApp({
     context,
     localToken: TOKEN,
@@ -86,6 +91,26 @@ test('project lifecycle preview is authenticated, read-only and hash guarded', a
   assert.equal(first.nodes[0]?.state, 'running');
   assert.equal(first.executable, false);
   assert.equal(first.planHash.length, 64);
+
+  const scoped = await app.inject({
+    method: 'GET',
+    url: uri + '&profileId=' + profile.id,
+    headers,
+  });
+  assert.equal(scoped.statusCode, 200);
+  const scopedPlan = scoped.json<ServiceLifecyclePlan>();
+  assert.equal(scopedPlan.profile?.id, profile.id);
+  assert.equal(scopedPlan.profile?.kind, 'test');
+  assert.equal(scopedPlan.executable, false);
+  assert.notEqual(scopedPlan.planHash, first.planHash);
+  const invalidProfile = await app.inject({
+    method: 'GET', url: uri + '&profileId=arbitrary', headers,
+  });
+  assert.equal(invalidProfile.statusCode, 400);
+  const foreignProfile = await app.inject({
+    method: 'GET', url: uri + '&profileId=00000000-0000-4000-8000-000000000000', headers,
+  });
+  assert.equal(foreignProfile.statusCode, 404);
 
   const repeat = await app.inject({
     method: 'GET',

@@ -33,6 +33,12 @@ export interface ServiceLifecyclePlan {
   status: 'ready' | 'blocked';
   /** Bindings collection revision. Revalidated on every preview. */
   expectedRevision: string;
+  /** Optional read-only profile selection, not a lifecycle authorization. */
+  profile?: {
+    id: string;
+    kind: 'dev' | 'test' | 'production';
+    revision: string;
+  };
   /** Fingerprint of bindings, observed states and port evidence. */
   planHash: string;
   observedAt: string;

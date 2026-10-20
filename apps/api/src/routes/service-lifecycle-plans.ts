@@ -13,6 +13,7 @@ interface Query {
   action: 'start' | 'stop';
   environmentInstanceId?: string;
   expectedPlanHash?: string;
+  profileId?: string;
 }
 
 const properties = {
@@ -77,7 +78,510 @@ const responseSchema = {
     },
     action: { type: 'string', enum: ['start', 'stop'] },
     status: { type: 'string', enum: ['ready', 'blocked'] },
-    expectedRevision: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    expectedRevision: { type: 'string', pattern: '^[a-f0-9]{64}
+    planHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    observedAt: { type: 'string' },
+    expiresAt: { type: 'string' },
+    order: { type: 'array', maxItems: 250, items: { type: 'string' } },
+    nodes: {
+      type: 'array',
+      maxItems: 250,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'serviceRef',
+          'name',
+          'provider',
+          'disposition',
+          'state',
+          'readiness',
+          'relation',
+          'ports',
+          'consumerCount',
+          'dependencies',
+        ],
+        properties,
+      },
+    },
+    diagnostics: { type: 'array', items: { type: 'string' } },
+    executable: { type: 'boolean', enum: [false] },
+  },
+} as const;
+
+export const serviceLifecyclePlanRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  options,
+) => {
+  app.get<{ Params: Params; Querystring: Query }>(
+    '/projects/:projectId/service-plan',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['projectId'],
+          properties: {
+            projectId: { type: 'string', minLength: 1, maxLength: 160 },
+          },
+        },
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['action'],
+          properties: {
+            action: { type: 'string', enum: ['start', 'stop'] },
+            environmentInstanceId: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 512,
+            },
+            expectedPlanHash: { type: 'string', pattern: '^[a-f0-9]{64}
+          },
+        },
+        response: { 200: responseSchema, ...commonErrorResponseSchemas },
+      },
+    },
+    async (request) =>
+      options.planner.preview(
+        request.params.projectId,
+        request.query.action,
+        request.query.environmentInstanceId,
+        request.query.expectedPlanHash,
+        request.query.profileId,
+      ),
+  );
+};
+ },
+    profile: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['id', 'kind', 'revision'],
+      properties: {
+        id: { type: 'string' },
+        kind: { type: 'string', enum: ['dev', 'test', 'production'] },
+        revision: { type: 'string', pattern: '^[a-f0-9]{64}
+    planHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    observedAt: { type: 'string' },
+    expiresAt: { type: 'string' },
+    order: { type: 'array', maxItems: 250, items: { type: 'string' } },
+    nodes: {
+      type: 'array',
+      maxItems: 250,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'serviceRef',
+          'name',
+          'provider',
+          'disposition',
+          'state',
+          'readiness',
+          'relation',
+          'ports',
+          'consumerCount',
+          'dependencies',
+        ],
+        properties,
+      },
+    },
+    diagnostics: { type: 'array', items: { type: 'string' } },
+    executable: { type: 'boolean', enum: [false] },
+  },
+} as const;
+
+export const serviceLifecyclePlanRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  options,
+) => {
+  app.get<{ Params: Params; Querystring: Query }>(
+    '/projects/:projectId/service-plan',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['projectId'],
+          properties: {
+            projectId: { type: 'string', minLength: 1, maxLength: 160 },
+          },
+        },
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['action'],
+          properties: {
+            action: { type: 'string', enum: ['start', 'stop'] },
+            environmentInstanceId: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 512,
+            },
+            expectedPlanHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+          },
+        },
+        response: { 200: responseSchema, ...commonErrorResponseSchemas },
+      },
+    },
+    async (request) =>
+      options.planner.preview(
+        request.params.projectId,
+        request.query.action,
+        request.query.environmentInstanceId,
+        request.query.expectedPlanHash,
+      ),
+  );
+};
+ },
+      },
+    },
+    planHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    observedAt: { type: 'string' },
+    expiresAt: { type: 'string' },
+    order: { type: 'array', maxItems: 250, items: { type: 'string' } },
+    nodes: {
+      type: 'array',
+      maxItems: 250,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'serviceRef',
+          'name',
+          'provider',
+          'disposition',
+          'state',
+          'readiness',
+          'relation',
+          'ports',
+          'consumerCount',
+          'dependencies',
+        ],
+        properties,
+      },
+    },
+    diagnostics: { type: 'array', items: { type: 'string' } },
+    executable: { type: 'boolean', enum: [false] },
+  },
+} as const;
+
+export const serviceLifecyclePlanRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  options,
+) => {
+  app.get<{ Params: Params; Querystring: Query }>(
+    '/projects/:projectId/service-plan',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['projectId'],
+          properties: {
+            projectId: { type: 'string', minLength: 1, maxLength: 160 },
+          },
+        },
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['action'],
+          properties: {
+            action: { type: 'string', enum: ['start', 'stop'] },
+            environmentInstanceId: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 512,
+            },
+            expectedPlanHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+          },
+        },
+        response: { 200: responseSchema, ...commonErrorResponseSchemas },
+      },
+    },
+    async (request) =>
+      options.planner.preview(
+        request.params.projectId,
+        request.query.action,
+        request.query.environmentInstanceId,
+        request.query.expectedPlanHash,
+      ),
+  );
+};
+ },
+            profileId: {
+              type: 'string',
+              pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+          },
+        },
+        response: { 200: responseSchema, ...commonErrorResponseSchemas },
+      },
+    },
+    async (request) =>
+      options.planner.preview(
+        request.params.projectId,
+        request.query.action,
+        request.query.environmentInstanceId,
+        request.query.expectedPlanHash,
+      ),
+  );
+};
+ },
+    profile: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['id', 'kind', 'revision'],
+      properties: {
+        id: { type: 'string' },
+        kind: { type: 'string', enum: ['dev', 'test', 'production'] },
+        revision: { type: 'string', pattern: '^[a-f0-9]{64}
+    planHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    observedAt: { type: 'string' },
+    expiresAt: { type: 'string' },
+    order: { type: 'array', maxItems: 250, items: { type: 'string' } },
+    nodes: {
+      type: 'array',
+      maxItems: 250,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'serviceRef',
+          'name',
+          'provider',
+          'disposition',
+          'state',
+          'readiness',
+          'relation',
+          'ports',
+          'consumerCount',
+          'dependencies',
+        ],
+        properties,
+      },
+    },
+    diagnostics: { type: 'array', items: { type: 'string' } },
+    executable: { type: 'boolean', enum: [false] },
+  },
+} as const;
+
+export const serviceLifecyclePlanRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  options,
+) => {
+  app.get<{ Params: Params; Querystring: Query }>(
+    '/projects/:projectId/service-plan',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['projectId'],
+          properties: {
+            projectId: { type: 'string', minLength: 1, maxLength: 160 },
+          },
+        },
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['action'],
+          properties: {
+            action: { type: 'string', enum: ['start', 'stop'] },
+            environmentInstanceId: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 512,
+            },
+            expectedPlanHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+          },
+        },
+        response: { 200: responseSchema, ...commonErrorResponseSchemas },
+      },
+    },
+    async (request) =>
+      options.planner.preview(
+        request.params.projectId,
+        request.query.action,
+        request.query.environmentInstanceId,
+        request.query.expectedPlanHash,
+      ),
+  );
+};
+ },
+      },
+    },
+    planHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    observedAt: { type: 'string' },
+    expiresAt: { type: 'string' },
+    order: { type: 'array', maxItems: 250, items: { type: 'string' } },
+    nodes: {
+      type: 'array',
+      maxItems: 250,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'serviceRef',
+          'name',
+          'provider',
+          'disposition',
+          'state',
+          'readiness',
+          'relation',
+          'ports',
+          'consumerCount',
+          'dependencies',
+        ],
+        properties,
+      },
+    },
+    diagnostics: { type: 'array', items: { type: 'string' } },
+    executable: { type: 'boolean', enum: [false] },
+  },
+} as const;
+
+export const serviceLifecyclePlanRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  options,
+) => {
+  app.get<{ Params: Params; Querystring: Query }>(
+    '/projects/:projectId/service-plan',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['projectId'],
+          properties: {
+            projectId: { type: 'string', minLength: 1, maxLength: 160 },
+          },
+        },
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['action'],
+          properties: {
+            action: { type: 'string', enum: ['start', 'stop'] },
+            environmentInstanceId: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 512,
+            },
+            expectedPlanHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+          },
+        },
+        response: { 200: responseSchema, ...commonErrorResponseSchemas },
+      },
+    },
+    async (request) =>
+      options.planner.preview(
+        request.params.projectId,
+        request.query.action,
+        request.query.environmentInstanceId,
+        request.query.expectedPlanHash,
+      ),
+  );
+};
+,
+            },
+          },
+        },
+        response: { 200: responseSchema, ...commonErrorResponseSchemas },
+      },
+    },
+    async (request) =>
+      options.planner.preview(
+        request.params.projectId,
+        request.query.action,
+        request.query.environmentInstanceId,
+        request.query.expectedPlanHash,
+      ),
+  );
+};
+ },
+    profile: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['id', 'kind', 'revision'],
+      properties: {
+        id: { type: 'string' },
+        kind: { type: 'string', enum: ['dev', 'test', 'production'] },
+        revision: { type: 'string', pattern: '^[a-f0-9]{64}
+    planHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    observedAt: { type: 'string' },
+    expiresAt: { type: 'string' },
+    order: { type: 'array', maxItems: 250, items: { type: 'string' } },
+    nodes: {
+      type: 'array',
+      maxItems: 250,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'serviceRef',
+          'name',
+          'provider',
+          'disposition',
+          'state',
+          'readiness',
+          'relation',
+          'ports',
+          'consumerCount',
+          'dependencies',
+        ],
+        properties,
+      },
+    },
+    diagnostics: { type: 'array', items: { type: 'string' } },
+    executable: { type: 'boolean', enum: [false] },
+  },
+} as const;
+
+export const serviceLifecyclePlanRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  options,
+) => {
+  app.get<{ Params: Params; Querystring: Query }>(
+    '/projects/:projectId/service-plan',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['projectId'],
+          properties: {
+            projectId: { type: 'string', minLength: 1, maxLength: 160 },
+          },
+        },
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['action'],
+          properties: {
+            action: { type: 'string', enum: ['start', 'stop'] },
+            environmentInstanceId: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 512,
+            },
+            expectedPlanHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+          },
+        },
+        response: { 200: responseSchema, ...commonErrorResponseSchemas },
+      },
+    },
+    async (request) =>
+      options.planner.preview(
+        request.params.projectId,
+        request.query.action,
+        request.query.environmentInstanceId,
+        request.query.expectedPlanHash,
+      ),
+  );
+};
+ },
+      },
+    },
     planHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
     observedAt: { type: 'string' },
     expiresAt: { type: 'string' },
