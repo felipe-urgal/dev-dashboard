@@ -84,7 +84,9 @@ export class ServiceResourceOperationLock {
     const guard: ServiceResourceLeaseGuard = {
       assertOwned: async () => {
         if (released || keys.some((key) => !this.held.has(key))) {
-          conflict('Lifecycle resource lease is no longer owned by this operation.');
+          conflict(
+            'Lifecycle resource lease is no longer owned by this operation.',
+          );
         }
         if (!this.leaseRoot) return;
         if (acquired.length !== keys.length) {
@@ -97,20 +99,31 @@ export class ServiceResourceOperationLock {
           }
           for (const lease of acquired) {
             const dir = await fs.lstat(lease.directory);
-            if (!dir.isDirectory() || dir.isSymbolicLink() ||
-              !lease.metadataWritten) {
+            if (
+              !dir.isDirectory() ||
+              dir.isSymbolicLink() ||
+              !lease.metadataWritten
+            ) {
               conflict('Lifecycle resource lease is no longer valid.');
             }
             const marker = path.join(lease.directory, 'owner.json');
             const metadata = await fs.lstat(marker);
-            if (!metadata.isFile() || metadata.isSymbolicLink() ||
-              metadata.size > 4096) {
+            if (
+              !metadata.isFile() ||
+              metadata.isSymbolicLink() ||
+              metadata.size > 4096
+            ) {
               conflict('Lifecycle resource lease owner cannot be verified.');
             }
-            const owner: unknown = JSON.parse(await fs.readFile(marker, 'utf8'));
-            if (!owner || typeof owner !== 'object' ||
-              (owner as {holder?: unknown}).holder !== holder ||
-              (owner as {key?: unknown}).key !== lease.key) {
+            const owner: unknown = JSON.parse(
+              await fs.readFile(marker, 'utf8'),
+            );
+            if (
+              !owner ||
+              typeof owner !== 'object' ||
+              (owner as { holder?: unknown }).holder !== holder ||
+              (owner as { key?: unknown }).key !== lease.key
+            ) {
               conflict('Lifecycle resource lease ownership has changed.');
             }
           }
