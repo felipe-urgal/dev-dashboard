@@ -13,6 +13,7 @@ import { hostServiceRoutes } from './routes/host-services.js';
 import { serviceCatalogRoutes } from './routes/service-catalog.js';
 import { projectServiceBindingRoutes } from './routes/project-service-bindings.js';
 import { serviceLifecyclePlanRoutes } from './routes/service-lifecycle-plans.js';
+import { confirmedLifecycleReconciliationRoutes } from './routes/confirmed-lifecycle-reconciliation.js';
 
 import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
@@ -54,6 +55,7 @@ import { SystemdServiceInventory } from './services/systemd-service-inventory.js
 import { ServiceCatalogService } from './services/service-catalog-service.js';
 import { ProjectServiceBindingService } from './services/project-service-binding-service.js';
 import { ServiceLifecyclePlanningService } from './services/service-lifecycle-planning-service.js';
+import { ConfirmedLifecycleReconciliationService } from './services/confirmed-lifecycle-reconciliation-service.js';
 import { DockerContainerObserver } from './services/docker-container-observer.js';
 import { gitWorktreeRoutes } from './routes/git-worktrees.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
@@ -171,6 +173,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     productionOverviewService,
     taskContextService,
     activitySnapshotService,
+    confirmedLifecycleJobs,
     attentionCenterService,
     releaseReadinessService,
     dependencyHealthService,
@@ -385,6 +388,15 @@ export async function buildApp(options: BuildAppOptions = {}) {
       bindings: context.projectServiceBindingStore,
       projects: context.projectStore,
       environments: context.developmentEnvironmentInstanceStore,
+      catalog,
+    }),
+  });
+
+  app.register(confirmedLifecycleReconciliationRoutes, {
+    prefix: '/api',
+    reconciliation: new ConfirmedLifecycleReconciliationService({
+      journal: confirmedLifecycleJobs,
+      projects: context.projectStore,
       catalog,
     }),
   });
