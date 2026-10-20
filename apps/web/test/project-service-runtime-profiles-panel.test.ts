@@ -242,10 +242,7 @@ describe('ProjectServiceRuntimeProfilesPanel', () => {
     expect(checks).toHaveLength(2);
     await checks[0]!.setValue(false);
     await checks[1]!.setValue(true);
-    const submit = wrapper
-      .findAll('button')
-      .find((button) => button.text() === 'Salvar perfil');
-    await submit!.trigger('click');
+    await wrapper.get('form.runtime-profiles-editor').trigger('submit');
     await flushPromises();
     expect(saveRuntimeProfile).toHaveBeenCalledWith(
       'gastos',

@@ -556,7 +556,7 @@ const dispositionLabel: Record<
             :key="binding.id"
             class="runtime-profiles-omitted"
           >
-            {{ binding.role ?? binding.serviceRef }}
+            {{ binding.role ? `${binding.role} · ` : '' }}{{ binding.serviceRef }}
             ({{
               portsFor(
                 baseline?.nodes.find(
