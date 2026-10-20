@@ -541,9 +541,7 @@ const dispositionLabel: Record<
         <p>
           {{ included.length }} serviços incluídos,
           {{ omitted.length }} omitidos,
-          {{
-            missing.length + (current?.staleBindingIds.length ?? 0)
-          }}
+          {{ missing.length + (current?.staleBindingIds.length ?? 0) }}
           referências ausentes, {{ shared.length }} compartilhados,
           {{ alreadyReady.length }} já prontos, {{ unsupported.length }} sem
           suporte e {{ wouldChange.length }} ações potenciais (não executadas).
