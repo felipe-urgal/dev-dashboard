@@ -72,11 +72,13 @@ test('reconciliation HTTP is authenticated, read-only and project scoped', async
     localToken: TOKEN,
     serviceCatalog: { inspect: async () => snapshot },
     serviceResourceLeaseInspector: {
-      inspect: (keys) => keys.map((resourceKey) => ({
-        resourceKey, status: 'present' as const,
-        ownerProcess: 'unknown' as const,
-        diagnostic: 'Owner process is not proven.',
-      })),
+      inspect: (keys) =>
+        keys.map((resourceKey) => ({
+          resourceKey,
+          status: 'present' as const,
+          ownerProcess: 'unknown' as const,
+          diagnostic: 'Owner process is not proven.',
+        })),
     },
     confirmedLifecycleJobs: {
       get: (id) => (id === ID ? job : null),
@@ -110,9 +112,12 @@ test('reconciliation HTTP is authenticated, read-only and project scoped', async
   assert.equal(body.nodes[0].journalState, 'in-flight');
   assert.equal(body.expectedRevision, undefined);
 
-
   const evidenceUri = base + '/' + ID + '/recovery-evidence';
-  const evidence = await app.inject({ method: 'GET', url: evidenceUri, headers });
+  const evidence = await app.inject({
+    method: 'GET',
+    url: evidenceUri,
+    headers,
+  });
   assert.equal(evidence.statusCode, 200);
   assert.equal(evidence.json().safeToRetry, false);
   assert.equal(evidence.json().leaseReleaseAuthorized, false);
@@ -120,21 +125,36 @@ test('reconciliation HTTP is authenticated, read-only and project scoped', async
   assert.equal(evidence.json().leases.length, 3);
 
   const reviewUri = base + '/' + ID + '/recovery-review';
-  assert.equal((await app.inject({ method: 'POST', url: reviewUri })).statusCode, 401);
+  assert.equal(
+    (await app.inject({ method: 'POST', url: reviewUri })).statusCode,
+    401,
+  );
   const review = await app.inject({ method: 'POST', url: reviewUri, headers });
   assert.equal(review.statusCode, 200);
   assert.equal(review.json().recorded, true);
   assert.equal(review.json().safeToRetry, false);
   const events = await context.activityEventRepository.list({
-    projectId: 'loto', domain: 'compose',
+    projectId: 'loto',
+    domain: 'compose',
   });
-  assert.equal(events.some((event) =>
-    event.type === 'compose.lifecycle-recovery-reviewed' &&
-    event.jobId === 'compose-confirmed:' + ID), true);
-  assert.equal((await app.inject({
-    method: 'POST', headers,
-    url: '/api/projects/other/service-jobs/' + ID + '/recovery-review',
-  })).statusCode, 404);
+  assert.equal(
+    events.some(
+      (event) =>
+        event.type === 'compose.lifecycle-recovery-reviewed' &&
+        event.jobId === 'compose-confirmed:' + ID,
+    ),
+    true,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: 'POST',
+        headers,
+        url: '/api/projects/other/service-jobs/' + ID + '/recovery-review',
+      })
+    ).statusCode,
+    404,
+  );
 
   const invalid = await app.inject({
     method: 'GET',
