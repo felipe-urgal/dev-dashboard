@@ -125,7 +125,7 @@ test('observa user e system sem inferir ownership nem readiness', async () => {
   assert.equal(
     result.services.find((service) => service.name === 'sleeping.service')
       ?.state,
-    'unknown',
+    'stopped',
   );
   assert.equal(
     result.services.some((service) => service.name === 'not-a-unit.timer'),
