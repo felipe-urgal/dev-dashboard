@@ -30,7 +30,8 @@ export class ServiceResourceOperationLock {
       throw new ApiError({
         statusCode: 409,
         code: 'CONFLICT',
-        message: 'A lifecycle operation is already using one of these resources.',
+        message:
+          'A lifecycle operation is already using one of these resources.',
       });
     }
     for (const key of keys) this.held.add(key);
