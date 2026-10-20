@@ -267,7 +267,9 @@ export class SystemdServiceInventory {
         const batches: string[][] = [];
         // Uninstantiated templates are declarations, not active instances.
         // Avoid systemctl show on templates (it may load/resolve a unit).
-        const showTargets = selected.filter((name) => !name.includes('@.service'));
+        const showTargets = selected.filter(
+          (name) => !name.includes('@.service'),
+        );
         for (let i = 0; i < showTargets.length; i += SHOW_BATCH_SIZE) {
           batches.push(showTargets.slice(i, i + SHOW_BATCH_SIZE));
         }
