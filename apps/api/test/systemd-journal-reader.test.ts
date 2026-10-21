@@ -25,7 +25,8 @@ test('masks a long secret assignment before the journal UTF-8 tail is bounded', 
   const secret = 'extremely-sensitive-sequence'.repeat(5_000);
   const reader = new SystemdJournalReader({
     platform: 'linux',
-    runner: async () => 'DATABASE_PASSWORD=' + secret + '\nserviço saudável 😀\n',
+    runner: async () =>
+      'DATABASE_PASSWORD=' + secret + '\nserviço saudável 😀\n',
   });
   const snapshot = await reader.read('user', 'fixture.service');
   assert.equal(snapshot.status, 'available');
