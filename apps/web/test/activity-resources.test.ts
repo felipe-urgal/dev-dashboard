@@ -33,6 +33,7 @@ describe('Activity resource registry', () => {
     ['dev-container-lifecycle', 'project-dev-container'],
     ['deployment', 'project-production'],
     ['compose', 'project-compose'],
+    ['compose-service', 'project-compose'],
     ['systemd-user-unit', 'project-doctor'],
     ['stack-node', 'stacks'],
     ['migration-mutation', 'project-migrations'],
