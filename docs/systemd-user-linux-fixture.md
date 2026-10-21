@@ -33,7 +33,13 @@ stopping or unlinking the fixture, then reloads the user manager.
 An identity mismatch fails closed and requires manual inspection.
 If forcibly terminated, the sleep process is bounded by 300 seconds but
 its user-unit file/lease may require manual cleanup. Only empty directories
-created by the test are removed. No unrelated service file is deleted.
+created by the test are removed.
+
+The inventory provider uses actual systemctl --user output filtered to the
+random unit (list-units, list-unit-files and show). The system-scope part of
+this test inventory is intentionally empty: no system unit is queried, and
+unrelated user units do not exhaust the inventory budget. This fixture does
+not claim to qualify global service discovery under a crowded user manager. No unrelated service file is deleted.
 
 IMPORTANT: systemctl --user daemon-reload is a user-manager configuration
 reload, not a private sandbox by itself. Run this test only with a
