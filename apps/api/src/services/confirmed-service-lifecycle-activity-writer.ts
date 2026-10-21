@@ -7,9 +7,19 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import type { ConfirmedLifecycleStepWriter } from './confirmed-service-lifecycle-coordinator.js';
+import type { ConfirmedLifecycleJobJournal } from './confirmed-lifecycle-job-journal.js';
+
+const JOB_UUID =
+  /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
+
+function unverifiedJob(): never {
+  throw new Error('Lifecycle audit Job identity could not be verified.');
+}
 
 type Dependencies = {
   activityEvents: Pick<ActivityEventRepository, 'append'>;
+  /** Required when a durable job identity is supplied by the coordinator. */
+  jobs?: Pick<ConfirmedLifecycleJobJournal, 'get'>;
 };
 
 /**
@@ -25,7 +35,47 @@ export class ConfirmedServiceLifecycleActivityWriter implements ConfirmedLifecyc
   public async append(
     step: ConfirmedLifecycleStep,
     request: ConfirmedLifecycleRequest,
+    jobId?: string,
   ): Promise<void> {
+    // Never trust a caller-supplied UUID by itself. Only attribute an event
+    // to a persisted, matching Job after its step is durably recorded.
+    let correlatedJobId: string | undefined;
+    if (jobId !== undefined) {
+      if (!JOB_UUID.test(jobId) || step.action !== request.action) {
+        unverifiedJob();
+      }
+      let job: ReturnType<NonNullable<Dependencies['jobs']>['get']> | undefined;
+      try {
+        job = this.dependencies.jobs?.get(jobId);
+      } catch {
+        unverifiedJob();
+      }
+      if (
+        !job ||
+        job.projectId !== request.projectId ||
+        job.environmentInstanceId !== request.environmentInstanceId ||
+        job.action !== request.action ||
+        job.expectedRevision !== request.expectedRevision ||
+        job.expectedPlanHash !== request.expectedPlanHash ||
+        job.status !== 'running' ||
+        job.stage !== 'verifying' ||
+        job.inFlightRef !== undefined ||
+        job.reconciliationRequired ||
+        job.plannedRefs.length !== 1 ||
+        job.plannedRefs[0] !== step.serviceRef ||
+        job.steps.length !== 1 ||
+        job.steps[0]?.serviceRef !== step.serviceRef ||
+        job.steps[0].action !== step.action ||
+        job.steps[0].state !== step.state ||
+        job.steps[0].dispositionBefore !== step.dispositionBefore
+      ) {
+        unverifiedJob();
+      }
+      correlatedJobId =
+        (step.serviceRef.startsWith('systemd:user:')
+          ? 'systemd-user-confirmed:'
+          : 'compose-confirmed:') + job.id;
+    }
     const status =
       step.state === 'completed'
         ? 'succeeded'
@@ -53,6 +103,7 @@ export class ConfirmedServiceLifecycleActivityWriter implements ConfirmedLifecyc
         request.action,
       status,
       summary,
+      ...(correlatedJobId ? { jobId: correlatedJobId } : {}),
       resourceRef: {
         kind: systemdUser ? 'systemd-user-unit' : 'compose-service',
         // Activity resource IDs are limited to 256 characters. Preserve short

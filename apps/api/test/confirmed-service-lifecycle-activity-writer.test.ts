@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 import type { AppendActivityEventInput } from '@dev-dashboard/core';
@@ -8,6 +11,7 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import { ConfirmedServiceLifecycleActivityWriter } from '../src/services/confirmed-service-lifecycle-activity-writer.js';
+import { ConfirmedLifecycleJobJournal } from '../src/services/confirmed-lifecycle-job-journal.js';
 
 const request: ConfirmedLifecycleRequest = {
   projectId: 'loto',
@@ -179,4 +183,145 @@ test('long systemd resource identity is hashed with provider-specific prefix', a
   );
   assert.equal(events[0]?.resourceRef?.kind, 'systemd-user-unit');
   assert.equal(events[0]?.domain, 'security');
+});
+
+test('correlation requires one matching persisted step and refuses forged Job identity', async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'systemd-job-activity-'));
+  try {
+    const ref = 'systemd:user:fixture-worker.service';
+    const step: ConfirmedLifecycleStep = {
+      serviceRef: ref,
+      action: 'start',
+      dispositionBefore: 'willStart',
+      state: 'completed',
+      diagnostic: 'secret /home/user/key',
+    };
+    const journal = new ConfirmedLifecycleJobJournal(root, {
+      now: () => new Date(request.acceptedObservedAt),
+    });
+    const events: AppendActivityEventInput[] = [];
+    const writer = new ConfirmedServiceLifecycleActivityWriter({
+      jobs: journal,
+      activityEvents: {
+        append: async (entry) => {
+          events.push(entry);
+          return {} as never;
+        },
+      },
+    });
+    const uuid = journal.begin(request, [ref]);
+    await assert.rejects(
+      writer.append(step, request, uuid),
+      /identity could not be verified/,
+    );
+    journal.beforeStep(uuid, ref);
+    await assert.rejects(
+      writer.append(step, request, uuid),
+      /identity could not be verified/,
+    );
+    journal.step(uuid, step);
+    for (const wrong of [
+      { ...request, projectId: 'unrelated-project' },
+      { ...request, environmentInstanceId: 'environment:primary:unrelated' },
+      { ...request, expectedRevision: 'c'.repeat(64) },
+      { ...request, expectedPlanHash: 'd'.repeat(64) },
+      { ...request, action: 'stop' as const },
+    ]) {
+      await assert.rejects(
+        writer.append(step, wrong, uuid),
+        /identity could not be verified/,
+      );
+    }
+    await assert.rejects(
+      writer.append({ ...step, state: 'unverified' }, request, uuid),
+      /identity could not be verified/,
+    );
+    await assert.rejects(
+      writer.append(step, request, '00000000-0000-4000-8000-000000000001'),
+      /identity could not be verified/,
+    );
+    await assert.rejects(
+      writer.append(step, request, 'not-a-uuid'),
+      /identity could not be verified/,
+    );
+    assert.deepEqual(events, []);
+
+    await writer.append(step, request, uuid);
+    assert.equal(events.length, 1);
+    assert.equal(events[0]?.jobId, 'systemd-user-confirmed:' + uuid);
+    assert.equal(events[0]?.domain, 'security');
+    assert.doesNotMatch(JSON.stringify(events), /secret|\/home\//);
+
+    journal.finish(uuid, {
+      projectId: request.projectId,
+      environmentInstanceId: request.environmentInstanceId,
+      action: 'start',
+      status: 'completed',
+      steps: [step],
+    });
+    await assert.rejects(
+      writer.append(step, request, uuid),
+      /identity could not be verified/,
+    );
+    assert.equal(events.length, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('correlated Activity rejects unavailable journal without leaking storage diagnostics', async () => {
+  const entries: AppendActivityEventInput[] = [];
+  const writer = new ConfirmedServiceLifecycleActivityWriter({
+    jobs: {
+      get: () => {
+        throw new Error('private path /home/secret');
+      },
+    },
+    activityEvents: {
+      append: async (value) => {
+        entries.push(value);
+        return {} as never;
+      },
+    },
+  });
+  await assert.rejects(
+    writer.append(
+      {
+        serviceRef: 'systemd:user:fixture-worker.service',
+        action: 'start',
+        dispositionBefore: 'willStart',
+        state: 'failed',
+      },
+      request,
+      '00000000-0000-4000-8000-000000000001',
+    ),
+    /identity could not be verified/,
+  );
+  assert.deepEqual(entries, []);
+});
+
+test('correlated events cannot be emitted without any Job reader', async () => {
+  const entries: AppendActivityEventInput[] = [];
+  const writer = new ConfirmedServiceLifecycleActivityWriter({
+    activityEvents: {
+      append: async (entry) => {
+        entries.push(entry);
+        return {} as never;
+      },
+    },
+  });
+  await assert.rejects(
+    writer.append(
+      {
+        serviceRef: 'systemd:user:fixture-worker.service',
+        action: 'start',
+        dispositionBefore: 'willStart',
+        state: 'completed',
+      },
+      request,
+      '00000000-0000-4000-8000-000000000001',
+    ),
+    /identity could not be verified/,
+  );
+  assert.deepEqual(entries, []);
 });

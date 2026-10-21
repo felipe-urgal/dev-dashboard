@@ -75,3 +75,26 @@ redaction, crash/orphan denial, stale plans and environment-lock conflicts.
 No host systemd unit is modified in this PR. The Linux opt-in fixture remains
 a separate qualification, and operational authorization / E2E recovery remain
 pending in #1117.
+
+## Durable Activity–Job correlation (#1157)
+
+For the *internal* single-unit systemd coordinator, the Activity event now
+carries the **server-generated durable Job UUID** using the same
+`systemd-user-confirmed:<uuid>` identity returned by the existing Activity
+Job reader and recovery UI. The Activity writer verifies against its journal
+that the Job belongs to the same project, environment, action, revision,
+`planHash`, unit and recorded step; it only appends the correlated event
+when the Job is in its `verifying` stage. Wrong, missing, expired-stage or
+cross-project identities cannot forge an Activity association. Uncorrelated
+legacy Compose calls retain their existing event behavior.
+
+The Activity repository remains a separate best-effort store. If it fails,
+the durable journal still holds the completed or uncertain step; **no
+systemd command is replayed**. A caller-provided username or HTTP header
+is not an authenticated operator identity; the application currently has
+no trusted operator principal wired into this path. This increment does
+**not** claim human attribution. A future authenticated execution gateway
+must resolve provenance server-side before enabling mutation.
+
+The coordinator is not registered in `app.ts`, and production plans still
+return `executable:false`. This is not approval to mutate units.

@@ -194,7 +194,7 @@ export class SystemdConfirmedLifecycleCoordinator {
       // A failed journal update leaves an orphaned invoking record, not retry.
       this.d.jobs.step(id, step);
       try {
-        await this.d.events.append(step, request);
+        await this.d.events.append(step, request, id);
       } catch {
         // Activity outages must not cause duplicate provider invocation.
         // The durable Job remains the authoritative recovery record.
