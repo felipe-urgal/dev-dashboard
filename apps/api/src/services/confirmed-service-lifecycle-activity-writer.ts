@@ -44,7 +44,7 @@ export class ConfirmedServiceLifecycleActivityWriter implements ConfirmedLifecyc
       if (!JOB_UUID.test(jobId) || step.action !== request.action) {
         unverifiedJob();
       }
-      let job: ReturnType<NonNullable<Dependencies['jobs']>['get']>;
+      let job: ReturnType<NonNullable<Dependencies['jobs']>['get']> | undefined;
       try {
         job = this.dependencies.jobs?.get(jobId);
       } catch {
