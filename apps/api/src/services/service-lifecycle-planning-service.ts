@@ -213,6 +213,7 @@ export class ServiceLifecyclePlanningService {
       binding.serviceRef.startsWith('systemd:'),
     );
     const systemdEvidence = new Map<string, SystemdLifecycleActionCapability>();
+    const ambiguousSystemdEvidence = new Set<string>();
     if (systemdBindings.length > 0 && this.dependencies.systemdCapabilities) {
       try {
         const snapshot = await this.dependencies.systemdCapabilities.inspect(
@@ -227,7 +228,13 @@ export class ServiceLifecyclePlanningService {
             if (capability.executable !== false) continue;
             const key = capability.bindingId + '\\0' + capability.serviceRef;
             const candidate = capability[action];
-            if (candidate.status !== 'supported' && !systemdEvidence.has(key)) {
+            if (ambiguousSystemdEvidence.has(key)) continue;
+            if (systemdEvidence.has(key)) {
+              systemdEvidence.delete(key);
+              ambiguousSystemdEvidence.add(key);
+              continue;
+            }
+            if (candidate.status !== 'supported') {
               systemdEvidence.set(key, candidate);
             }
           }
