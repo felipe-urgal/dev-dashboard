@@ -44,21 +44,20 @@ sudo -n loginctl enable-linger "$name"
 sudo -n loginctl show-user "$name" --property=Linger,State,RuntimePath || true
 sudo -n systemctl show "user@$uid.service" \
   --property=LoadState,ActiveState,SubState,Result || true
-bus="/run/user/$uid/bus"
+manager_socket="/run/user/$uid/systemd/private"
 test_env=(
   "HOME=$home"
   "USER=$name"
   "LOGNAME=$name"
   "PATH=$PATH"
   "XDG_RUNTIME_DIR=/run/user/$uid"
-  "DBUS_SESSION_BUS_ADDRESS=unix:path=$bus"
   "DD_SYSTEMD_USER_FIXTURE_E2E=1"
 )
 
 # The manager must really be running; never treat missing DBus as a skip.
 ready=0
 for _ in $(seq 1 25); do
-  if [[ -S "$bus" ]] &&
+  if [[ -S "$manager_socket" ]] &&
     sudo -n -u "$name" env -i "${test_env[@]}" systemctl --user show-environment >/dev/null 2>&1; then
     ready=1
     break
@@ -70,10 +69,10 @@ if [[ $ready != 1 ]]; then
   sudo -n loginctl show-user "$name" --property=Linger,State,RuntimePath || true
   sudo -n systemctl show "user@$uid.service" \
     --property=LoadState,ActiveState,SubState,Result || true
-  if [[ -S "$bus" ]]; then
-    echo 'User bus socket exists; connection failed.' >&2
+  if [[ -S "$manager_socket" ]]; then
+    echo 'User-manager private socket exists; connection failed.' >&2
   else
-    echo 'User bus socket is absent.' >&2
+    echo 'User-manager private socket is absent.' >&2
   fi
   exit 1
 fi
