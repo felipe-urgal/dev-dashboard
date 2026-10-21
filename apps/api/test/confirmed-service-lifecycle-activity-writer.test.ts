@@ -272,19 +272,29 @@ test('correlation requires one matching persisted step and refuses forged Job id
 test('correlated Activity rejects unavailable journal without leaking storage diagnostics', async () => {
   const entries: AppendActivityEventInput[] = [];
   const writer = new ConfirmedServiceLifecycleActivityWriter({
-    jobs: { get: () => { throw new Error('private path /home/secret'); } },
-    activityEvents: { append: async (value) => {
-      entries.push(value);
-      return {} as never;
-    } },
+    jobs: {
+      get: () => {
+        throw new Error('private path /home/secret');
+      },
+    },
+    activityEvents: {
+      append: async (value) => {
+        entries.push(value);
+        return {} as never;
+      },
+    },
   });
   await assert.rejects(
-    writer.append({
-      serviceRef: 'systemd:user:fixture-worker.service',
-      action: 'start',
-      dispositionBefore: 'willStart',
-      state: 'failed',
-    }, request, '00000000-0000-4000-8000-000000000001'),
+    writer.append(
+      {
+        serviceRef: 'systemd:user:fixture-worker.service',
+        action: 'start',
+        dispositionBefore: 'willStart',
+        state: 'failed',
+      },
+      request,
+      '00000000-0000-4000-8000-000000000001',
+    ),
     /private path/,
   );
   assert.deepEqual(entries, []);

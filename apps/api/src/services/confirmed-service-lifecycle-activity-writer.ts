@@ -9,7 +9,8 @@ import type {
 import type { ConfirmedLifecycleStepWriter } from './confirmed-service-lifecycle-coordinator.js';
 import type { ConfirmedLifecycleJobJournal } from './confirmed-lifecycle-job-journal.js';
 
-const JOB_UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
+const JOB_UUID =
+  /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 
 function unverifiedJob(): never {
   throw new Error('Lifecycle audit Job identity could not be verified.');

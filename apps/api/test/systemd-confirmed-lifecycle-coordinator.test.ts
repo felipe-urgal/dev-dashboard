@@ -192,10 +192,7 @@ test('Start and Stop persist invoking before owner; Activity is sanitized securi
       assert.equal(f.events[0]?.domain, 'security');
       assert.equal(f.events[0]?.type, 'systemd.user.confirmed-' + action);
       assert.equal(f.events[0]?.status, 'succeeded');
-      assert.equal(
-        f.events[0]?.jobId,
-        'systemd-user-confirmed:' + rows[0]!.id,
-      );
+      assert.equal(f.events[0]?.jobId, 'systemd-user-confirmed:' + rows[0]!.id);
       assert.deepEqual(f.journal.activityJobs(PROJECT), []);
     } finally {
       f.cleanup();
@@ -268,10 +265,7 @@ test('owner failure persists sanitized partial and never automatically replays',
     assert.equal(job.status, 'partial');
     assert.equal(job.reconciliationRequired, true);
     assert.equal(f.events[0]?.status, 'failed');
-    assert.equal(
-      f.events[0]?.jobId,
-      'systemd-user-confirmed:' + job.id,
-    );
+    assert.equal(f.events[0]?.jobId, 'systemd-user-confirmed:' + job.id);
     assert.doesNotMatch(JSON.stringify(f.events), /secret|\/home\//);
     await assert.rejects(
       f.coordinator.run(confirmation()),
