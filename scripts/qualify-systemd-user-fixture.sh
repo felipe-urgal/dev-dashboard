@@ -40,6 +40,10 @@ if [[ "$home" != "/home/$name" || ! "$uid" =~ ^[0-9]+$ ]]; then
 fi
 
 sudo -n loginctl enable-linger "$name"
+# Report only manager metadata for this new disposable UID.
+sudo -n loginctl show-user "$name" --property=Linger,State,RuntimePath || true
+sudo -n systemctl show "user@$uid.service" \
+  --property=LoadState,ActiveState,SubState,Result || true
 bus="/run/user/$uid/bus"
 test_env=(
   "HOME=$home"
@@ -63,6 +67,14 @@ for _ in $(seq 1 25); do
 done
 if [[ $ready != 1 ]]; then
   echo 'Dedicated systemd --user manager did not become available.' >&2
+  sudo -n loginctl show-user "$name" --property=Linger,State,RuntimePath || true
+  sudo -n systemctl show "user@$uid.service" \
+    --property=LoadState,ActiveState,SubState,Result || true
+  if [[ -S "$bus" ]]; then
+    echo 'User bus socket exists; connection failed.' >&2
+  else
+    echo 'User bus socket is absent.' >&2
+  fi
   exit 1
 fi
 
