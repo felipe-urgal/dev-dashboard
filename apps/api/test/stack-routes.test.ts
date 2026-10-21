@@ -14,6 +14,7 @@ import { buildApp } from '../src/app.js';
 import { createAppContext } from '../src/app-context.js';
 import { StackStore } from '../src/store/stack-store.js';
 import { stackRevision } from '../src/services/stack-revision.js';
+import { StackOperationJournal } from '../src/services/stack-operation-journal.js';
 
 const TOKEN = 's'.repeat(64);
 
@@ -753,4 +754,111 @@ test('Stack mutation preconditions reject stale definitions without replacing or
     payload: { expectedRevision: current },
   });
   assert.equal(removed.statusCode, 204);
+});
+
+test('opt-in Stack operation journal records real HTTP outcomes without enabling replay', async (context) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'stack-operation-routes-'));
+  const appContext = createAppContext();
+  registerApiProject(appContext);
+  const journal = new StackOperationJournal(root);
+  const app = await buildApp({
+    localToken: TOKEN,
+    context: appContext,
+    stackOperationJournal: journal,
+  });
+  context.after(async () => {
+    await app.close();
+    rmSync(root, { recursive: true, force: true });
+  });
+  const headers = {
+    'x-dev-dashboard-token': TOKEN,
+    'content-type': 'application/json',
+  };
+  const onlyContext: Stack = {
+    id: 'read-only-context',
+    name: 'Read-only context',
+    nodes: [
+      {
+        id: 'environment',
+        name: 'Environment',
+        target: {
+          kind: 'environment',
+          projectId: 'api',
+          environmentInstanceId: 'environment:primary:api',
+        },
+      },
+    ],
+    dependencies: [],
+  };
+  const saved = await app.inject({
+    method: 'PUT',
+    url: '/api/stacks/read-only-context',
+    headers,
+    payload: onlyContext,
+  });
+  assert.equal(saved.statusCode, 200);
+  const revision = saved.json<{ revision: string }>().revision;
+
+  const unauthorized = await app.inject({
+    method: 'GET',
+    url: '/api/stacks/read-only-context/operations',
+  });
+  assert.equal(unauthorized.statusCode, 401);
+  const empty = await app.inject({
+    method: 'GET',
+    url: '/api/stacks/read-only-context/operations',
+    headers,
+  });
+  assert.deepEqual(empty.json<{ operations: unknown[] }>().operations, []);
+
+  const stopped = await app.inject({
+    method: 'POST',
+    url: '/api/stacks/read-only-context/stop',
+    headers,
+    payload: { expectedRevision: revision },
+  });
+  assert.equal(stopped.statusCode, 200);
+  const payload = stopped.json<{
+    operationId: string;
+    result: { state: string; steps: Array<{ nodeId: string; state: string }> };
+  }>();
+  assert.match(payload.operationId, /^[a-f0-9-]{36}$/);
+  assert.equal(payload.result.state, 'completed');
+  assert.deepEqual(payload.result.steps, [
+    { nodeId: 'environment', state: 'retained', diagnostic: 'Environment Instance is an execution context and is not stopped by Stack lifecycle.' },
+  ]);
+
+  const history = await app.inject({
+    method: 'GET',
+    url: '/api/stacks/read-only-context/operations',
+    headers,
+  });
+  assert.equal(history.statusCode, 200);
+  const operations = history.json<{
+    operations: Array<{
+      id: string;
+      status: string;
+      plannedNodeIds: string[];
+      steps: Array<{ nodeId: string; state: string; diagnostic?: string }>;
+      reconciliationRequired: boolean;
+    }>;
+  }>().operations;
+  assert.equal(operations.length, 1);
+  assert.equal(operations[0]?.id, payload.operationId);
+  assert.equal(operations[0]?.status, 'completed');
+  assert.equal(operations[0]?.reconciliationRequired, false);
+  assert.deepEqual(operations[0]?.plannedNodeIds, ['environment']);
+  assert.deepEqual(operations[0]?.steps, [
+    { nodeId: 'environment', state: 'retained' },
+  ]);
+  assert.deepEqual(new StackOperationJournal(root).activityJobs('api'), []);
+
+  const stale = await app.inject({
+    method: 'POST',
+    url: '/api/stacks/read-only-context/stop',
+    headers,
+    payload: { expectedRevision: 'a'.repeat(64) },
+  });
+  assert.equal(stale.statusCode, 409);
+  assert.equal(journal.list('read-only-context').length, 1);
 });
