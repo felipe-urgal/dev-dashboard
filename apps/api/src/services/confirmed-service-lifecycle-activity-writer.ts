@@ -27,7 +27,7 @@ type Dependencies = {
  * repository. The coordinator calls this after an owner-owned mutation;
  * event failures must never automatically retry that mutation.
  *
- * This is not yet a durable job identity or reattach mechanism.
+ * Correlation uses the existing durable Job identity; no execution or replay. 
  */
 export class ConfirmedServiceLifecycleActivityWriter implements ConfirmedLifecycleStepWriter {
   public constructor(private readonly dependencies: Dependencies) {}
@@ -61,13 +61,17 @@ export class ConfirmedServiceLifecycleActivityWriter implements ConfirmedLifecyc
         job.stage !== 'verifying' ||
         job.inFlightRef !== undefined ||
         job.reconciliationRequired ||
-        job.plannedRefs.length !== 1 ||
-        job.plannedRefs[0] !== step.serviceRef ||
-        job.steps.length !== 1 ||
-        job.steps[0]?.serviceRef !== step.serviceRef ||
-        job.steps[0].action !== step.action ||
-        job.steps[0].state !== step.state ||
-        job.steps[0].dispositionBefore !== step.dispositionBefore
+        !job.plannedRefs.includes(step.serviceRef) ||
+        job.steps.length === 0 ||
+        // Only the most recently persisted step may be attributed to this
+        // running Job. A previous step or a future/forged ref cannot be
+        // replayed as new audit evidence.
+        job.steps.at(-1)?.serviceRef !== step.serviceRef ||
+        job.steps.at(-1)?.action !== step.action ||
+        job.steps.at(-1)?.state !== step.state ||
+        job.steps.at(-1)?.dispositionBefore !== step.dispositionBefore ||
+        job.steps.filter((written) => written.serviceRef === step.serviceRef)
+          .length !== 1
       ) {
         unverifiedJob();
       }
