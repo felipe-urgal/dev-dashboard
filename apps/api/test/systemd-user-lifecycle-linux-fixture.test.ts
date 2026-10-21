@@ -118,7 +118,7 @@ test(
 
       unit = 'dd-fixture-' + randomUUID().replace(/-/g, '') + '.service';
       unitFile = path.join(userDir, unit);
-        const file = await open(unitFile, 'wx', 0o600);
+      const file = await open(unitFile, 'wx', 0o600);
       try {
         const details = await file.stat();
         originalInode = { ino: details.ino, dev: details.dev };
