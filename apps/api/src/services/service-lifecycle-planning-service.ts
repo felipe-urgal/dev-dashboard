@@ -16,6 +16,7 @@ import type { ProjectStore } from '../store/project-store.js';
 import type { ProjectServiceBindingStore } from '../store/project-service-binding-store.js';
 import type { ServiceRuntimeProfileStore } from '../store/service-runtime-profile-store.js';
 import type { ServiceCatalogService } from './service-catalog-service.js';
+import type { SystemdLifecycleCapabilitiesService } from './systemd-lifecycle-capabilities-service.js';
 
 const PLAN_TTL_MS = 30_000;
 const MAX_NODES = 200;
@@ -33,6 +34,8 @@ interface Dependencies {
   projects: Pick<ProjectStore, 'findProject'>;
   environments: Pick<DevelopmentEnvironmentInstanceStore, 'findById'>;
   catalog: Pick<ServiceCatalogService, 'inspect'>;
+  /** Optional in isolated planner fixtures; required by production composition. */
+  systemdCapabilities?: Pick<SystemdLifecycleCapabilitiesService, 'inspect'>;
 }
 
 function conflict(message: string): never {
@@ -202,6 +205,49 @@ export class ServiceLifecyclePlanningService {
       conflict('Environment has too many services to safely plan.');
     }
 
+    // Advisory capability evidence participates in the plan hash, so grant
+    // revocation and provider uncertainty cause stale plan confirmations (409).
+    // This does not change executable:false or authorize a lifecycle command.
+    const systemdBindings = bindings.filter((binding) =>
+      binding.serviceRef.startsWith('systemd:'),
+    );
+    const systemdEvidence = new Map<
+      string,
+      NonNullable<ServiceLifecyclePlanNode['systemdCapability']>
+    >();
+    const ambiguousSystemdEvidence = new Set<string>();
+    if (systemdBindings.length > 0 && this.dependencies.systemdCapabilities) {
+      try {
+        const snapshot = await this.dependencies.systemdCapabilities.inspect(
+          projectId,
+          id,
+        );
+        if (
+          snapshot.projectId === projectId &&
+          snapshot.environmentInstanceId === id
+        ) {
+          for (const capability of snapshot.services) {
+            if (capability.executable !== false) continue;
+            const key = capability.bindingId + '\\0' + capability.serviceRef;
+            const candidate = capability[action];
+            if (ambiguousSystemdEvidence.has(key)) continue;
+            if (systemdEvidence.has(key)) {
+              systemdEvidence.delete(key);
+              ambiguousSystemdEvidence.add(key);
+              continue;
+            }
+            if (candidate.status !== 'supported') {
+              systemdEvidence.set(key, {
+                status: candidate.status,
+                reason: candidate.reason,
+              });
+            }
+          }
+        }
+      } catch {
+        // Provider diagnostics (including filesystem paths) must not escape.
+      }
+    }
     const observed = new Map(catalog.entries.map((entry) => [entry.id, entry]));
     const mapped = new Map<string, ServiceLifecyclePlanNode>();
     const desiredRefs = new Set(bindings.map((binding) => binding.serviceRef));
@@ -234,6 +280,17 @@ export class ServiceLifecyclePlanningService {
         consumerCount: consumers,
         dependencies,
         disposition: 'blocked',
+        ...(binding.serviceRef.startsWith('systemd:') &&
+        this.dependencies.systemdCapabilities
+          ? {
+              systemdCapability: systemdEvidence.get(
+                binding.id + '\\0' + binding.serviceRef,
+              ) ?? {
+                status: 'unknown' as const,
+                reason: 'Systemd lifecycle capability evidence is unavailable.',
+              },
+            }
+          : {}),
       };
       if (!entry) {
         node.diagnostic =

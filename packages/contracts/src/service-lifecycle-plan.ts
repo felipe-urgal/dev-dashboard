@@ -9,6 +9,15 @@ export type ServiceLifecycleDisposition =
   | 'unsupported';
 
 export interface ServiceLifecyclePlanNode {
+  /**
+   * Advisory per-action systemd authorization evidence from the project-bound
+   * read-only capability view. Not a dispatch token or lifecycle permission.
+   * Changes to this value invalidate the planHash.
+   */
+  systemdCapability?: {
+    status: 'permission-required' | 'unsupported' | 'unknown';
+    reason: string;
+  };
   serviceRef: string;
   name: string;
   provider: 'systemd' | 'docker' | 'compose' | 'managed-process' | 'unknown';

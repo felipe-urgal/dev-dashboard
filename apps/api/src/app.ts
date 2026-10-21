@@ -429,25 +429,26 @@ export async function buildApp(options: BuildAppOptions = {}) {
     }),
   });
 
+  const systemdCapabilities =
+    options.systemdCapabilities ??
+    new SystemdLifecycleCapabilitiesService(
+      {
+        projects: context.projectStore,
+        environments: context.developmentEnvironmentInstanceStore,
+        bindings: context.projectServiceBindingStore,
+        inventory: systemdInventory,
+        grants: new SystemdUserLifecycleGrantPolicy({
+          ...(options.systemdUserGrantPolicyPath
+            ? { policyPath: options.systemdUserGrantPolicyPath }
+            : {}),
+          ...(options.now ? { now: () => new Date(options.now!()) } : {}),
+        }),
+      },
+      options.now ? { now: () => new Date(options.now!()) } : {},
+    );
   app.register(systemdLifecycleCapabilitiesRoutes, {
     prefix: '/api',
-    capabilities:
-      options.systemdCapabilities ??
-      new SystemdLifecycleCapabilitiesService(
-        {
-          projects: context.projectStore,
-          environments: context.developmentEnvironmentInstanceStore,
-          bindings: context.projectServiceBindingStore,
-          inventory: systemdInventory,
-          grants: new SystemdUserLifecycleGrantPolicy({
-            ...(options.systemdUserGrantPolicyPath
-              ? { policyPath: options.systemdUserGrantPolicyPath }
-              : {}),
-            ...(options.now ? { now: () => new Date(options.now!()) } : {}),
-          }),
-        },
-        options.now ? { now: () => new Date(options.now!()) } : {},
-      ),
+    capabilities: systemdCapabilities,
   });
   app.register(serviceLifecyclePlanRoutes, {
     prefix: '/api',
@@ -457,6 +458,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
       projects: context.projectStore,
       environments: context.developmentEnvironmentInstanceStore,
       catalog,
+      systemdCapabilities,
     }),
   });
 

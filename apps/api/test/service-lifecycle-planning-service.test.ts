@@ -6,6 +6,7 @@ import type {
   ProjectServiceBindingDraft,
   ServiceCatalogEntry,
   ServiceCatalogSnapshot,
+  SystemdProjectCapabilitiesSnapshot,
 } from '@dev-dashboard/contracts';
 
 import { ServiceLifecyclePlanningService } from '../src/services/service-lifecycle-planning-service.js';
@@ -59,7 +60,16 @@ const draft = (
   })),
 });
 
-function fixture() {
+function fixture(
+  options: {
+    systemdCapabilities?: {
+      inspect(
+        projectId: string,
+        environmentInstanceId?: string,
+      ): Promise<SystemdProjectCapabilitiesSnapshot>;
+    };
+  } = {},
+) {
   const store = new ProjectServiceBindingStore();
   const profiles = new ServiceRuntimeProfileStore();
   const entries: ServiceCatalogEntry[] = [
@@ -113,6 +123,9 @@ function fixture() {
         },
       },
       catalog: { inspect: async () => snapshot },
+      ...(options.systemdCapabilities
+        ? { systemdCapabilities: options.systemdCapabilities }
+        : {}),
     },
     { now: () => NOW },
   );
@@ -557,4 +570,135 @@ test('independent worktree profile selects only its own environment bindings', a
   assert.deepEqual(workPlan.order, [dbRef]);
   assert.equal(workPlan.target.environmentInstanceId, worktree);
   assert.equal(workPlan.executable, false);
+});
+
+test('systemd capability advice enters plan hash; revoked grant invalidates approved preview', async () => {
+  let status: 'permission-required' | 'unsupported' | 'unknown' =
+    'permission-required';
+  let inspections = 0;
+  const f = fixture({
+    systemdCapabilities: {
+      inspect: async (projectId, environmentInstanceId) => {
+        inspections++;
+        const record = f.store.byProject(projectId)[0]!;
+        return {
+          projectId,
+          environmentInstanceId: environmentInstanceId!,
+          readAt: NOW.toISOString(),
+          partial: false,
+          services: [
+            {
+              bindingId: record.id,
+              serviceRef: record.serviceRef,
+              scope: 'system',
+              state: 'running',
+              readiness: 'unknown',
+              start: { status, reason: 'Authorization status: ' + status },
+              stop: {
+                status: 'unsupported',
+                reason: 'System scope is read-only.',
+              },
+              restart: { status: 'unsupported', reason: 'No restart plan.' },
+              executable: false,
+            },
+          ],
+        };
+      },
+    },
+  });
+  f.bind('loto', dbRef, 'required');
+  const first = await f.planner.preview('loto', 'start');
+  assert.equal(
+    first.nodes[0]?.systemdCapability?.status,
+    'permission-required',
+  );
+  assert.equal(first.executable, false);
+  const same = await f.planner.preview(
+    'loto',
+    'start',
+    undefined,
+    first.planHash,
+  );
+  assert.equal(same.planHash, first.planHash);
+  assert.equal(inspections, 2);
+  status = 'unsupported';
+  await assert.rejects(
+    f.planner.preview('loto', 'start', undefined, first.planHash),
+    /Lifecycle plan changed/,
+  );
+  const changed = await f.planner.preview('loto', 'start');
+  assert.equal(changed.nodes[0]?.systemdCapability?.status, 'unsupported');
+  assert.notEqual(changed.planHash, first.planHash);
+  assert.equal(changed.executable, false);
+  const stop = await f.planner.preview('loto', 'stop');
+  assert.equal(
+    stop.nodes[0]?.systemdCapability?.reason,
+    'System scope is read-only.',
+  );
+});
+
+test('systemd capability failure, wrong target and duplicate identities fail closed', async () => {
+  let kind: 'throw' | 'wrong-target' | 'duplicate' | 'supported' = 'throw';
+  const f = fixture({
+    systemdCapabilities: {
+      inspect: async (projectId, environmentInstanceId) => {
+        const record = f.store.byProject(projectId)[0]!;
+        if (kind === 'throw') throw new Error('secret path /home/private');
+        const item = {
+          bindingId: record.id,
+          serviceRef: record.serviceRef,
+          scope: 'system' as const,
+          state: 'running' as const,
+          readiness: 'unknown' as const,
+          start: {
+            status:
+              kind === 'supported'
+                ? ('supported' as const)
+                : ('unsupported' as const),
+            reason: 'Untrusted source',
+          },
+          stop: { status: 'unsupported' as const, reason: 'Read-only' },
+          restart: { status: 'unsupported' as const, reason: 'Read-only' },
+          executable: false as const,
+        };
+        return {
+          projectId: kind === 'wrong-target' ? 'foreign' : projectId,
+          environmentInstanceId: environmentInstanceId!,
+          readAt: NOW.toISOString(),
+          partial: false,
+          services: kind === 'duplicate' ? [item, item] : [item],
+        };
+      },
+    },
+  });
+  f.bind('loto', dbRef, 'required');
+  for (const state of [
+    'throw',
+    'wrong-target',
+    'duplicate',
+    'supported',
+  ] as const) {
+    kind = state;
+    const preview = await f.planner.preview('loto', 'start');
+    assert.equal(preview.nodes[0]?.systemdCapability?.status, 'unknown');
+    assert.doesNotMatch(
+      JSON.stringify(preview),
+      /secret path|private|Untrusted source/,
+    );
+    assert.equal(preview.executable, false);
+  }
+});
+
+test('Compose-only plans do not invoke systemd capability reader', async () => {
+  const f = fixture({
+    systemdCapabilities: {
+      inspect: async () => {
+        throw new Error('Should not be called for Compose-only plans');
+      },
+    },
+  });
+  f.bind('loto', apiRef, 'owned');
+  const result = await f.planner.preview('loto', 'start');
+  assert.equal(result.nodes[0]?.systemdCapability, undefined);
+  assert.equal(result.executable, false);
 });

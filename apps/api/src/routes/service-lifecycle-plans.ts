@@ -47,6 +47,18 @@ const properties = {
   consumerCount: { type: 'integer', minimum: 0 },
   dependencies: { type: 'array', items: { type: 'string' } },
   diagnostic: { type: 'string' },
+  systemdCapability: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['status', 'reason'],
+    properties: {
+      status: {
+        type: 'string',
+        enum: ['permission-required', 'unsupported', 'unknown'],
+      },
+      reason: { type: 'string' },
+    },
+  },
 } as const;
 
 const responseSchema = {
