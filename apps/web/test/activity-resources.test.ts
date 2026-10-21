@@ -34,6 +34,8 @@ describe('Activity resource registry', () => {
     ['deployment', 'project-production'],
     ['compose', 'project-compose'],
     ['compose-service', 'project-compose'],
+    ['docker-compose-lifecycle', 'project-compose'],
+    ['systemd-user-lifecycle', 'project-doctor'],
     ['systemd-user-unit', 'project-doctor'],
     ['stack-node', 'stacks'],
     ['migration-mutation', 'project-migrations'],
@@ -59,6 +61,15 @@ describe('Activity resource registry', () => {
       },
     });
     expect(canCancelActivityJob(job)).toBe(false);
+  });
+
+  it('keeps confirmed lifecycle Job navigation scoped and non-cancellable', () => {
+    for (const kind of ['docker-compose-lifecycle', 'systemd-user-lifecycle']) {
+      const job = makeJob(kind, false);
+      const resolved = resolveActivityResource(job);
+      expect(resolved.to?.query?.environmentInstanceId).toBe('environment-1');
+      expect(canCancelActivityJob(job)).toBe(false);
+    }
   });
 
   it('does not silently navigate an unknown kind', () => {
