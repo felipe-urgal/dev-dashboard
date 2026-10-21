@@ -339,10 +339,20 @@ export class ServiceDiagnosticsService {
         return unavailable('process', 'Process log identity changed.');
       return {
         source: 'process',
-        status: log.content ? 'available' : 'empty',
+        status: log.content
+          ? 'available'
+          : log.truncated
+            ? 'unavailable'
+            : 'empty',
         content: log.content,
         masked: log.masked,
         truncated: log.truncated,
+        ...(log.truncated && !log.content
+          ? {
+              diagnostic:
+                'Log tail contains no complete line; content omitted for safety.',
+            }
+          : {}),
         readAt: log.readAt,
       };
     } catch {
