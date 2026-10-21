@@ -10,26 +10,28 @@ const RESPONSE: SystemdProjectCapabilitiesSnapshot = {
   environmentInstanceId: 'environment:primary:fixture',
   readAt: '2026-10-21T13:00:00.000Z',
   partial: false,
-  services: [{
-    bindingId: '11111111-1111-4111-8111-111111111111',
-    serviceRef: 'systemd:user:fixture.service',
-    scope: 'user',
-    state: 'stopped',
-    readiness: 'unknown',
-    start: {
-      status: 'permission-required',
-      reason: 'No current operator grant.',
+  services: [
+    {
+      bindingId: '11111111-1111-4111-8111-111111111111',
+      serviceRef: 'systemd:user:fixture.service',
+      scope: 'user',
+      state: 'stopped',
+      readiness: 'unknown',
+      start: {
+        status: 'permission-required',
+        reason: 'No current operator grant.',
+      },
+      stop: {
+        status: 'unsupported',
+        reason: 'Unit is already stopped.',
+      },
+      restart: {
+        status: 'unsupported',
+        reason: 'Restart has no confirmed plan.',
+      },
+      executable: false,
     },
-    stop: {
-      status: 'unsupported',
-      reason: 'Unit is already stopped.',
-    },
-    restart: {
-      status: 'unsupported',
-      reason: 'Restart has no confirmed plan.',
-    },
-    executable: false,
-  }],
+  ],
 };
 
 test('project systemd capabilities are authenticated, scoped and strictly read-only', async (t) => {
@@ -38,7 +40,12 @@ test('project systemd capabilities are authenticated, scoped and strictly read-o
     localToken: TOKEN,
     systemdCapabilities: {
       inspect: async (projectId, environmentInstanceId) => {
-        calls.push({ projectId, ...(environmentInstanceId ? { environment: environmentInstanceId } : {}) });
+        calls.push({
+          projectId,
+          ...(environmentInstanceId
+            ? { environment: environmentInstanceId }
+            : {}),
+        });
         return RESPONSE;
       },
     },
@@ -67,7 +74,8 @@ test('project systemd capabilities are authenticated, scoped and strictly read-o
     '?environmentInstanceId=',
   ]) {
     assert.equal(
-      (await app.inject({ method: 'GET', url: uri + invalid, headers })).statusCode,
+      (await app.inject({ method: 'GET', url: uri + invalid, headers }))
+        .statusCode,
       400,
     );
   }
