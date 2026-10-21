@@ -53,10 +53,12 @@ function setup(action: 'start' | 'stop' = 'start') {
   let failOwner = false;
   let failEvents = false;
   let previews = 0;
+  let dispatched = false;
+  let postMutation: ((snapshot: FuturePlan) => void) | undefined;
 
   const plan = (): FuturePlan => {
     const prior = action === 'start' ? 'stopped' : 'running';
-    return {
+    const snapshot: FuturePlan = {
       target: {
         kind: 'project-environment',
         projectId: PROJECT,
@@ -95,6 +97,8 @@ function setup(action: 'start' | 'stop' = 'start') {
       ],
       diagnostics: [],
     };
+    if (dispatched) postMutation?.(snapshot);
+    return snapshot;
   };
   const planner = {
     preview: async () => {
@@ -115,6 +119,7 @@ function setup(action: 'start' | 'stop' = 'start') {
         assert.equal(rows[0]?.reconciliationRequired, false);
         if (failOwner)
           throw new Error('secret systemctl /home/user/credential');
+        dispatched = true;
         state = action === 'start' ? 'running' : 'stopped';
         return {
           serviceRef: ref,
@@ -167,6 +172,9 @@ function setup(action: 'start' | 'stop' = 'start') {
     },
     setFailEvents: () => {
       failEvents = true;
+    },
+    setPostMutation: (mutate: (snapshot: FuturePlan) => void) => {
+      postMutation = mutate;
     },
     reopenJournal: () =>
       new ConfirmedLifecycleJobJournal(root, { now: () => NOW }),
@@ -347,5 +355,70 @@ test('an existing orphaned invoking Job blocks a new confirmation without replay
     assert.equal(f.journal.get(id)?.stage, 'invoking');
   } finally {
     f.cleanup();
+  }
+});
+
+test('post-dispatch revision, action and topology drift cannot be reported as completed', async () => {
+  const changes: Array<{
+    name: string;
+    mutate: (snapshot: FuturePlan) => void;
+  }> = [
+    {
+      name: 'binding revision',
+      mutate: (snapshot) => {
+        snapshot.expectedRevision = 'c'.repeat(64);
+      },
+    },
+    {
+      name: 'planning action',
+      mutate: (snapshot) => {
+        snapshot.action = 'stop';
+      },
+    },
+    {
+      name: 'order removed',
+      mutate: (snapshot) => {
+        snapshot.order = [];
+      },
+    },
+    {
+      name: 'dependency added',
+      mutate: (snapshot) => {
+        snapshot.nodes[0]!.dependencies.push('systemd:user:other.service');
+      },
+    },
+    {
+      name: 'environment target changed',
+      mutate: (snapshot) => {
+        snapshot.target.environmentInstanceId = 'environment:primary:other';
+      },
+    },
+    {
+      name: 'binding shared by another consumer',
+      mutate: (snapshot) => {
+        snapshot.nodes[0]!.consumerCount = 2;
+      },
+    },
+  ];
+  for (const change of changes) {
+    const f = setup();
+    try {
+      f.setPostMutation(change.mutate);
+      const result = await f.coordinator.run(confirmation());
+      assert.equal(result.status, 'partial', change.name);
+      assert.equal(result.steps[0]?.state, 'unverified', change.name);
+      assert.deepEqual(f.calls, [REF + ':start'], change.name);
+      assert.equal(f.journal.list()[0]?.reconciliationRequired, true, change.name);
+      assert.equal(f.events[0]?.status, 'warning', change.name);
+      assert.equal(
+        f.events[0]?.jobId,
+        'systemd-user-confirmed:' + f.journal.list()[0]!.id,
+        change.name,
+      );
+      await assert.rejects(f.coordinator.run(confirmation()), /journal is unavailable/);
+      assert.deepEqual(f.calls, [REF + ':start'], change.name);
+    } finally {
+      f.cleanup();
+    }
   }
 });
