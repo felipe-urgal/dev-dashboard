@@ -167,7 +167,8 @@ function setup(action: 'start' | 'stop' = 'start') {
     setFailEvents: () => {
       failEvents = true;
     },
-    reopenJournal: () => new ConfirmedLifecycleJobJournal(root, { now: () => NOW }),
+    reopenJournal: () =>
+      new ConfirmedLifecycleJobJournal(root, { now: () => NOW }),
     cleanup: () => rmSync(root, { recursive: true, force: true }),
   };
 }
