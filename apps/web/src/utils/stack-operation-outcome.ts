@@ -11,13 +11,17 @@ export type StackOperationOutcome =
   | { kind: 'stop'; result: StackStopResult }
   | { kind: 'restart'; result: StackRestartResult };
 
-export function outcomeActionLabel(kind: StackOperationOutcome['kind']): string {
+export function outcomeActionLabel(
+  kind: StackOperationOutcome['kind'],
+): string {
   if (kind === 'start') return 'Iniciar';
   if (kind === 'stop') return 'Parar';
   return 'Reiniciar';
 }
 
-export function outcomeStateLabel(state: StackOperationOutcome['result']['state']): string {
+export function outcomeStateLabel(
+  state: StackOperationOutcome['result']['state'],
+): string {
   if (state === 'completed') return 'Concluído';
   if (state === 'restarted') return 'Reiniciado';
   if (state === 'blocked') return 'Bloqueado';
@@ -39,13 +43,19 @@ export type StackOperationStep = {
 };
 
 /** Only the result of an actual Start/Stop/Restart response, never a preview. */
-export function outcomeSteps(outcome: StackOperationOutcome): StackOperationStep[] {
+export function outcomeSteps(
+  outcome: StackOperationOutcome,
+): StackOperationStep[] {
   if (outcome.kind === 'restart') {
-    return [{
-      nodeId: outcome.result.nodeId,
-      state: outcome.result.state,
-      ...(outcome.result.diagnostic ? { diagnostic: outcome.result.diagnostic } : {}),
-    }];
+    return [
+      {
+        nodeId: outcome.result.nodeId,
+        state: outcome.result.state,
+        ...(outcome.result.diagnostic
+          ? { diagnostic: outcome.result.diagnostic }
+          : {}),
+      },
+    ];
   }
   return outcome.result.steps;
 }
@@ -74,7 +84,8 @@ export function outcomeStepLabel(state: string): string {
 }
 
 export function outcomeStepTone(state: string): StatusBadgeTone {
-  if (state === 'started' || state === 'stopped' || state === 'restarted') return 'success';
+  if (state === 'started' || state === 'stopped' || state === 'restarted')
+    return 'success';
   if (state === 'blocked' || state === 'retained') return 'warning';
   if (state === 'failed') return 'danger';
   return 'neutral';
