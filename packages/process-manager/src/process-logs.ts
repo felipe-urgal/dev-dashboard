@@ -116,9 +116,9 @@ export async function readManagedLog(
     if (truncated) {
       const firstLineBreak = content.indexOf('\n');
 
-      if (firstLineBreak >= 0) {
-        content = content.slice(firstLineBreak + 1);
-      }
+      // Never return an incomplete line: a truncated PASSWORD=... assignment
+      // may otherwise lose its key and evade redaction entirely.
+      content = firstLineBreak >= 0 ? content.slice(firstLineBreak + 1) : '';
     }
 
     const maskedContent = maskSensitiveLogContent(content);
