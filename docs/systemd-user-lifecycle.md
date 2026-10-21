@@ -12,7 +12,9 @@ The `SystemdUserLifecycleService` is an **internal, not yet wired** building blo
 - Observes again before and after dispatch. A changed identity, failed command or ambiguous result fails closed; a prior mutation **may already have occurred** and must be reconciled. A running unit is **not** automatically healthy/ready.
 - `stop` does not disable boot and `start` does not enable boot. Enable/disable belongs to #1121.
 
-The systemd owner reserves both keys until the command has returned and the unit has been reobserved. A future coordinator must not nest its own `resource:` lease around this owner, or it would conflict with itself; it may retain the environment lease. Recovery evidence inspects both keys. No external `systemctl` operation is fenced.\n\n## Integration gate — still pending
+The systemd owner reserves both keys until the command has returned and the unit has been reobserved. A future coordinator must not nest its own `resource:` lease around this owner, or it would conflict with itself; it may retain the environment lease. Recovery evidence inspects both keys. No external `systemctl` operation is fenced.
+
+## Integration gate — still pending
 
 Do **not** wire this adapter to public routes or buttons until #1117/#1116 implement a persisted, explicit grant and enforce a fresh, confirmed lifecycle plan, current binding/ownership, conflict handling, durable audit, independent consumers, and cancellation/recovery guarantees. The planner currently sets `executable: false` intentionally. System units must stay **read-only** unless a separate, narrowly delegated authorization mechanism is designed and proven.
 
