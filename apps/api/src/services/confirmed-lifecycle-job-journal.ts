@@ -297,8 +297,7 @@ export class ConfirmedLifecycleJobJournal {
     return this.list(projectId)
       .filter(
         (job) =>
-          job.status === 'running' ||
-          (isSystemdUserJob(job.plannedRefs) && job.reconciliationRequired),
+          job.status === 'running' || job.reconciliationRequired,
       )
       .map((job) => ({
         id:
