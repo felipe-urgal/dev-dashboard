@@ -41,6 +41,7 @@ function fixture(
     shared?: boolean;
     wrongOwnership?: boolean;
     blocked?: boolean;
+    provider?: 'compose' | 'systemd';
   } = {},
 ) {
   const action = options.action ?? 'start';
@@ -73,10 +74,13 @@ function fixture(
       return {
         serviceRef: ref,
         name: ref,
-        provider: 'compose',
+        provider: options.provider ?? 'compose',
         state,
         readiness: ready as 'ready' | 'unknown',
-        relation: options.wrongOwnership ? 'required' : 'owned',
+        relation:
+          options.provider === 'systemd' || options.wrongOwnership
+            ? 'required'
+            : 'owned',
         ports: [],
         consumerCount: options.shared ? 2 : 1,
         dependencies: ref === API && refs.includes(DB) ? [DB] : [],
@@ -431,4 +435,17 @@ test('uncertain journal write after mutation is never retried and stays in-fligh
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test('coordinator does not dispatch systemd steps even when an injected runner exists', async () => {
+  const f = fixture({
+    provider: 'systemd',
+    refs: ['systemd:user:fixture-worker.service'],
+  });
+  await assert.rejects(
+    f.coordinator.run(request()),
+    /supported, exclusively owned lifecycle adapter/,
+  );
+  assert.deepEqual(f.steps, []);
+  assert.deepEqual(f.events, []);
 });
