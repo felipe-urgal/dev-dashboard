@@ -38,6 +38,15 @@ import StatusBadge from '../components/StatusBadge.vue';
 import type { StatusBadgeTone } from '../components/status-badge-types';
 import { dashboardStore } from '../stores/dashboard';
 import { confirmDialog } from '../stores/app-dialog';
+import {
+  outcomeActionLabel,
+  outcomeStateLabel,
+  outcomeStateTone,
+  outcomeStepLabel,
+  outcomeStepTone,
+  outcomeSteps,
+} from '../utils/stack-operation-outcome';
+import type { StackOperationOutcome } from '../utils/stack-operation-outcome';
 
 const stacks = ref<Stack[]>([]);
 const revisions = ref<Record<string, string>>({});
@@ -51,6 +60,10 @@ function expectedRevision(stackId: string): string {
 }
 
 const checks = ref(new Map<string, StackCheck>());
+const outcomes = ref(new Map<string, StackOperationOutcome>());
+function outcomeFor(stackId: string): StackOperationOutcome | undefined {
+  return outcomes.value.get(stackId);
+}
 const discoveries = ref(new Map<string, StackDependencyDiscovery>());
 const checkErrors = ref(new Map<string, string>());
 const discoveryErrors = ref(new Map<string, string>());
@@ -327,6 +340,15 @@ async function load(): Promise<void> {
     const response = await fetchStacks();
     const definitions = response.stacks;
     stacks.value = definitions;
+    // An operation's result belongs to the exact Stack definition observed
+    // when it ran. Do not display it for a later edited/replaced definition.
+    outcomes.value = new Map(
+      [...outcomes.value].filter(
+        ([id]) =>
+          response.revisions[id] &&
+          response.revisions[id] === revisions.value[id],
+      ),
+    );
     revisions.value = response.revisions;
 
     const [checkResults, discoveryResults] = await Promise.all([
@@ -509,7 +531,7 @@ async function confirmStop(stack: Stack): Promise<void> {
   });
   if (!confirmed) return;
 
-  void mutate(stack.id, `stop-${stack.id}`, () =>
+  void mutate(stack.id, `stop-${stack.id}`, 'stop', () =>
     stopStack(stack.id, expectedRevision(stack.id)),
   );
 }
@@ -562,14 +584,24 @@ async function removeDependency(
 async function mutate(
   stackId: string,
   operation: string,
-  callback: () => Promise<{ check: StackCheck }>,
+  kind: StackOperationOutcome['kind'],
+  callback: () => Promise<StackOperationOutcome['result']>,
 ): Promise<void> {
   if (isStackBusy(stackId)) return;
 
   actions.value = { ...actions.value, [stackId]: operation };
+  const nextOutcomes = new Map(outcomes.value);
+  nextOutcomes.delete(stackId);
+  outcomes.value = nextOutcomes;
   errorMessage.value = '';
   try {
     const result = await callback();
+    // The backend response, not the following Check, is the evidence for
+    // retained, blocked and failed nodes in this specific operation.
+    outcomes.value = new Map(outcomes.value).set(stackId, {
+      kind,
+      result,
+    } as StackOperationOutcome);
     setCheck(result.check);
     await load();
   } catch (error) {
@@ -718,7 +750,7 @@ onMounted(() => {
               type="button"
               :disabled="isStackBusy(stack.id)"
               @click="
-                mutate(stack.id, `start-${stack.id}`, () =>
+                mutate(stack.id, `start-${stack.id}`, 'start', () =>
                   startStack(stack.id, expectedRevision(stack.id)),
                 )
               "
@@ -771,6 +803,50 @@ onMounted(() => {
         <div v-else class="stack-check-unavailable" role="status">
           Estado atual indisponível. Atualize esta Stack para tentar novamente.
         </div>
+
+        <section
+          v-if="outcomeFor(stack.id)"
+          class="stack-outcome"
+          :aria-label="`Resultado da última operação de ${stack.name}`"
+        >
+          <div class="stack-outcome-header">
+            <div>
+              <strong>
+                Última operação:
+                {{ outcomeActionLabel(outcomeFor(stack.id)!.kind) }}
+              </strong>
+              <small>
+                Resultado retornado pela operação, não uma prévia ou estado
+                observado em tempo real.
+              </small>
+            </div>
+            <StatusBadge
+              :tone="outcomeStateTone(outcomeFor(stack.id)!.result.state)"
+            >
+              {{ outcomeStateLabel(outcomeFor(stack.id)!.result.state) }}
+            </StatusBadge>
+          </div>
+          <ol class="stack-outcome-steps">
+            <li
+              v-for="step in outcomeSteps(outcomeFor(stack.id)!)"
+              :key="step.nodeId"
+              class="stack-outcome-step"
+            >
+              <div>
+                <strong>{{ nodeName(stack, step.nodeId) }}</strong>
+                <StatusBadge :tone="outcomeStepTone(step.state)">
+                  {{ outcomeStepLabel(step.state) }}
+                </StatusBadge>
+              </div>
+              <p v-if="step.diagnostic">{{ step.diagnostic }}</p>
+            </li>
+          </ol>
+          <p>
+            Os demais nodes podem não ter sido executados. Consulte o Check
+            atual e os logs existentes para investigar; nenhum rollback ou
+            reattach é presumido.
+          </p>
+        </section>
 
         <section
           v-if="logsFor(stack.id)"
@@ -975,12 +1051,16 @@ onMounted(() => {
                 type="button"
                 :disabled="isStackBusy(stack.id)"
                 @click="
-                  mutate(stack.id, `restart-${stack.id}-${node.id}`, () =>
-                    restartStackNode(
-                      stack.id,
-                      node.id,
-                      expectedRevision(stack.id),
-                    ),
+                  mutate(
+                    stack.id,
+                    `restart-${stack.id}-${node.id}`,
+                    'restart',
+                    () =>
+                      restartStackNode(
+                        stack.id,
+                        node.id,
+                        expectedRevision(stack.id),
+                      ),
                   )
                 "
               >
@@ -1217,6 +1297,48 @@ onMounted(() => {
   font-size: var(--font-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.stack-outcome {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.stack-outcome-header,
+.stack-outcome-step > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stack-outcome-header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.stack-outcome-header small,
+.stack-outcome-step p,
+.stack-outcome > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.stack-outcome-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-inline-start: 24px;
+}
+
+.stack-outcome-step {
+  overflow-wrap: anywhere;
 }
 
 .stack-logs {
