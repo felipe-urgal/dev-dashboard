@@ -60,6 +60,10 @@ providers, runtime profiles or dependencies. It performs:
    finalize the durable Job. Activity failure cannot cause command replay.
    Journal failures after invocation require manual recovery.
 
+A reopened journal reports an orphaned `invoking` Job as
+`reconciliationRequired: true`. Merely recreating the coordinator or repeating
+the accepted planHash never authorizes a retry.
+
 Interrupted and partial Jobs remain non-replayable and block the same unit,
 even after rebinding to another project. There is **no automatic retry,
 reattach, cancellation or release** in this increment.
