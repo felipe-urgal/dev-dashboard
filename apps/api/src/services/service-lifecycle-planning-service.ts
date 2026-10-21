@@ -7,7 +7,6 @@ import type {
   ServiceLifecycleAction,
   ServiceLifecyclePlan,
   ServiceLifecyclePlanNode,
-  SystemdLifecycleActionCapability,
 } from '@dev-dashboard/contracts';
 
 import { ApiError } from '../http/api-error.js';
@@ -212,7 +211,10 @@ export class ServiceLifecyclePlanningService {
     const systemdBindings = bindings.filter((binding) =>
       binding.serviceRef.startsWith('systemd:'),
     );
-    const systemdEvidence = new Map<string, SystemdLifecycleActionCapability>();
+    const systemdEvidence = new Map<
+      string,
+      NonNullable<ServiceLifecyclePlanNode['systemdCapability']>
+    >();
     const ambiguousSystemdEvidence = new Set<string>();
     if (systemdBindings.length > 0 && this.dependencies.systemdCapabilities) {
       try {
@@ -235,7 +237,10 @@ export class ServiceLifecyclePlanningService {
               continue;
             }
             if (candidate.status !== 'supported') {
-              systemdEvidence.set(key, candidate);
+              systemdEvidence.set(key, {
+                status: candidate.status,
+                reason: candidate.reason,
+              });
             }
           }
         }
