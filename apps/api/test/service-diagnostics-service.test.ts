@@ -58,6 +58,9 @@ function setup(
     journalFailure?: boolean;
     catalogFailure?: boolean;
     activityFailure?: boolean;
+    journalContent?: string;
+    processContent?: string;
+    processTruncated?: boolean;
   } = {},
 ) {
   const value = options.value ?? entry();
@@ -126,9 +129,9 @@ function setup(
         readServerLog: async () => ({
           projectId: 'loto',
           processId: 'test-process',
-          content: 'api started',
+          content: options.processContent ?? 'api started',
           sizeBytes: 11,
-          truncated: false,
+          truncated: options.processTruncated ?? false,
           masked: false,
           redactionCount: 0,
           readAt: NOW.toISOString(),
@@ -154,9 +157,9 @@ function setup(
               }
             : {
                 status: 'available' as const,
-                masked: true,
+                masked: options.journalContent === undefined,
                 truncated: false,
-                content: 'PASSWORD=[REDACTED]\n',
+                content: options.journalContent ?? 'PASSWORD=[REDACTED]\n',
               };
         },
       },
@@ -293,6 +296,44 @@ test('existing Process Manager reader is used for owned process', async () => {
   assert.equal(result.status, 'available');
   assert.equal(result.content, 'api started');
   assert.equal(result.source, 'process');
+});
+
+test('diagnostics redacts full oversized provider text before limiting bytes', async () => {
+  const secret = 'never-expose-this-sequence'.repeat(5_000);
+  const { service } = setup({
+    journalContent: 'ACCESS_TOKEN=' + secret + '\npublic evidence 😀\n',
+  });
+  const snapshot = await service.read('loto', 'systemd:user:fixture.service');
+  assert.equal(snapshot.status, 'available');
+  assert.equal(snapshot.masked, true);
+  assert.match(snapshot.content ?? '', /public evidence 😀/u);
+  assert.doesNotMatch(snapshot.content ?? '', /never-expose-this-sequence/);
+  assert.ok(Buffer.byteLength(snapshot.content ?? '', 'utf8') <= 65_536);
+});
+
+test('truncated process log without a complete safe line is unavailable, not empty', async () => {
+  const id = 'process:test-process';
+  const { service } = setup({
+    processContent: '',
+    processTruncated: true,
+    value: entry({
+      id,
+      provider: 'managed-process',
+      name: 'server · test-process',
+      displayName: 'server',
+      scope: 'environment',
+      evidence: { source: 'process-manager', identity: id },
+      projectId: 'loto',
+      environmentInstanceId: environment,
+      ownership: 'confirmed',
+    }),
+  });
+  const snapshot = await service.read('loto', id);
+  assert.equal(snapshot.status, 'unavailable');
+  assert.equal(snapshot.partial, true);
+  assert.equal(snapshot.truncated, true);
+  assert.match(snapshot.diagnostic ?? '', /no complete line/);
+  assert.equal(snapshot.content, '');
 });
 
 test('catalog failures remain partial without leaking provider details', async () => {
