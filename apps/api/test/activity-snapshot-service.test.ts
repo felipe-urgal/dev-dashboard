@@ -195,8 +195,8 @@ test('preserves repeated lifecycle actions for the same resource across Jobs and
     await service.readProject(project.id),
     await service.readGlobal(),
   ]) {
-    const matching = snapshot.events.filter((event) =>
-      event.type === base.type,
+    const matching = snapshot.events.filter(
+      (event) => event.type === base.type,
     );
     assert.deepEqual(
       matching.map((event) => event.id),
@@ -248,12 +248,19 @@ test('deduplicates reattached Job steps without erasing distinct states, nodes o
       environmentInstanceId: 'environment:worktree:project-a:wt',
       occurredAt: '2026-09-19T10:05:30.000Z',
     },
-    { ...first, id: 'another-attempt', jobId: 'compose-confirmed:job-two', occurredAt: '2026-09-19T10:05:25.000Z' },
+    {
+      ...first,
+      id: 'another-attempt',
+      jobId: 'compose-confirmed:job-two',
+      occurredAt: '2026-09-19T10:05:25.000Z',
+    },
   ];
   const service = createService({ events });
   const projectSnapshot = await service.readProject(project.id);
   assert.deepEqual(
-    projectSnapshot.events.filter((event) => event.domain === 'compose').map((event) => event.id),
+    projectSnapshot.events
+      .filter((event) => event.domain === 'compose')
+      .map((event) => event.id),
     [
       'reattached-latest',
       'failed-step',
@@ -263,7 +270,10 @@ test('deduplicates reattached Job steps without erasing distinct states, nodes o
     ],
   );
   const global = await service.readGlobal();
-  assert.equal(global.events.filter((event) => event.domain === 'compose').length, 5);
+  assert.equal(
+    global.events.filter((event) => event.domain === 'compose').length,
+    5,
+  );
 });
 
 test('agrega timeline e jobs sem expor cwd, argv ou logs', async () => {
