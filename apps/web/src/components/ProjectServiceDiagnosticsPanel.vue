@@ -61,10 +61,14 @@ async function loadBindings(): Promise<void> {
     const scoped = response.bindings.filter(
       (b) => b.enabled && b.environmentInstanceId === scopedEnvironment.value,
     );
-    selectedRef.value =
-      scoped.find((b) => b.serviceRef === requested)?.serviceRef ??
-      scoped[0]?.serviceRef ??
-      '';
+    const requestedBinding = scoped.find((b) => b.serviceRef === requested);
+    // Never silently switch an Activity deep link to a different unit.
+    selectedRef.value = requested
+      ? (requestedBinding?.serviceRef ?? '')
+      : (scoped[0]?.serviceRef ?? '');
+    if (requested && !requestedBinding) {
+      error.value = 'Serviço do link não está vinculado a este ambiente.';
+    }
   } catch {
     if (current === generation)
       error.value = 'Não foi possível consultar os vínculos de serviço.';
@@ -108,14 +112,13 @@ async function loadDiagnostics(): Promise<void> {
 watch(
   () => route.query.serviceRef,
   (value) => {
-    if (
-      typeof value === 'string' &&
-      selectedRef.value !== value &&
-      visible.value.some((binding) => binding.serviceRef === value)
-    ) {
-      selectedRef.value = value;
-      changeSelection();
-    }
+    if (typeof value !== 'string' || !value || selectedRef.value === value)
+      return;
+    const exists = visible.value.some((binding) => binding.serviceRef === value);
+    selectedRef.value = exists ? value : '';
+    changeSelection();
+    if (!exists)
+      error.value = 'Serviço do link não está vinculado a este ambiente.';
   },
 );
 
