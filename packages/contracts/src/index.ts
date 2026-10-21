@@ -66,6 +66,13 @@ export type {
 } from './host-service.js';
 
 export type {
+  SystemdBoundServiceCapabilities,
+  SystemdLifecycleActionCapability,
+  SystemdLifecycleCapabilityStatus,
+  SystemdProjectCapabilitiesSnapshot,
+} from './systemd-lifecycle-capabilities.js';
+
+export type {
   ServiceDiagnosticsSnapshot,
   ServiceDiagnosticsStatus,
 } from './service-diagnostics.js';

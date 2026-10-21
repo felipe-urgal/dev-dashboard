@@ -15,6 +15,7 @@ import { serviceDiagnosticsRoutes } from './routes/service-diagnostics.js';
 import { projectServiceBindingRoutes } from './routes/project-service-bindings.js';
 import { serviceRuntimeProfileRoutes } from './routes/service-runtime-profiles.js';
 import { serviceLifecyclePlanRoutes } from './routes/service-lifecycle-plans.js';
+import { systemdLifecycleCapabilitiesRoutes } from './routes/systemd-lifecycle-capabilities.js';
 import { confirmedLifecycleReconciliationRoutes } from './routes/confirmed-lifecycle-reconciliation.js';
 
 import { projectRoutes } from './routes/projects.js';
@@ -54,6 +55,8 @@ import { StackRestartService } from './services/stack-restart-service.js';
 import { StackStartService } from './services/stack-start-service.js';
 import { StackStopService } from './services/stack-stop-service.js';
 import { SystemdServiceInventory } from './services/systemd-service-inventory.js';
+import { SystemdLifecycleCapabilitiesService } from './services/systemd-lifecycle-capabilities-service.js';
+import { SystemdUserLifecycleGrantPolicy } from './services/systemd-user-lifecycle-authorization.js';
 import { ServiceCatalogService } from './services/service-catalog-service.js';
 import { ServiceDiagnosticsService } from './services/service-diagnostics-service.js';
 import { SystemdJournalReader } from './services/systemd-journal-reader.js';
@@ -112,6 +115,9 @@ import { createAppContext, type AppContext } from './app-context.js';
 export interface BuildAppOptions extends AppCompositionOptions {
   hostServiceInventory?: Pick<SystemdServiceInventory, 'inspect'>;
   serviceCatalog?: Pick<ServiceCatalogService, 'inspect'>;
+  systemdCapabilities?: Pick<SystemdLifecycleCapabilitiesService, 'inspect'>;
+  /** Trusted server bootstrap only; never a browser-selected path. */
+  systemdUserGrantPolicyPath?: string;
   serviceDiagnostics?: Pick<ServiceDiagnosticsService, 'read'>;
   serviceResourceLeaseInspector?: Pick<
     ServiceResourceLeaseInspector,
@@ -423,6 +429,26 @@ export async function buildApp(options: BuildAppOptions = {}) {
     }),
   });
 
+  app.register(systemdLifecycleCapabilitiesRoutes, {
+    prefix: '/api',
+    capabilities:
+      options.systemdCapabilities ??
+      new SystemdLifecycleCapabilitiesService(
+        {
+          projects: context.projectStore,
+          environments: context.developmentEnvironmentInstanceStore,
+          bindings: context.projectServiceBindingStore,
+          inventory: systemdInventory,
+          grants: new SystemdUserLifecycleGrantPolicy({
+            ...(options.systemdUserGrantPolicyPath
+              ? { policyPath: options.systemdUserGrantPolicyPath }
+              : {}),
+            ...(options.now ? { now: () => new Date(options.now!()) } : {}),
+          }),
+        },
+        options.now ? { now: () => new Date(options.now!()) } : {},
+      ),
+  });
   app.register(serviceLifecyclePlanRoutes, {
     prefix: '/api',
     planner: new ServiceLifecyclePlanningService({
