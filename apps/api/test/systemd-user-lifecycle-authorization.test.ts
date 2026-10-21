@@ -14,6 +14,7 @@ import test from 'node:test';
 import type {
   ProjectServiceBinding,
   ServiceLifecyclePlan,
+  ConfirmedLifecycleRequest,
 } from '@dev-dashboard/contracts';
 
 import {
@@ -21,6 +22,8 @@ import {
   SystemdUserLifecycleGrantPolicy,
 } from '../src/services/systemd-user-lifecycle-authorization.js';
 import type { SystemdUserLifecycleRequest } from '../src/services/systemd-user-lifecycle-service.js';
+import type { ConfirmedLifecycleJob } from '../src/services/confirmed-lifecycle-job-journal.js';
+import { ConfirmedLifecycleJobJournal } from '../src/services/confirmed-lifecycle-job-journal.js';
 
 const REV = 'a'.repeat(64);
 const HASH = 'b'.repeat(64);
@@ -115,6 +118,10 @@ function plan(overrides: Partial<ConfirmablePlan> = {}): ConfirmablePlan {
         dependencies: [],
         ports: [],
         consumerCount: 1,
+        systemdCapability: {
+          status: 'supported',
+          reason: 'Test-only explicit execution approval.',
+        },
       },
     ],
     diagnostics: [],
@@ -123,40 +130,75 @@ function plan(overrides: Partial<ConfirmablePlan> = {}): ConfirmablePlan {
   };
 }
 
-function fixture(policy: SystemdUserLifecycleGrantPolicy) {
+function invokingJob(
+  overrides: Partial<ConfirmedLifecycleJob> = {},
+): ConfirmedLifecycleJob {
+  return {
+    version: 1,
+    id: '33333333-3333-4333-8333-333333333333',
+    projectId: REQUEST.projectId,
+    environmentInstanceId: REQUEST.environmentInstanceId,
+    action: 'start',
+    expectedRevision: REV,
+    expectedPlanHash: HASH,
+    status: 'running',
+    stage: 'invoking',
+    plannedRefs: [SERVICE],
+    inFlightRef: SERVICE,
+    steps: [],
+    startedAt: CLOCK.toISOString(),
+    updatedAt: CLOCK.toISOString(),
+    reconciliationRequired: false,
+    ...overrides,
+  };
+}
+
+function fixture(
+  policy: SystemdUserLifecycleGrantPolicy,
+  journal?: Pick<ConfirmedLifecycleJobJournal, 'list'>,
+) {
   let observedBindings: ProjectServiceBinding[] = [binding()];
   let lastPlan = plan();
   let revision = REV;
   let planCalls = 0;
   let projectExists = true;
   let environmentKind = 'host';
-  const authorizer = new SystemdUserLifecycleAuthorizer({
-    policy,
-    projects: {
-      findProject: (id) =>
-        projectExists && id === REQUEST.projectId ? { id } : null,
-    },
-    environments: {
-      findById: (id) =>
-        id === REQUEST.environmentInstanceId
-          ? { projectId: REQUEST.projectId, runtime: { kind: environmentKind } }
-          : null,
-    },
-    bindings: {
-      revision: () => revision,
-      byProject: () => observedBindings,
-      byResource: (ref) =>
-        observedBindings.filter((item) => item.serviceRef === ref),
-    },
-    planner: {
-      preview: async () => {
-        planCalls++;
-        return lastPlan;
+  let recordedJobs: ConfirmedLifecycleJob[] = [invokingJob()];
+  const authorizer = new SystemdUserLifecycleAuthorizer(
+    {
+      policy,
+      jobs: journal ?? { list: () => recordedJobs },
+      projects: {
+        findProject: (id) =>
+          projectExists && id === REQUEST.projectId ? { id } : null,
+      },
+      environments: {
+        findById: (id) =>
+          id === REQUEST.environmentInstanceId
+            ? {
+                projectId: REQUEST.projectId,
+                runtime: { kind: environmentKind },
+              }
+            : null,
+      },
+      bindings: {
+        revision: () => revision,
+        byProject: () => observedBindings,
+        byResource: (ref) =>
+          observedBindings.filter((item) => item.serviceRef === ref),
+      },
+      planner: {
+        preview: async () => {
+          planCalls++;
+          return lastPlan;
+        },
       },
     },
-  });
+    { now: () => CLOCK },
+  );
   return {
     authorizer,
+    setJobs: (items: ConfirmedLifecycleJob[]) => (recordedJobs = items),
     setBindings: (items: ProjectServiceBinding[]) => (observedBindings = items),
     setPlan: (value: ConfirmablePlan) => (lastPlan = value),
     setRevision: (value: string) => (revision = value),
@@ -311,6 +353,152 @@ test('restart and mismatched plan disposition fail closed', async () => {
     f.setPlan(
       plan({ nodes: [{ ...plan().nodes[0]!, disposition: 'retained' }] }),
     );
+    assert.equal(await f.authorizer.authorize(REQUEST), false);
+  });
+});
+
+test('durable invoking job must exactly match every scope, revision and action', async () => {
+  await withPolicy(async (policy, file) => {
+    writePolicy(file, [GRANT]);
+    const f = fixture(policy);
+    assert.equal(await f.authorizer.authorize(REQUEST), true);
+    const denied: ConfirmedLifecycleJob[][] = [
+      [],
+      [invokingJob({ stage: 'prepared', inFlightRef: undefined })],
+      [invokingJob({ stage: 'verifying', inFlightRef: undefined })],
+      [invokingJob({ status: 'partial', reconciliationRequired: true })],
+      [invokingJob({ reconciliationRequired: true })],
+      [invokingJob({ projectId: 'other-project' })],
+      [invokingJob({ environmentInstanceId: 'environment:primary:other' })],
+      [invokingJob({ action: 'stop' })],
+      [invokingJob({ expectedPlanHash: 'c'.repeat(64) })],
+      [invokingJob({ expectedRevision: 'c'.repeat(64) })],
+      [invokingJob({ inFlightRef: 'systemd:user:other.service' })],
+      [invokingJob({ plannedRefs: [SERVICE, 'systemd:user:other.service'] })],
+      [
+        invokingJob({
+          steps: [
+            {
+              serviceRef: SERVICE,
+              action: 'start',
+              dispositionBefore: 'willStart',
+              state: 'unverified',
+            },
+          ],
+        }),
+      ],
+      [
+        invokingJob({
+          updatedAt: new Date(CLOCK.getTime() - 30_001).toISOString(),
+        }),
+      ],
+      [invokingJob({ updatedAt: new Date(CLOCK.getTime() + 1).toISOString() })],
+      [
+        invokingJob(),
+        invokingJob({ id: '44444444-4444-4444-8444-444444444444' }),
+      ],
+      [
+        invokingJob(),
+        invokingJob({
+          projectId: 'other-project',
+          status: 'partial',
+          reconciliationRequired: true,
+        }),
+      ],
+    ];
+    for (const records of denied) {
+      f.setJobs(records);
+      assert.equal(await f.authorizer.authorize(REQUEST), false);
+    }
+    f.setJobs([invokingJob()]);
+    assert.equal(await f.authorizer.authorize(REQUEST), true);
+  });
+});
+
+test('future executable plan must be fresh, singleton, and explicitly support the action', async () => {
+  await withPolicy(async (policy, file) => {
+    writePolicy(file, [GRANT]);
+    const f = fixture(policy);
+    const node = plan().nodes[0]!;
+    for (const bad of [
+      plan({ observedAt: new Date(CLOCK.getTime() + 1).toISOString() }),
+      plan({ expiresAt: CLOCK.toISOString() }),
+      plan({ expiresAt: new Date(CLOCK.getTime() + 31_000).toISOString() }),
+      plan({ order: [] }),
+      plan({ order: ['systemd:user:another.service'] }),
+      plan({
+        nodes: [node, { ...node, serviceRef: 'systemd:user:another.service' }],
+      }),
+      plan({
+        nodes: [
+          {
+            ...node,
+            systemdCapability: { status: 'unknown', reason: 'No evidence.' },
+          },
+        ],
+      }),
+      plan({ nodes: [{ ...node, systemdCapability: undefined }] }),
+      plan({ nodes: [{ ...node, state: 'running' }] }),
+      plan({ nodes: [{ ...node, readiness: 'ready' }] }),
+    ]) {
+      f.setPlan(bad);
+      assert.equal(await f.authorizer.authorize(REQUEST), false);
+    }
+    f.setPlan(plan());
+    assert.equal(await f.authorizer.authorize(REQUEST), true);
+  });
+});
+
+test('real journal requires beforeStep and denies recovery after process reattach', async () => {
+  await withPolicy(async (policy, file) => {
+    writePolicy(file, [GRANT]);
+    const directory = mkdtempSync(
+      path.join(os.tmpdir(), 'systemd-intent-journal-'),
+    );
+    try {
+      const journal = new ConfirmedLifecycleJobJournal(directory, {
+        now: () => CLOCK,
+      });
+      const f = fixture(policy, journal);
+      const request: ConfirmedLifecycleRequest = {
+        projectId: REQUEST.projectId,
+        environmentInstanceId: REQUEST.environmentInstanceId,
+        action: 'start',
+        expectedRevision: REV,
+        expectedPlanHash: HASH,
+        acceptedObservedAt: CLOCK.toISOString(),
+      };
+      assert.equal(await f.authorizer.authorize(REQUEST), false);
+      const jobId = journal.begin(request, [SERVICE]);
+      assert.equal(await f.authorizer.authorize(REQUEST), false);
+      journal.beforeStep(jobId, SERVICE);
+      assert.equal(await f.authorizer.authorize(REQUEST), true);
+      const reopened = new ConfirmedLifecycleJobJournal(directory, {
+        now: () => CLOCK,
+      });
+      const afterCrash = fixture(policy, reopened);
+      assert.equal(await afterCrash.authorizer.authorize(REQUEST), false);
+      journal.step(jobId, {
+        serviceRef: SERVICE,
+        action: 'start',
+        dispositionBefore: 'willStart',
+        state: 'unverified',
+      });
+      assert.equal(await f.authorizer.authorize(REQUEST), false);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});
+
+test('journal read failure denies even when grant and future plan are valid', async () => {
+  await withPolicy(async (policy, file) => {
+    writePolicy(file, [GRANT]);
+    const f = fixture(policy, {
+      list: () => {
+        throw new Error('secret root path: /home/private');
+      },
+    });
     assert.equal(await f.authorizer.authorize(REQUEST), false);
   });
 });

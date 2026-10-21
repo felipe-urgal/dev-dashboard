@@ -11,6 +11,7 @@ import type {
   ServiceLifecyclePlan,
 } from '@dev-dashboard/contracts';
 
+import type { ConfirmedLifecycleJobJournal } from './confirmed-lifecycle-job-journal.js';
 import type {
   SystemdUserLifecycleAction,
   SystemdUserLifecycleRequest,
@@ -159,6 +160,8 @@ type ConfirmablePlan = Omit<ServiceLifecyclePlan, 'executable'> & {
 
 interface Dependencies {
   policy: Pick<SystemdUserLifecycleGrantPolicy, 'find'>;
+  /** Fail closed unless a durable, in-flight coordinator intent exists. */
+  jobs: Pick<ConfirmedLifecycleJobJournal, 'list'>;
   projects: { findProject(id: string): { id: string } | null | undefined };
   environments: {
     findById(
@@ -186,7 +189,14 @@ interface Dependencies {
  * grants alone can never activate a systemd mutation.
  */
 export class SystemdUserLifecycleAuthorizer {
-  public constructor(private readonly d: Dependencies) {}
+  private readonly now: () => Date;
+
+  public constructor(
+    private readonly d: Dependencies,
+    options: { now?: () => Date } = {},
+  ) {
+    this.now = options.now ?? (() => new Date());
+  }
 
   public async authorize(
     request: Readonly<SystemdUserLifecycleRequest>,
@@ -195,6 +205,38 @@ export class SystemdUserLifecycleAuthorizer {
       // Restart needs a dedicated restart plan; a Start plan is not authority.
       if (request.action === 'restart') return false;
       if (!HASH.test(request.expectedRevision) || !HASH.test(request.planHash))
+        return false;
+      // A policy grant and preview are not a command capability. Refuse
+      // direct owner calls unless the coordinator persisted the exact
+      // in-flight intent BEFORE reaching the provider. Scan all projects to
+      // deny collisions after a unit is rebound or a writer is interrupted.
+      const conflicts = this.d.jobs
+        .list()
+        .filter(
+          (job) =>
+            job.plannedRefs.includes(request.serviceRef) &&
+            (job.status === 'running' || job.reconciliationRequired),
+        );
+      if (conflicts.length !== 1) return false;
+      const intent = conflicts[0]!;
+      const updatedAt = Date.parse(intent.updatedAt);
+      if (
+        intent.projectId !== request.projectId ||
+        intent.environmentInstanceId !== request.environmentInstanceId ||
+        intent.action !== request.action ||
+        intent.expectedRevision !== request.expectedRevision ||
+        intent.expectedPlanHash !== request.planHash ||
+        intent.status !== 'running' ||
+        intent.stage !== 'invoking' ||
+        intent.inFlightRef !== request.serviceRef ||
+        intent.reconciliationRequired ||
+        intent.plannedRefs.length !== 1 ||
+        intent.steps.length !== 0 ||
+        intent.finishedAt !== undefined ||
+        !Number.isFinite(updatedAt) ||
+        updatedAt > this.now().getTime() ||
+        this.now().getTime() - updatedAt > 30_000
+      )
         return false;
       const grant = this.d.policy.find(request);
       if (!grant || grant.bindingRevision !== request.expectedRevision)
@@ -242,7 +284,12 @@ export class SystemdUserLifecycleAuthorizer {
         plan.planHash !== request.planHash ||
         plan.expectedRevision !== request.expectedRevision ||
         plan.status !== 'ready' ||
-        plan.executable !== true
+        plan.executable !== true ||
+        !Number.isFinite(Date.parse(plan.observedAt)) ||
+        !Number.isFinite(Date.parse(plan.expiresAt)) ||
+        Date.parse(plan.observedAt) > this.now().getTime() ||
+        Date.parse(plan.expiresAt) <= this.now().getTime() ||
+        Date.parse(plan.expiresAt) - Date.parse(plan.observedAt) > 30_000
       )
         return false;
       const nodes = plan.nodes.filter(
@@ -251,8 +298,15 @@ export class SystemdUserLifecycleAuthorizer {
       return (
         nodes.length === 1 &&
         nodes[0]?.provider === 'systemd' &&
+        nodes[0].systemdCapability?.status === 'supported' &&
+        nodes[0].readiness === 'unknown' &&
+        nodes[0].state ===
+          (request.action === 'start' ? 'stopped' : 'running') &&
         nodes[0].relation === 'required' &&
         nodes[0].consumerCount === 1 &&
+        plan.nodes.length === 1 &&
+        plan.order.length === 1 &&
+        plan.order[0] === request.serviceRef &&
         nodes[0].disposition ===
           (request.action === 'start' ? 'willStart' : 'willStop')
       );
