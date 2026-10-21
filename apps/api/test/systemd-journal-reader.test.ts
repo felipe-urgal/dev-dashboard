@@ -21,6 +21,20 @@ test('journal reader is read-only, sanitizes content and bounds UTF-8', async ()
   assert.doesNotMatch(result.content ?? '', /\uFFFD/);
 });
 
+test('masks a long secret assignment before the journal UTF-8 tail is bounded', async () => {
+  const secret = 'extremely-sensitive-sequence'.repeat(5_000);
+  const reader = new SystemdJournalReader({
+    platform: 'linux',
+    runner: async () => 'DATABASE_PASSWORD=' + secret + '\nserviço saudável 😀\n',
+  });
+  const snapshot = await reader.read('user', 'fixture.service');
+  assert.equal(snapshot.status, 'available');
+  assert.equal(snapshot.masked, true);
+  assert.match(snapshot.content ?? '', /serviço saudável 😀/u);
+  assert.doesNotMatch(snapshot.content ?? '', /extremely-sensitive-sequence/);
+  assert.ok(Buffer.byteLength(snapshot.content ?? '') <= 65_536);
+});
+
 test('journal permissions, missing CLI and empty output remain distinguishable', async () => {
   const denied = new SystemdJournalReader({
     platform: 'linux',
