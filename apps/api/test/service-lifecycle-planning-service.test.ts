@@ -60,11 +60,16 @@ const draft = (
   })),
 });
 
-function fixture(options: {
-  systemdCapabilities?: {
-    inspect(projectId: string, environmentInstanceId?: string): Promise<SystemdProjectCapabilitiesSnapshot>;
-  };
-} = {}) {
+function fixture(
+  options: {
+    systemdCapabilities?: {
+      inspect(
+        projectId: string,
+        environmentInstanceId?: string,
+      ): Promise<SystemdProjectCapabilitiesSnapshot>;
+    };
+  } = {},
+) {
   const store = new ProjectServiceBindingStore();
   const profiles = new ServiceRuntimeProfileStore();
   const entries: ServiceCatalogEntry[] = [
@@ -118,7 +123,9 @@ function fixture(options: {
         },
       },
       catalog: { inspect: async () => snapshot },
-      ...(options.systemdCapabilities ? { systemdCapabilities: options.systemdCapabilities } : {}),
+      ...(options.systemdCapabilities
+        ? { systemdCapabilities: options.systemdCapabilities }
+        : {}),
     },
     { now: () => NOW },
   );
@@ -587,7 +594,10 @@ test('systemd capability advice enters plan hash; revoked grant invalidates appr
               state: 'running',
               readiness: 'unknown',
               start: { status, reason: 'Authorization status: ' + status },
-              stop: { status: 'unsupported', reason: 'System scope is read-only.' },
+              stop: {
+                status: 'unsupported',
+                reason: 'System scope is read-only.',
+              },
               restart: { status: 'unsupported', reason: 'No restart plan.' },
               executable: false,
             },
@@ -598,9 +608,17 @@ test('systemd capability advice enters plan hash; revoked grant invalidates appr
   });
   f.bind('loto', dbRef, 'required');
   const first = await f.planner.preview('loto', 'start');
-  assert.equal(first.nodes[0]?.systemdCapability?.status, 'permission-required');
+  assert.equal(
+    first.nodes[0]?.systemdCapability?.status,
+    'permission-required',
+  );
   assert.equal(first.executable, false);
-  const same = await f.planner.preview('loto', 'start', undefined, first.planHash);
+  const same = await f.planner.preview(
+    'loto',
+    'start',
+    undefined,
+    first.planHash,
+  );
   assert.equal(same.planHash, first.planHash);
   assert.equal(inspections, 2);
   status = 'unsupported';
@@ -613,7 +631,10 @@ test('systemd capability advice enters plan hash; revoked grant invalidates appr
   assert.notEqual(changed.planHash, first.planHash);
   assert.equal(changed.executable, false);
   const stop = await f.planner.preview('loto', 'stop');
-  assert.equal(stop.nodes[0]?.systemdCapability?.reason, 'System scope is read-only.');
+  assert.equal(
+    stop.nodes[0]?.systemdCapability?.reason,
+    'System scope is read-only.',
+  );
 });
 
 test('systemd capability failure, wrong target and duplicate identities fail closed', async () => {
@@ -630,7 +651,10 @@ test('systemd capability failure, wrong target and duplicate identities fail clo
           state: 'running' as const,
           readiness: 'unknown' as const,
           start: {
-            status: kind === 'supported' ? 'supported' as const : 'unsupported' as const,
+            status:
+              kind === 'supported'
+                ? ('supported' as const)
+                : ('unsupported' as const),
             reason: 'Untrusted source',
           },
           stop: { status: 'unsupported' as const, reason: 'Read-only' },
@@ -648,11 +672,19 @@ test('systemd capability failure, wrong target and duplicate identities fail clo
     },
   });
   f.bind('loto', dbRef, 'required');
-  for (const state of ['throw', 'wrong-target', 'duplicate', 'supported'] as const) {
+  for (const state of [
+    'throw',
+    'wrong-target',
+    'duplicate',
+    'supported',
+  ] as const) {
     kind = state;
     const preview = await f.planner.preview('loto', 'start');
     assert.equal(preview.nodes[0]?.systemdCapability?.status, 'unknown');
-    assert.doesNotMatch(JSON.stringify(preview), /secret path|private|Untrusted source/);
+    assert.doesNotMatch(
+      JSON.stringify(preview),
+      /secret path|private|Untrusted source/,
+    );
     assert.equal(preview.executable, false);
   }
 });
