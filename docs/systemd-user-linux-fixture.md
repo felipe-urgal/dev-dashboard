@@ -55,20 +55,23 @@ is exposed.
 
 ## Dedicated GitHub Actions qualification
 
-The opt-in job uses `scripts/qualify-systemd-user-fixture.sh` and refuses
-non-Linux runners or a host without systemd PID 1. It creates a random
-non-root test account with `useradd`, starts only that account's user
-manager with `loginctl enable-linger`, and checks its own user-manager private socket. No user session D-Bus
-broker is required for the local systemctl --user manager connection.
-The Node fixture runs without elevated privileges, with a minimal,
-explicitly scoped environment. The wrapper uses an EXIT trap to disable
-lingering, terminate only the newly created test user and remove that
-account. Its entire GitHub runner VM is ephemeral.
+The opt-in job uses `scripts/qualify-systemd-user-fixture.sh` and requires
+`RUNNER_ENVIRONMENT=github-hosted`, Linux, systemd PID 1, and the non-root
+`runner` account with an accessible user manager. GitHub-hosted runners are
+**ephemeral VMs**, not shared operator hosts. Unlike the previous attempt to
+create a new user, this gate does **not** call `sudo`, `useradd`,
+`loginctl` or any system-scope systemctl command.
 
-Because `loginctl` setup requires sudo and mutates local login-manager
-state for this **new disposable account**, it is intentionally not part
-of standard CI and must not run on operator machines. Test commands
-themselves remain `systemctl --user` against only the random unit.
-The job fails if user sessions cannot be created or the test fails;
-there is no skip or acceptance-by-mock. No runner account is granted
-a production systemd lifecycle permission.
+The script first validates `systemctl --user show-environment`, then runs
+the opt-in test with a minimal environment and a bounded timeout. Only the
+random user-unit fixture is created, started, restarted and stopped. The
+test's own finally cleanup removes the unit file after checking its identity.
+Even if the job fails or the process is killed, the entire hosted VM is
+discarded. A missing user manager fails the job; it cannot count as
+successful real-provider evidence. No application-level mutation route,
+persisted production grant or system-scope delegation is enabled.
+
+This job is deliberately selected by the PR title marker
+`[systemd-fixture]`. The ordinary CI jobs and main-branch pushes do not run
+it. A green result here validates the Linux fixture only, **not** complete
+planner authorization or Activity/Jobs recovery.
