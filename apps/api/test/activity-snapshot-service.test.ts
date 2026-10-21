@@ -177,11 +177,16 @@ test('preserves repeated lifecycle actions for the same resource across Jobs and
     jobId: 'compose-confirmed:job-2',
     occurredAt: '2026-09-19T10:05:30.000Z',
   };
-  const noJob = {
-    ...base,
+  const noJob: ActivityEvent = {
     id: 'lifecycle-unlinked-1',
-    jobId: undefined,
+    projectId: project.id,
+    environmentInstanceId: 'environment:primary:project-a',
+    domain: 'compose',
+    type: base.type,
+    status: 'succeeded',
+    summary: base.summary,
     occurredAt: '2026-09-19T10:05:20.000Z',
+    resourceRef,
   };
   const nextUnlinked = {
     ...noJob,
