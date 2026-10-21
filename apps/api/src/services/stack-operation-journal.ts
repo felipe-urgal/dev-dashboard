@@ -69,16 +69,22 @@ function valid(value: unknown): value is StackOperationRecord {
     Array.isArray(r.projectIds) &&
     r.projectIds.length > 0 &&
     r.projectIds.length <= MAX_NODES &&
-    r.projectIds.every((id) => typeof id === 'string' && id.length > 0 && id.length <= 160) &&
+    r.projectIds.every(
+      (id) => typeof id === 'string' && id.length > 0 && id.length <= 160,
+    ) &&
     (r.action === 'start' || r.action === 'stop' || r.action === 'restart') &&
     typeof r.expectedRevision === 'string' &&
     REVISION.test(r.expectedRevision) &&
     Array.isArray(r.plannedNodeIds) &&
     r.plannedNodeIds.length > 0 &&
     r.plannedNodeIds.length <= MAX_NODES &&
-    r.plannedNodeIds.every((id) => typeof id === 'string' && id.length > 0 && id.length <= 160) &&
+    r.plannedNodeIds.every(
+      (id) => typeof id === 'string' && id.length > 0 && id.length <= 160,
+    ) &&
     new Set(r.plannedNodeIds).size === r.plannedNodeIds.length &&
-    ['running', 'completed', 'blocked', 'failed', 'interrupted'].includes(r.status ?? '') &&
+    ['running', 'completed', 'blocked', 'failed', 'interrupted'].includes(
+      r.status ?? '',
+    ) &&
     Array.isArray(r.steps) &&
     r.steps.length <= MAX_NODES &&
     r.steps.every(
@@ -87,7 +93,9 @@ function valid(value: unknown): value is StackOperationRecord {
         typeof step.nodeId === 'string' &&
         r.plannedNodeIds?.includes(step.nodeId) &&
         typeof step.state === 'string' &&
-        /^(already-ready|already-stopped|started|stopped|retained|blocked|failed|restarted)$/.test(step.state),
+        /^(already-ready|already-stopped|started|stopped|retained|blocked|failed|restarted)$/.test(
+          step.state,
+        ),
     ) &&
     r.steps.every((step, index) => step.nodeId === r.plannedNodeIds?.[index]) &&
     typeof r.startedAt === 'string' &&
@@ -95,7 +103,8 @@ function valid(value: unknown): value is StackOperationRecord {
     typeof r.updatedAt === 'string' &&
     !Number.isNaN(Date.parse(r.updatedAt)) &&
     (r.finishedAt === undefined ||
-      (typeof r.finishedAt === 'string' && !Number.isNaN(Date.parse(r.finishedAt)))) &&
+      (typeof r.finishedAt === 'string' &&
+        !Number.isNaN(Date.parse(r.finishedAt)))) &&
     typeof r.reconciliationRequired === 'boolean'
   );
 }
@@ -111,7 +120,10 @@ export class StackOperationJournal {
   private readonly now: () => Date;
   private readonly live = new Set<string>();
 
-  public constructor(stateDirectory: string, options: { now?: () => Date } = {}) {
+  public constructor(
+    stateDirectory: string,
+    options: { now?: () => Date } = {},
+  ) {
     const root = path.join(stateDirectory, DIRECTORY);
     this.directory = path.join(root, 'jobs');
     this.locks = path.join(root, 'locks');
@@ -131,8 +143,11 @@ export class StackOperationJournal {
       plannedNodeIds.length > MAX_NODES ||
       new Set(plannedNodeIds).size !== plannedNodeIds.length ||
       plannedNodeIds.some((id) => !stack.nodes.some((node) => node.id === id))
-    ) unavailable();
-    const projectIds = [...new Set(stack.nodes.map((node) => node.target.projectId))];
+    )
+      unavailable();
+    const projectIds = [
+      ...new Set(stack.nodes.map((node) => node.target.projectId)),
+    ];
     if (projectIds.length === 0) unavailable();
     const id = randomUUID();
     const now = this.now().toISOString();
@@ -175,15 +190,22 @@ export class StackOperationJournal {
     if (result.stackId !== previous.stackId) unavailable();
     const steps =
       'steps' in result
-        ? result.steps.map((step) => ({ nodeId: step.nodeId, state: step.state }))
+        ? result.steps.map((step) => ({
+            nodeId: step.nodeId,
+            state: step.state,
+          }))
         : [{ nodeId: result.nodeId, state: result.state }];
     if (
       steps.length > previous.plannedNodeIds.length ||
-      steps.some((step, index) => step.nodeId !== previous.plannedNodeIds[index])
-    ) unavailable();
-    const status = result.state === 'restarted' || result.state === 'completed'
-      ? 'completed'
-      : result.state;
+      steps.some(
+        (step, index) => step.nodeId !== previous.plannedNodeIds[index],
+      )
+    )
+      unavailable();
+    const status =
+      result.state === 'restarted' || result.state === 'completed'
+        ? 'completed'
+        : result.state;
     const record: StackOperationRecord = {
       ...previous,
       steps,
@@ -244,9 +266,10 @@ export class StackOperationJournal {
 
   public activityJobs(projectId: string): ActivityJob[] {
     return this.list()
-      .filter((record) =>
-        record.projectIds.includes(projectId) &&
-        (record.status === 'running' || record.reconciliationRequired),
+      .filter(
+        (record) =>
+          record.projectIds.includes(projectId) &&
+          (record.status === 'running' || record.reconciliationRequired),
       )
       .map((record) => ({
         id: 'stack-operation:' + record.id,
@@ -257,7 +280,9 @@ export class StackOperationJournal {
         startedAt: record.startedAt,
         ...(record.finishedAt ? { finishedAt: record.finishedAt } : {}),
         resourceRef: { kind: 'stack-operation', id: record.stackId },
-        stage: record.reconciliationRequired ? 'reconciliation-required' : 'request-in-flight',
+        stage: record.reconciliationRequired
+          ? 'reconciliation-required'
+          : 'request-in-flight',
         stageStartedAt: record.updatedAt,
         timingIncomplete: record.reconciliationRequired,
         cancelSupported: false,
@@ -281,8 +306,11 @@ export class StackOperationJournal {
     }
     if (
       names.length > MAX_OPERATIONS ||
-      names.some((name) => !name.endsWith('.json') || !ID.test(name.slice(0, -5)))
-    ) unavailable();
+      names.some(
+        (name) => !name.endsWith('.json') || !ID.test(name.slice(0, -5)),
+      )
+    )
+      unavailable();
     return names.map((name) => {
       const record = this.get(name.slice(0, -5));
       if (!record) unavailable();
