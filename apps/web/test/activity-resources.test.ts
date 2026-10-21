@@ -44,7 +44,10 @@ describe('Activity resource registry', () => {
   });
   it('routes systemd Activity to project-bound diagnostics with the exact unit', () => {
     const job = makeJob('systemd-user-unit');
-    job.resourceRef = { kind: 'systemd-user-unit', id: 'systemd:user:fixture.service' };
+    job.resourceRef = {
+      kind: 'systemd-user-unit',
+      id: 'systemd:user:fixture.service',
+    };
     const resolved = resolveActivityResource(job);
     expect(resolved.to).toEqual({
       name: 'project-doctor',

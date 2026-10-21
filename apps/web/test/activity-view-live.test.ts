@@ -9,7 +9,9 @@ const routeControl = vi.hoisted(() => ({
 vi.mock('vue-router', async () => {
   const { reactive } = await import('vue');
   const query = reactive({ projectId: '' });
-  routeControl.setProjectId = (id: string) => { query.projectId = id; };
+  routeControl.setProjectId = (id: string) => {
+    query.projectId = id;
+  };
   return {
     useRoute: () => ({ query }),
     RouterLink: { props: ['to'], template: '<a><slot /></a>' },

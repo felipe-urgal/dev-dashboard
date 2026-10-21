@@ -17,12 +17,15 @@ const routeControl = vi.hoisted(() => ({
 vi.mock('vue-router', async () => {
   const { reactive } = await import('vue');
   const query = reactive({ serviceRef: '' });
-  routeControl.setServiceRef = (id: string) => { query.serviceRef = id; };
+  routeControl.setServiceRef = (id: string) => {
+    query.serviceRef = id;
+  };
   return {
     useRoute: () => ({ query }),
     RouterLink: {
       props: ['to'],
-      template: '<a :data-route="to.name" :data-environment="to.query?.environmentInstanceId"><slot /></a>',
+      template:
+        '<a :data-route="to.name" :data-environment="to.query?.environmentInstanceId"><slot /></a>',
     },
   };
 });
@@ -109,8 +112,12 @@ describe('ProjectServiceDiagnosticsPanel', () => {
     await wrapper.get('.service-diagnostics-actions button').trigger('click');
     await flushPromises();
     expect(wrapper.text()).toContain('Provider apenas observável');
-    expect(wrapper.findAll('a').map((link) => link.attributes('data-route'))).not.toContain('project-server');
-    expect(wrapper.findAll('a').map((link) => link.attributes('data-route'))).not.toContain('project-compose');
+    expect(
+      wrapper.findAll('a').map((link) => link.attributes('data-route')),
+    ).not.toContain('project-server');
+    expect(
+      wrapper.findAll('a').map((link) => link.attributes('data-route')),
+    ).not.toContain('project-compose');
     wrapper.unmount();
   });
 
@@ -120,35 +127,55 @@ describe('ProjectServiceDiagnosticsPanel', () => {
       bindings: [{ ...binding(), serviceRef }],
       partial: false,
     });
-    fetchServiceDiagnostics.mockResolvedValue({ ...snapshot, serviceRef, provider: 'compose' });
+    fetchServiceDiagnostics.mockResolvedValue({
+      ...snapshot,
+      serviceRef,
+      provider: 'compose',
+    });
     const wrapper = mount(ProjectServiceDiagnosticsPanel, {
-      props: { projectId: 'loto', environmentInstanceId: 'environment:primary:loto' },
+      props: {
+        projectId: 'loto',
+        environmentInstanceId: 'environment:primary:loto',
+      },
     });
     await flushPromises();
     await wrapper.get('.service-diagnostics-actions button').trigger('click');
     await flushPromises();
-    const providerLink = wrapper.findAll('a').find((link) => link.text().includes('Abrir ferramenta do provider'));
+    const providerLink = wrapper
+      .findAll('a')
+      .find((link) => link.text().includes('Abrir ferramenta do provider'));
     expect(providerLink?.attributes('data-route')).toBe('project-compose');
-    expect(providerLink?.attributes('data-environment')).toBe('environment:primary:loto');
+    expect(providerLink?.attributes('data-environment')).toBe(
+      'environment:primary:loto',
+    );
     wrapper.unmount();
   });
 
   it('updates the selected bound unit when an Activity deep link changes', async () => {
     const second = 'systemd:user:other.service';
     fetchProjectServiceBindings.mockResolvedValue({
-      bindings: [binding(), { ...binding(), id: 'binding2', serviceRef: second }],
+      bindings: [
+        binding(),
+        { ...binding(), id: 'binding2', serviceRef: second },
+      ],
       partial: false,
     });
     routeControl.setServiceRef(second);
-    const wrapper = mount(ProjectServiceDiagnosticsPanel, { props: { projectId: 'loto' } });
+    const wrapper = mount(ProjectServiceDiagnosticsPanel, {
+      props: { projectId: 'loto' },
+    });
     await flushPromises();
-    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe(second);
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe(
+      second,
+    );
     await wrapper.get('.service-diagnostics-actions button').trigger('click');
     await flushPromises();
     expect(wrapper.find('.service-diagnostics-result').exists()).toBe(true);
     routeControl.setServiceRef(host);
     await flushPromises();
-    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe(host);
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe(
+      host,
+    );
     expect(wrapper.find('.service-diagnostics-result').exists()).toBe(false);
     wrapper.unmount();
   });
