@@ -301,8 +301,17 @@ const stackOperationRecordSchema = {
   type: 'object',
   additionalProperties: false,
   required: [
-    'version', 'id', 'stackId', 'projectIds', 'action', 'expectedRevision',
-    'plannedNodeIds', 'status', 'steps', 'startedAt', 'updatedAt',
+    'version',
+    'id',
+    'stackId',
+    'projectIds',
+    'action',
+    'expectedRevision',
+    'plannedNodeIds',
+    'status',
+    'steps',
+    'startedAt',
+    'updatedAt',
     'reconciliationRequired',
   ],
   properties: {
@@ -313,7 +322,10 @@ const stackOperationRecordSchema = {
     action: { type: 'string', enum: ['start', 'stop', 'restart'] },
     expectedRevision: { type: 'string' },
     plannedNodeIds: { type: 'array', items: { type: 'string' } },
-    status: { type: 'string', enum: ['running', 'completed', 'blocked', 'failed', 'interrupted'] },
+    status: {
+      type: 'string',
+      enum: ['running', 'completed', 'blocked', 'failed', 'interrupted'],
+    },
     steps: {
       type: 'array',
       items: {
@@ -658,7 +670,8 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
         });
       }
       return {
-        operations: options.stackOperationJournal?.list(request.params.stackId) ?? [],
+        operations:
+          options.stackOperationJournal?.list(request.params.stackId) ?? [],
       };
     },
   );
