@@ -20,6 +20,14 @@ Do **not** wire this adapter to public routes or buttons until #1117/#1116 imple
 
 Tests in `apps/api/test/systemd-user-lifecycle-service.test.ts` use only fake inventory, lease and command runners. They do not operate on the host systemd or boot configuration. A disposable user-unit Linux integration fixture and end-to-end planner/Activity integration remain outstanding.
 
+## Disposable Linux user-unit fixture (PR #1153)
+
+An opt-in test for a dedicated Linux user session is described in
+`docs/systemd-user-linux-fixture.md`. It creates and operates only a randomly
+named fixture, never existing application/system units. The normal CI skips
+its live case: a separate successful, explicitly enabled Linux run is still
+required before the issue's E2E acceptance criterion can be checked.
+
 ## Prepared coordinator bridge (PR #1150)
 
 The internal `SystemdConfirmedLifecycleRunner` translates the confirmed
