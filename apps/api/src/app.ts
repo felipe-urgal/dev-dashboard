@@ -133,6 +133,8 @@ export interface BuildAppOptions extends AppCompositionOptions {
   sessionSecret?: string;
   browserBootstrapToken?: string;
   sessionTtlSeconds?: number;
+  /** Trusted server injection only. Disabled until recovery review is supported. */
+  stackOperationJournal?: StackOperationJournal;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -161,13 +163,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     createAppContext({
       languageServerLogger: app.log,
     });
-  const stackOperationJournal = new StackOperationJournal(
-    context.processManager.stateDirectory,
-    options.now ? { now: () => new Date(options.now!()) } : {},
-  );
+  // Do not enable operation journaling for real host mutations by default:
+  // a partial request may hold a conservative claim until manual review exists.
+  const stackOperationJournal = options.stackOperationJournal;
   const composition = createAppComposition(context, {
     ...options,
-    stackOperationJobs: stackOperationJournal,
+    ...(stackOperationJournal ? { stackOperationJobs: stackOperationJournal } : {}),
   });
   const dashboardTerminalService = new DashboardTerminalService();
   const stackDefinitionService = new StackDefinitionService({
