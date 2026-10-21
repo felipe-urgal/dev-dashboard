@@ -158,23 +158,38 @@ test(
               if (scope === 'system') return '';
               if (query === 'units') {
                 return systemctl([
-                  'list-units', '--type=service', '--all',
-                  '--no-legend', '--no-pager', '--plain', '--', unit,
+                  'list-units',
+                  '--type=service',
+                  '--all',
+                  '--no-legend',
+                  '--no-pager',
+                  '--plain',
+                  '--',
+                  unit,
                 ]);
               }
               if (query === 'unit-files') {
                 return systemctl([
-                  'list-unit-files', '--type=service',
-                  '--no-legend', '--no-pager', '--plain', '--', unit,
+                  'list-unit-files',
+                  '--type=service',
+                  '--no-legend',
+                  '--no-pager',
+                  '--plain',
+                  '--',
+                  unit,
                 ]);
               }
               if (names?.length !== 1 || names[0] !== unit) {
-                throw new Error('Inventory may inspect only the disposable unit.');
+                throw new Error(
+                  'Inventory may inspect only the disposable unit.',
+                );
               }
               return systemctl([
-                'show', '--no-pager',
+                'show',
+                '--no-pager',
                 '--property=Id,ActiveState,SubState,UnitFileState,FragmentPath,Transient,TriggeredBy',
-                '--', unit,
+                '--',
+                unit,
               ]);
             },
           }),
