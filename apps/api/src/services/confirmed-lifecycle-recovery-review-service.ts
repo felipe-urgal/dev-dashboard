@@ -1,5 +1,8 @@
 import type { ActivityEventRepository } from '@dev-dashboard/core';
-import { isSystemdUserJob, systemdUserPhysicalLeaseKey } from './confirmed-lifecycle-systemd-evidence.js';
+import {
+  isSystemdUserJob,
+  systemdUserPhysicalLeaseKey,
+} from './confirmed-lifecycle-systemd-evidence.js';
 
 import type {
   ConfirmedLifecycleReconciliationService,
