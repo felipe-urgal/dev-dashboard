@@ -701,7 +701,10 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
             type: 'object',
             additionalProperties: false,
             required: ['result'],
-            properties: { result: stackStartResultSchema },
+            properties: {
+              result: stackStartResultSchema,
+              operationId: { type: 'string' },
+            },
           },
           ...commonErrorResponseSchemas,
         },
@@ -709,12 +712,16 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) => {
       try {
-        return {
-          result: await options.stackStartService.start(
-            request.params.stackId,
-            request.body.expectedRevision,
-          ),
-        };
+        return await recordedOperation(
+          request.params.stackId,
+          'start',
+          request.body.expectedRevision,
+          () =>
+            options.stackStartService.start(
+              request.params.stackId,
+              request.body.expectedRevision,
+            ),
+        );
       } catch (error) {
         throw mapStackError(error);
       }
@@ -732,7 +739,10 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
             type: 'object',
             additionalProperties: false,
             required: ['result'],
-            properties: { result: stackStopResultSchema },
+            properties: {
+              result: stackStopResultSchema,
+              operationId: { type: 'string' },
+            },
           },
           ...commonErrorResponseSchemas,
         },
@@ -740,12 +750,16 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) => {
       try {
-        return {
-          result: await options.stackStopService.stop(
-            request.params.stackId,
-            request.body.expectedRevision,
-          ),
-        };
+        return await recordedOperation(
+          request.params.stackId,
+          'stop',
+          request.body.expectedRevision,
+          () =>
+            options.stackStopService.stop(
+              request.params.stackId,
+              request.body.expectedRevision,
+            ),
+        );
       } catch (error) {
         throw mapStackError(error);
       }
@@ -766,7 +780,10 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
             type: 'object',
             additionalProperties: false,
             required: ['result'],
-            properties: { result: stackRestartResultSchema },
+            properties: {
+              result: stackRestartResultSchema,
+              operationId: { type: 'string' },
+            },
           },
           ...commonErrorResponseSchemas,
         },
@@ -774,13 +791,18 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) => {
       try {
-        return {
-          result: await options.stackRestartService.restart(
-            request.params.stackId,
-            request.params.nodeId,
-            request.body.expectedRevision,
-          ),
-        };
+        return await recordedOperation(
+          request.params.stackId,
+          'restart',
+          request.body.expectedRevision,
+          () =>
+            options.stackRestartService.restart(
+              request.params.stackId,
+              request.params.nodeId,
+              request.body.expectedRevision,
+            ),
+          request.params.nodeId,
+        );
       } catch (error) {
         throw mapStackError(error);
       }
