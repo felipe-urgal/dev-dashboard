@@ -9,8 +9,6 @@ import type {
 
 import { ApiError } from '../http/api-error.js';
 import { primaryEnvironmentInstanceId } from '../store/development-environment-instance-store.js';
-import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
-import type { ProjectStore } from '../store/project-store.js';
 import type { ProjectServiceBindingStore } from '../store/project-service-binding-store.js';
 import type { SystemdServiceInventory } from './systemd-service-inventory.js';
 import type { SystemdUserLifecycleGrantPolicy } from './systemd-user-lifecycle-authorization.js';
@@ -20,8 +18,13 @@ const SAFE_USER_REF =
   /^systemd:user:[A-Za-z0-9][A-Za-z0-9_.@:-]{0,190}\.service$/;
 
 type Dependencies = {
-  projects: Pick<ProjectStore, 'findProject'>;
-  environments: Pick<DevelopmentEnvironmentInstanceStore, 'findById'>;
+  projects: { findProject(id: string): { id: string } | null | undefined };
+  environments: {
+    findById(id: string):
+      | { projectId: string; runtime: { kind: string } }
+      | null
+      | undefined;
+  };
   bindings: Pick<
     ProjectServiceBindingStore,
     'byProject' | 'byResource' | 'revision'
