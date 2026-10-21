@@ -716,6 +716,34 @@ test('logs são bounded, mascarados e limitados ao target owned', async () => {
   ]);
 });
 
+test('logs Compose do not reveal long assignment suffixes after byte bounding', async () => {
+  const secret = 'private-value-sequence'.repeat(9_000);
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => before },
+    { inspect: async () => ready },
+    async () => 'DATABASE_PASSWORD=' + secret + '\nnext line 😀\n',
+    {
+      ownershipStore: {
+        get: async () => ({
+          projectId: project.id,
+          projectPath: project.path,
+          composeProjectName: 'project',
+          startedAt: '2026-09-06T17:00:00.000Z',
+        }),
+        claim: async () => {
+          throw new Error('should not claim ownership');
+        },
+        release: async () => false,
+      },
+    },
+  );
+  const logs = await service.logs(project, { service: 'web' });
+  assert.equal(logs.masked, true);
+  assert.doesNotMatch(logs.content, /private-value-sequence/);
+  assert.match(logs.content, /next line 😀/u);
+  assert.ok(Buffer.byteLength(logs.content, 'utf8') <= 128 * 1024);
+});
+
 test('runtime vazio não vira stop verificado', async () => {
   const commands: Array<{ program: 'docker'; args: string[] }> = [];
   const emptyAfter: DockerComposeInspection = {
