@@ -26,6 +26,12 @@ No painel de Diagnóstico, `Verificar dependências` solicita **sob demanda** o 
 - `observedAt` é o horário da **verificação do plano**, não um relógio de execução nem promessa de que a observação individual permanece atual. `expiresAt` e a instrução para revalidar ficam visíveis. Não existe polling automático; uma falha de planejamento exibe indisponibilidade sem substituir a evidência dos logs por sucesso nem expor erro interno.
 - A prévia não substitui histórico de steps de Jobs nem expõe duração de execução. Progresso de execução real e causalidade entre eventos `blocked/retained/failed` dependem da integração futura do lifecycle multi-node (#1116/#1117).
 
+## Correlação read-only de Jobs de lifecycle
+
+No coordenador Compose interno, steps `completed|failed|unverified` já registrados no journal são vinculados ao mesmo `compose-confirmed:<uuid>` em Activity, com `resourceRef` distinto para cada node. O writer só aceita o último step persistido ainda verificável; após o fim do Job nenhum replay gera novos eventos. Um Job Compose `partial` que exige reconciliação continua visível no Activity/Jobs como falha observacional, sem cancelamento, reattach mutável ou autorização de recuperação. O Diagnóstico por serviço reutiliza esses eventos por `resourceRef`.
+
+Um node `blocked` ou `retained` na prévia read-only não representa uma mutação executada e **não** é registrado como step de Job. O resumo de bloqueios do plano continua no painel de prontidão; lifecycle público multi-node e estados futuros ainda dependem de owners/locks verificados.
+
 ## Matriz de permissão
 
 | Recurso | Observação | Logs | Mutação |

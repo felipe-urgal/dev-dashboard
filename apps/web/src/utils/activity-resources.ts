@@ -75,6 +75,15 @@ const registry: Record<string, ResourceHandler> = {
     label: 'Abrir Compose',
     route: (item) => toolRoute('compose', item),
   },
+  // Durable lifecycle Job IDs are not provider execution authority.
+  'docker-compose-lifecycle': {
+    label: 'Abrir Compose',
+    route: (item) => toolRoute('compose', item),
+  },
+  'systemd-user-lifecycle': {
+    label: 'Ver diagnóstico dos serviços',
+    route: (item) => toolRoute('doctor', item),
+  },
   // Confirmed lifecycle steps use the canonical compose-service resource kind.
   'compose-service': {
     label: 'Abrir Compose',

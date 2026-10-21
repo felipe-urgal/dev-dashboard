@@ -200,7 +200,7 @@ export class ConfirmedServiceLifecycleCoordinator {
             };
             if (jobId) this.dependencies.jobs?.step(jobId, failure);
             steps.push(failure);
-            await this.record(request, failure);
+            await this.record(request, failure, jobId);
             return interrupted(
               steps,
               'Lifecycle owner failed; recovery may be required.',
@@ -236,7 +236,7 @@ export class ConfirmedServiceLifecycleCoordinator {
           };
           if (jobId) this.dependencies.jobs?.step(jobId, step);
           steps.push(step);
-          await this.record(request, step);
+          await this.record(request, step, jobId);
           if (!verified) {
             return interrupted(
               steps,
@@ -318,9 +318,10 @@ export class ConfirmedServiceLifecycleCoordinator {
   private async record(
     request: ConfirmedLifecycleRequest,
     step: ConfirmedLifecycleStep,
+    jobId?: string,
   ): Promise<void> {
     try {
-      await this.dependencies.events?.append(step, request);
+      await this.dependencies.events?.append(step, request, jobId);
     } catch {
       // Observability failures must not turn a completed operation into
       // a retry that would mutate the same service twice.
