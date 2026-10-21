@@ -118,6 +118,15 @@ Instance e processo usam o detalhe neutro do projeto: a definição da Stack nã
 o runtime da Environment Instance nem o `ManagedProcess.kind`, portanto a UI não
 infere Sidekiq/Webpack/Testes/Servidor a partir de ids ou nomes.
 
+## Resultado de operação por node (UI)
+
+A resposta já existente de `POST Start/Stop/Restart` inclui `state`, os `steps` efetivamente processados (ou `nodeId` em Restart), `diagnostic` e um `StackCheck` ao término. A página de Stacks agora mantém **por Stack** o resultado da última operação retornada e o exibe separadamente do Check de saúde observado.
+
+- `started/stopped/restarted` representam resultados retornados pelos owners existentes; `already-ready/already-stopped` não executam nova mutação; `retained` significa que o node não foi encerrado; `blocked` não significa que a operação foi executada; `failed` é falha reportada no passo, sem afirmar rollback.
+- Apenas nodes presentes em `result.steps` (ou o target do Restart) são exibidos como resultados; os demais **não** ganham um evento de sucesso/falha presumido.
+- Resultados são descartados antes de uma nova tentativa na mesma Stack e quando a revisão da definição muda; outras Stacks conservam seus resultados independentes. Nada é persistido no browser/servidor e nenhuma consulta adicional, polling ou comando é introduzido.
+- Esta é uma evidência do **retorno daquela solicitação**, não um plano executável, cronologia durável ou atualização em tempo real. A leitura agregada de logs e o Check existentes continuam separados; Jobs reanexáveis do lifecycle multi-node ainda não são fornecidos pela orquestração de Stacks.
+
 ## Logs agregados
 
 `GET /api/stacks/:stackId/logs` oferece uma leitura bounded dos logs dos nodes sem
