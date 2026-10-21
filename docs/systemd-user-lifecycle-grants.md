@@ -53,3 +53,8 @@ future execution prerequisite, **not** permission to skip coordinator
 journaling, grant revocation checks under the physical locks or proof of
 recovery after interruption. Unit tests use fake plans and a real temporary
 durable Job journal; no systemctl command is run.
+
+**Execution boundary:** the durable Job check is intentionally repeated by the
+future authorizer on every preflight, including the adapter's final read-through
+check under both unit leases. The coordinator must never reuse a completed,
+reconciled or cross-project Job as permission for another command.
