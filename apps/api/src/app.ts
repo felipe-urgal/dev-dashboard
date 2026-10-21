@@ -497,7 +497,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   app.register(stackRoutes, {
     prefix: '/api',
-    stackOperationJournal,
+    ...(stackOperationJournal ? { stackOperationJournal } : {}),
     stackDefinitionService,
     stackDependencyDiscoveryService,
     stackCheckService,
