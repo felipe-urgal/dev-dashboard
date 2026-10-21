@@ -211,6 +211,52 @@ test('unknown/partial user observation fails closed and masks errors', async () 
   );
 });
 
+test('stale or future inventory/service evidence cannot grant a capability', async () => {
+  const previous = new Date(NOW.getTime() - 60_000).toISOString();
+  const future = new Date(NOW.getTime() + 60_000).toISOString();
+  for (const inventory of [
+    { ...observation(), observedAt: previous },
+    { ...observation(), observedAt: future },
+    {
+      ...observation(),
+      services: [{ ...observation().services[0]!, observedAt: previous }],
+    },
+  ]) {
+    const f = setup({ inventory, grant: true });
+    const result = await f.service.inspect(PROJECT);
+    assert.equal(result.services[0]?.start.status, 'unknown');
+    assert.equal(f.grantCalls, 0);
+    assert.equal(result.services[0]?.executable, false);
+  }
+});
+
+test('grant policy errors become safe diagnostics, not raw provider exceptions', async () => {
+  const f = setup();
+  // The policy itself catches ordinary file errors; this fixture exercises
+  // the capability service boundary when an injected reader fails.
+  const faulty = new SystemdLifecycleCapabilitiesService(
+    {
+      projects: { findProject: () => ({ id: PROJECT }) },
+      environments: { findById: () => ({
+        projectId: PROJECT,
+        runtime: { kind: 'host' as const },
+      }) },
+      bindings: {
+        byProject: () => [binding()],
+        byResource: () => [binding()],
+        revision: () => REV,
+      },
+      inventory: { inspect: async () => observation() },
+      grants: { find: () => { throw Error('secret /home/private'); } },
+    },
+    { platform: 'linux', now: () => NOW },
+  );
+  const result = await faulty.inspect(PROJECT);
+  assert.equal(result.services[0]?.start.status, 'unknown');
+  assert.doesNotMatch(JSON.stringify(result), /secret|private/);
+  assert.equal((await f.service.inspect(PROJECT)).services[0]?.executable, false);
+});
+
 test('masked, transient, altered identity and self unit are unsupported', async () => {
   for (const inventory of [
     {
