@@ -232,7 +232,9 @@ function providerRoute(provider: string) {
           :to="providerRoute(snapshot.provider)!"
           >Abrir ferramenta do provider</RouterLink
         >
-        <span v-else>Provider apenas observável; controle não disponível nesta tela.</span>
+        <span v-else
+          >Provider apenas observável; controle não disponível nesta tela.</span
+        >
         <RouterLink :to="{ name: 'activity', query: { projectId } }"
           >Ver Activity e Jobs</RouterLink
         >

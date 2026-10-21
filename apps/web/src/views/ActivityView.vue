@@ -276,7 +276,10 @@ onBeforeUnmount(() => {
           <strong>{{ jobs.length }}</strong>
         </div>
 
-        <div v-if="(snapshot?.jobs.length ?? 0) > 5 || jobsProjectFilter" class="activity-filters">
+        <div
+          v-if="(snapshot?.jobs.length ?? 0) > 5 || jobsProjectFilter"
+          class="activity-filters"
+        >
           <label
             >Projeto
             <select v-model="jobsProjectFilter">
