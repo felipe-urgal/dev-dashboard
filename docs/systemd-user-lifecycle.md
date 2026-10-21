@@ -44,6 +44,17 @@ current planner never emits a supported systemd node, the coordinator remains
 Compose-only and the user-unit authorizer requires a separately executable
 plan. The new bridge cannot start or stop real units in this application.
 
+## Durable single-unit confirmed coordinator (PR #1156)
+
+A separate, internal `SystemdConfirmedLifecycleCoordinator` now persists
+`begin` and `beforeStep` before dispatch through the existing user-unit owner,
+and records the sanitized Activity outcome before finishing the Job. Tests
+cover successful Start/Stop, owner failure, unavailable post-command observation,
+Activity outage, conflicting leases and orphaned intent. The implementation
+is not registered in the API, and the production planner still emits
+`executable:false`. For full restrictions and sequence see
+`docs/systemd-confirmed-lifecycle-bridge.md`.
+
 ## Dedicated CI fixture gate
 
 A pull request named with `[systemd-fixture]` enables a separate
