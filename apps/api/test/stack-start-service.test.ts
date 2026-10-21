@@ -175,7 +175,10 @@ test('halts before the next Compose node when the Stack definition changes after
   assert.deepEqual(started, ['postgres']);
   assert.deepEqual(
     result.steps.map((step) => [step.nodeId, step.state]),
-    [['postgres', 'started'], ['api', 'blocked']],
+    [
+      ['postgres', 'started'],
+      ['api', 'blocked'],
+    ],
   );
   assert.match(result.steps[1]?.diagnostic ?? '', /definition changed/);
   assert.match(result.steps[1]?.diagnostic ?? '', /not rolled back/);

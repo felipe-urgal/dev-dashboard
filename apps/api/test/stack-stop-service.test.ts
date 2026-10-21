@@ -211,7 +211,10 @@ test('preserves completed process stop and blocks Compose stop after topology dr
   assert.equal(composeStopCalls, 0);
   assert.deepEqual(
     result.steps.map((step) => [step.nodeId, step.state]),
-    [['api-server', 'stopped'], ['postgres', 'blocked']],
+    [
+      ['api-server', 'stopped'],
+      ['postgres', 'blocked'],
+    ],
   );
   assert.match(result.steps[1]?.diagnostic ?? '', /definition changed/);
   assert.match(result.steps[1]?.diagnostic ?? '', /not rolled back/);
