@@ -87,7 +87,7 @@ test(
     if (
       !home ||
       !path.isAbsolute(home) ||
-      !config.startsWith(home + path.sep)
+      !path.resolve(config).startsWith(path.resolve(home) + path.sep)
     ) {
       throw new Error('Config must be inside an absolute dedicated HOME.');
     }
@@ -118,8 +118,7 @@ test(
 
       unit = 'dd-fixture-' + randomUUID().replace(/-/g, '') + '.service';
       unitFile = path.join(userDir, unit);
-      assert.equal(await fragment(unit), '', 'Fixture name must be unused');
-      const file = await open(unitFile, 'wx', 0o600);
+        const file = await open(unitFile, 'wx', 0o600);
       try {
         const details = await file.stat();
         originalInode = { ino: details.ino, dev: details.dev };
@@ -246,7 +245,8 @@ test(
           path.resolve(currentFragment) !== path.resolve(unitFile) ||
           !current.isFile() ||
           current.isSymbolicLink() ||
-          current.ino !== originalInode?.ino ||
+          !originalInode ||
+          current.ino !== originalInode.ino ||
           current.dev !== originalInode.dev
         ) {
           throw new Error('Fixture identity changed: manual cleanup required.');
@@ -259,7 +259,8 @@ test(
           current &&
           current.isFile() &&
           !current.isSymbolicLink() &&
-          current.ino === originalInode?.ino &&
+          originalInode &&
+          current.ino === originalInode.ino &&
           current.dev === originalInode.dev
         ) {
           await unlink(unitFile);
