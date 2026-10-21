@@ -9,10 +9,13 @@ Run:
 
     DD_SYSTEMD_USER_FIXTURE_E2E=1 npm run test:systemd-user-fixture --workspace=@dev-dashboard/api
 
-Normal npm test, npm run check and GitHub CI **skip the real systemd case**.
+Normal npm test and npm run check **skip the real systemd case**. A separate
+CI job, **Disposable Systemd User Fixture**, runs only for pull requests whose
+title explicitly contains `[systemd-fixture]`, using an ephemeral GitHub Linux
+runner and a newly created disposable local user.
 An opt-in run fails rather than skipping when the user manager is unavailable.
-Only record the issue's Linux integration E2E checkbox as complete after a
-separately verified successful opt-in run, not after ordinary CI passes.
+Only check the issue's Linux fixture E2E requirement after the opt-in job
+successfully runs all real transitions (never from the three normal jobs).
 
 The test creates exactly one random dd-fixture-UUID.service file in the
 test account's systemd user unit directory, with a fixed /usr/bin/sleep
@@ -49,3 +52,22 @@ run. This fixture does not test the persisted operator policy, the
 HTTP confirmation path, full Activity/Jobs recovery, or system scope.
 The planner still returns executable:false and no systemd mutation endpoint
 is exposed.
+
+## Dedicated GitHub Actions qualification
+
+The opt-in job uses `scripts/qualify-systemd-user-fixture.sh` and refuses
+non-Linux runners or a host without systemd PID 1. It creates a random
+non-root test account with `useradd`, starts only that account's user
+manager with `loginctl enable-linger`, and checks its own DBus socket.
+The Node fixture runs without elevated privileges, with a minimal,
+explicitly scoped environment. The wrapper uses an EXIT trap to disable
+lingering, terminate only the newly created test user and remove that
+account. Its entire GitHub runner VM is ephemeral.
+
+Because `loginctl` setup requires sudo and mutates local login-manager
+state for this **new disposable account**, it is intentionally not part
+of standard CI and must not run on operator machines. Test commands
+themselves remain `systemctl --user` against only the random unit.
+The job fails if user sessions cannot be created or the test fails;
+there is no skip or acceptance-by-mock. No runner account is granted
+a production systemd lifecycle permission.
