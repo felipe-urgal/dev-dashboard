@@ -48,7 +48,7 @@ plan. The new bridge cannot start or stop real units in this application.
 
 A pull request named with `[systemd-fixture]` enables a separate
 `Disposable Systemd User Fixture` job that runs the opt-in integration test
-under a new, non-root user on an ephemeral Linux runner. The three normal
+as the existing non-root runner user of a dedicated ephemeral Linux VM. The three normal
 jobs still skip that test; details and isolation limits are documented in
 `docs/systemd-user-linux-fixture.md`. A successful run proves the fixture
 only, not the application approval/Activity/Jobs recovery path.
