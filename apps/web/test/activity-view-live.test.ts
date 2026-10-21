@@ -3,6 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActivitySnapshot } from '@dev-dashboard/contracts';
 
 const fetchActivity = vi.hoisted(() => vi.fn());
+const routeControl = vi.hoisted(() => ({
+  setProjectId: (_id: string) => {},
+}));
+vi.mock('vue-router', async () => {
+  const { reactive } = await import('vue');
+  const query = reactive({ projectId: '' });
+  routeControl.setProjectId = (id: string) => { query.projectId = id; };
+  return { useRoute: () => ({ query }) };
+});
 vi.mock('../src/api/activity', () => ({ fetchActivity }));
 vi.mock('../src/stores/dashboard', async () => {
   const { computed } = await import('vue');
@@ -58,6 +67,7 @@ describe('Activity live snapshot', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     fetchActivity.mockReset();
+    routeControl.setProjectId('');
   });
   afterEach(() => {
     delete (document as unknown as Record<string, unknown>).visibilityState;
@@ -122,6 +132,38 @@ describe('Activity live snapshot', () => {
     await flushPromises();
     expect(fetchActivity).toHaveBeenCalledTimes(2);
     expect(vi.getTimerCount()).toBe(1);
+    wrapper.unmount();
+  });
+
+  it('honors project deep links for jobs and events and updates on route changes', async () => {
+    const mixed = snapshot(true);
+    mixed.jobs.push({ ...mixed.jobs[0]!, id: 'job-p2', projectId: 'p2' });
+    mixed.events.push({
+      ...mixed.events[0]!,
+      id: 'event-p2',
+      projectId: 'p2',
+      summary: 'Evento de outro projeto',
+    });
+    fetchActivity.mockResolvedValue(mixed);
+    routeControl.setProjectId('p1');
+    const wrapper = mountView();
+    await flushPromises();
+    expect(wrapper.findAll('.activity-job-card')).toHaveLength(1);
+    expect(wrapper.findAll('.activity-event-list li')).toHaveLength(1);
+    expect(wrapper.text()).not.toContain('Evento de outro projeto');
+    expect(fetchActivity).toHaveBeenCalledTimes(1);
+
+    routeControl.setProjectId('p2');
+    await flushPromises();
+    expect(wrapper.findAll('.activity-job-card')).toHaveLength(1);
+    expect(wrapper.text()).toContain('Evento de outro projeto');
+    expect(wrapper.text()).not.toContain('Mudança registrada');
+    expect(fetchActivity).toHaveBeenCalledTimes(1);
+
+    routeControl.setProjectId('');
+    await flushPromises();
+    expect(wrapper.findAll('.activity-job-card')).toHaveLength(2);
+    expect(wrapper.findAll('.activity-event-list li')).toHaveLength(2);
     wrapper.unmount();
   });
 
