@@ -153,6 +153,10 @@ type BindingSnapshot = Pick<
   | 'enabled'
 >;
 
+type ConfirmablePlan = Omit<ServiceLifecyclePlan, 'executable'> & {
+  executable: boolean;
+};
+
 interface Dependencies {
   policy: Pick<SystemdUserLifecycleGrantPolicy, 'find'>;
   projects: { findProject(id: string): { id: string } | null | undefined };
@@ -172,18 +176,7 @@ interface Dependencies {
       action: 'start' | 'stop',
       environmentInstanceId?: string,
       expectedPlanHash?: string,
-    ): Promise<
-      Pick<
-        ServiceLifecyclePlan,
-        | 'target'
-        | 'action'
-        | 'status'
-        | 'expectedRevision'
-        | 'planHash'
-        | 'executable'
-        | 'nodes'
-      >
-    >;
+    ): Promise<ConfirmablePlan>;
   };
 }
 
