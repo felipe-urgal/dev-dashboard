@@ -98,3 +98,19 @@ must resolve provenance server-side before enabling mutation.
 
 The coordinator is not registered in `app.ts`, and production plans still
 return `executable:false`. This is not approval to mutate units.
+
+## Post-dispatch drift verification (#1117)
+
+After a hypothetical future confirmed user-unit command, the coordinator
+reobserves **the same project, environment, action, binding revision, single
+unit and dependency-free topology** before reporting a completed step.
+A runtime transition necessarily changes the preview's plan hash; the
+post-dispatch hash is therefore **not** compared to the accepted pre-dispatch
+hash. The immutable binding revision and resource identity are compared.
+
+If the binding revision, target, action, node order, consumer exclusivity or
+dependencies drift after dispatch, the Job is recorded as **partial/unverified**
+and requires manual reconciliation. Repeating the confirmation never replays
+the provider command. This check is not a general fencing guarantee against
+external tools or another state root; production remains non-executable and
+system scope remains read-only.
