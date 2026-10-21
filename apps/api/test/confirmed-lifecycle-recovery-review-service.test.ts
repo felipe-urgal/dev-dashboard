@@ -36,7 +36,7 @@ const report: LifecycleReconciliationReport = {
   diagnostics: [],
 };
 
-function harness() {
+function harness(systemdRef?: string) {
   const events: AppendActivityEventInput[] = [];
   const inspected: string[][] = [];
   let broken = false;
@@ -47,7 +47,13 @@ function harness() {
           if (project !== 'loto' || job !== JOB) {
             throw new Error('Lifecycle job not found for project.');
           }
-          return report;
+          return systemdRef
+            ? {
+                ...report,
+                inFlightRef: systemdRef,
+                nodes: report.nodes.map((node) => ({ ...node, serviceRef: systemdRef })),
+              }
+            : report;
         },
       },
       leases: {
@@ -130,5 +136,38 @@ test('lease observer errors fail closed without exposing host paths', async () =
   assert.equal(evidence.leases.length, 3);
   assert.ok(evidence.leases.every((lease) => lease.status === 'unverifiable'));
   assert.equal(evidence.safeToRetry, false);
+  assert.doesNotMatch(JSON.stringify(evidence), /Host FS secret path/);
+});
+
+test('systemd user recovery checks the actual adapter lease, not only coordinator resource', async () => {
+  const ref = 'systemd:user:fixture-worker.service';
+  const x = harness(ref);
+  const evidence = await x.service.inspect('loto', JOB);
+  assert.equal(evidence.safeToRetry, false);
+  assert.equal(evidence.leaseReleaseAuthorized, false);
+  assert.equal(evidence.manualReviewRequired, true);
+  assert.deepEqual(x.inspected[0], [
+    'environment:loto:environment:primary:loto',
+    'resource:' + ref,
+    ref,
+  ]);
+  assert.equal(evidence.leases.length, 3);
+  assert.equal(evidence.leases[2]?.resourceKey, ref);
+  await x.service.recordReview('loto', JOB);
+  assert.equal(x.events[0]?.domain, 'security');
+  assert.equal(x.events[0]?.type, 'systemd.user.lifecycle-recovery-reviewed');
+  assert.equal(x.events[0]?.jobId, 'systemd-user-confirmed:' + JOB);
+  assert.equal(x.events[0]?.resourceRef?.kind, 'systemd-user-lifecycle');
+  assert.equal(x.events[0]?.status, 'warning');
+});
+
+test('missing systemd lease reader never authorizes recovery and leaks no paths', async () => {
+  const x = harness('systemd:user:fixture-worker.service');
+  x.failLeases();
+  const evidence = await x.service.inspect('loto', JOB);
+  assert.equal(evidence.leases.length, 3);
+  assert.ok(evidence.leases.every((lease) => lease.status === 'unverifiable'));
+  assert.equal(evidence.safeToRetry, false);
+  assert.equal(evidence.leaseReleaseAuthorized, false);
   assert.doesNotMatch(JSON.stringify(evidence), /Host FS secret path/);
 });
