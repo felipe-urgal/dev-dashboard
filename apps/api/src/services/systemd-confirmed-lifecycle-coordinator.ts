@@ -33,7 +33,10 @@ interface Dependencies {
   runner: Pick<SystemdConfirmedLifecycleRunner, 'run'>;
   locks: Pick<ServiceResourceOperationLock, 'withResources'>;
   /** Durable intent is mandatory, not optional like in legacy Compose fixtures. */
-  jobs: Pick<ConfirmedLifecycleJobJournal, 'begin' | 'beforeStep' | 'step' | 'finish'>;
+  jobs: Pick<
+    ConfirmedLifecycleJobJournal,
+    'begin' | 'beforeStep' | 'step' | 'finish'
+  >;
   events: ConfirmedLifecycleStepWriter;
 }
 
@@ -85,9 +88,11 @@ function approved(
     node.dependencies.length !== 0 ||
     node.readiness !== 'unknown' ||
     node.state !== (request.action === 'start' ? 'stopped' : 'running') ||
-    node.disposition !== (request.action === 'start' ? 'willStart' : 'willStop') ||
+    node.disposition !==
+      (request.action === 'start' ? 'willStart' : 'willStop') ||
     node.systemdCapability?.status !== 'supported'
-  ) deny();
+  )
+    deny();
   return node;
 }
 
@@ -109,7 +114,9 @@ export class SystemdConfirmedLifecycleCoordinator {
     this.now = options.now ?? (() => new Date());
   }
 
-  public async run(request: ConfirmedLifecycleRequest): Promise<ConfirmedLifecycleResult> {
+  public async run(
+    request: ConfirmedLifecycleRequest,
+  ): Promise<ConfirmedLifecycleResult> {
     if (
       !request.projectId ||
       !request.environmentInstanceId ||
@@ -117,7 +124,8 @@ export class SystemdConfirmedLifecycleCoordinator {
       !HASH.test(request.expectedRevision) ||
       !HASH.test(request.expectedPlanHash) ||
       !fresh(request.acceptedObservedAt, this.now().getTime())
-    ) deny();
+    )
+      deny();
 
     const initial = await this.preview(request, request.expectedPlanHash);
     const node = approved(initial, request, this.now().getTime(), true);
@@ -131,7 +139,8 @@ export class SystemdConfirmedLifecycleCoordinator {
       if (
         JSON.stringify(lockedNode) !== JSON.stringify(node) ||
         locked.observedAt !== initial.observedAt
-      ) deny();
+      )
+        deny();
       await lease.assertOwned();
 
       // Durable intent and in-flight marker MUST precede owner dispatch.
@@ -152,7 +161,8 @@ export class SystemdConfirmedLifecycleCoordinator {
         );
         if (
           after.target.projectId === request.projectId &&
-          after.target.environmentInstanceId === request.environmentInstanceId &&
+          after.target.environmentInstanceId ===
+            request.environmentInstanceId &&
           after.nodes.length === 1 &&
           matching.length === 1 &&
           fresh(after.observedAt, this.now().getTime()) &&
@@ -162,7 +172,8 @@ export class SystemdConfirmedLifecycleCoordinator {
           matching[0].readiness === 'unknown' &&
           matching[0].state ===
             (request.action === 'start' ? 'running' : 'stopped')
-        ) state = 'completed';
+        )
+          state = 'completed';
       } catch {
         // The unit might have changed before an error. Never replay.
         // Raw command/DBus/grant messages are not exposed or persisted.
@@ -175,7 +186,9 @@ export class SystemdConfirmedLifecycleCoordinator {
         state,
         ...(state === 'completed'
           ? {}
-          : { diagnostic: 'Lifecycle outcome requires manual reconciliation.' }),
+          : {
+              diagnostic: 'Lifecycle outcome requires manual reconciliation.',
+            }),
       };
       // Write the result into the durable Job BEFORE writing Activity.
       // A failed journal update leaves an orphaned invoking record, not retry.
@@ -194,7 +207,10 @@ export class SystemdConfirmedLifecycleCoordinator {
         steps: [step],
         ...(state === 'completed'
           ? {}
-          : { diagnostic: 'Systemd operation needs independent recovery review.' }),
+          : {
+              diagnostic:
+                'Systemd operation needs independent recovery review.',
+            }),
       };
       this.d.jobs.finish(id, result);
       return result;
