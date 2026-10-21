@@ -20,10 +20,9 @@ const SAFE_USER_REF =
 type Dependencies = {
   projects: { findProject(id: string): { id: string } | null | undefined };
   environments: {
-    findById(id: string):
-      | { projectId: string; runtime: { kind: string } }
-      | null
-      | undefined;
+    findById(
+      id: string,
+    ): { projectId: string; runtime: { kind: string } } | null | undefined;
   };
   bindings: Pick<
     ProjectServiceBindingStore,
@@ -64,9 +63,11 @@ function safeUserRef(ref: string): boolean {
 
 function fresh(iso: string, nowMs: number): boolean {
   const observedAt = Date.parse(iso);
-  return Number.isFinite(observedAt) &&
+  return (
+    Number.isFinite(observedAt) &&
     observedAt <= nowMs &&
-    nowMs - observedAt <= MAX_OBSERVATION_AGE_MS;
+    nowMs - observedAt <= MAX_OBSERVATION_AGE_MS
+  );
 }
 
 function verifiedObservation(
@@ -252,7 +253,11 @@ export class SystemdLifecycleCapabilitiesService {
       both(unsupported('Service has another consumer or ambiguous ownership.'));
       return view;
     }
-    if (!userComplete || !observation || !fresh(observation.observedAt, readAtMs)) {
+    if (
+      !userComplete ||
+      !observation ||
+      !fresh(observation.observedAt, readAtMs)
+    ) {
       both(unknown('Systemd user observation is incomplete or stale.'));
       return view;
     }

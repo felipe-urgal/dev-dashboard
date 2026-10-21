@@ -237,24 +237,33 @@ test('grant policy errors become safe diagnostics, not raw provider exceptions',
   const faulty = new SystemdLifecycleCapabilitiesService(
     {
       projects: { findProject: () => ({ id: PROJECT }) },
-      environments: { findById: () => ({
-        projectId: PROJECT,
-        runtime: { kind: 'host' as const },
-      }) },
+      environments: {
+        findById: () => ({
+          projectId: PROJECT,
+          runtime: { kind: 'host' as const },
+        }),
+      },
       bindings: {
         byProject: () => [binding()],
         byResource: () => [binding()],
         revision: () => REV,
       },
       inventory: { inspect: async () => observation() },
-      grants: { find: () => { throw Error('secret /home/private'); } },
+      grants: {
+        find: () => {
+          throw Error('secret /home/private');
+        },
+      },
     },
     { platform: 'linux', now: () => NOW },
   );
   const result = await faulty.inspect(PROJECT);
   assert.equal(result.services[0]?.start.status, 'unknown');
   assert.doesNotMatch(JSON.stringify(result), /secret|private/);
-  assert.equal((await f.service.inspect(PROJECT)).services[0]?.executable, false);
+  assert.equal(
+    (await f.service.inspect(PROJECT)).services[0]?.executable,
+    false,
+  );
 });
 
 test('masked, transient, altered identity and self unit are unsupported', async () => {
