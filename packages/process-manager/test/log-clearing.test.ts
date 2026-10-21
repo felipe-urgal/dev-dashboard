@@ -115,6 +115,49 @@ test('clears the persisted log and only shows subsequent output', async (context
   assert.equal(newContent.includes('before-clear'), false);
 });
 
+test('omits incomplete tail lines instead of exposing a secret value suffix', async (context) => {
+  const fixture = await createFixture();
+  context.after(async () => {
+    await fixture.manager.stopServer(fixture.project.id).catch(() => undefined);
+    await rm(fixture.root, { recursive: true, force: true });
+  });
+
+  await Promise.all([
+    writeFile(
+      path.join(fixture.project.path, 'server.js'),
+      [
+        "process.stdout.write('DATABASE_PASSWORD=' + 'private-credential-fragment'.repeat(500));",
+        'setInterval(() => {}, 60000);',
+      ].join('\n'),
+    ),
+    writeFile(
+      path.join(fixture.project.path, 'package.json'),
+      JSON.stringify({
+        name: 'truncated-log-fixture',
+        scripts: { dev: 'node server.js' },
+      }),
+    ),
+  ]);
+  await fixture.manager.startServer(fixture.project);
+
+  let observed:
+    Awaited<ReturnType<typeof fixture.manager.readServerLog>> | undefined;
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const snapshot = await fixture.manager.readServerLog(fixture.project.id, {
+      maxBytes: 256,
+    });
+    if (snapshot.sizeBytes > 5_000) {
+      observed = snapshot;
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.ok(observed, 'fixture must produce an oversized log');
+  assert.equal(observed.truncated, true);
+  assert.equal(observed.content, '');
+  assert.doesNotMatch(observed.content, /private-credential-fragment/);
+});
+
 test('disables the pnpm modules purge prompt for detached servers', async (context) => {
   const fixture = await createFixture();
   const binDirectory = path.join(fixture.root, 'bin');

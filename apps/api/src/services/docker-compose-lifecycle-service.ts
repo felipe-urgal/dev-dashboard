@@ -715,10 +715,12 @@ export class DockerComposeLifecycleService {
     }
 
     const raw = typeof output === 'string' ? output : '';
-    const bounded = this.boundLogContent(raw);
-    const masked = maskSensitiveLogContent(bounded.content);
+    // A tail cut may hide the credential key but expose the remaining value.
+    // Mask while the full bounded command output still has its context.
+    const masked = maskSensitiveLogContent(raw);
+    const bounded = this.boundLogContent(masked.content);
     return {
-      content: masked.content,
+      content: bounded.content,
       truncated: bounded.truncated,
       masked: masked.masked,
       redactionCount: masked.redactionCount,

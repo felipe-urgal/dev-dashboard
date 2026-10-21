@@ -68,16 +68,18 @@ function safeContent(content: string): {
   masked: boolean;
   truncated: boolean;
 } {
-  const bytes = Buffer.from(content, 'utf8');
+  // Redact with the complete context first. Truncating a long assignment
+  // first can remove its PASSWORD=/TOKEN= key while leaving its value visible.
+  const masked = maskSensitiveLogContent(content);
+  const bytes = Buffer.from(masked.content, 'utf8');
   const truncated = bytes.length > MAX_LOG_BYTES;
   const limited = truncated
     ? bytes
         .subarray(bytes.length - MAX_LOG_BYTES)
         .toString('utf8')
         .replace(/^\uFFFD+/, '')
-    : content;
-  const masked = maskSensitiveLogContent(limited);
-  return { content: masked.content, masked: masked.masked, truncated };
+    : masked.content;
+  return { content: limited, masked: masked.masked, truncated };
 }
 
 function matchesActivityRef(
@@ -337,10 +339,20 @@ export class ServiceDiagnosticsService {
         return unavailable('process', 'Process log identity changed.');
       return {
         source: 'process',
-        status: log.content ? 'available' : 'empty',
+        status: log.content
+          ? 'available'
+          : log.truncated
+            ? 'unavailable'
+            : 'empty',
         content: log.content,
         masked: log.masked,
         truncated: log.truncated,
+        ...(log.truncated && !log.content
+          ? {
+              diagnostic:
+                'Log tail contains no complete line; content omitted for safety.',
+            }
+          : {}),
         readAt: log.readAt,
       };
     } catch {

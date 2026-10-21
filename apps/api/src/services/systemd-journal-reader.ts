@@ -117,11 +117,13 @@ export class SystemdJournalReader {
           'Journal indisponível por permissão; nenhuma elevação é executada.',
       };
     }
-    const bounded = limitedUtf8(raw);
-    const masked = maskSensitiveLogContent(bounded.content);
+    // Keep the assignment/URL context intact for redaction; cutting the
+    // raw tail first could expose an unrecognizable secret suffix.
+    const masked = maskSensitiveLogContent(raw);
+    const bounded = limitedUtf8(masked.content);
     return {
-      status: masked.content.trim() ? 'available' : 'empty',
-      content: masked.content,
+      status: bounded.content.trim() ? 'available' : 'empty',
+      content: bounded.content,
       masked: masked.masked,
       truncated: bounded.truncated,
     };
