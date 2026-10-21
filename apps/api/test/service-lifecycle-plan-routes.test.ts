@@ -75,10 +75,30 @@ test('project lifecycle preview is authenticated, read-only and hash guarded', a
     context.serviceRuntimeProfileStore.revision('loto'),
     new Date('2026-10-19T16:00:00.000Z'),
   );
+  let permissionStatus: 'unsupported' | 'unknown' = 'unsupported';
   const app = await buildApp({
     context,
     localToken: TOKEN,
     serviceCatalog: { inspect: async () => catalog },
+    systemdCapabilities: {
+      inspect: async (projectId, environmentInstanceId) => ({
+        projectId,
+        environmentInstanceId: environmentInstanceId!,
+        readAt: '2026-10-19T16:00:00.000Z',
+        partial: false,
+        services: [{
+          bindingId: context.projectServiceBindingStore.byProject(projectId)[0]!.id,
+          serviceRef: REF,
+          scope: 'system',
+          state: 'running',
+          readiness: 'unknown',
+          start: { status: permissionStatus, reason: 'Scope policy: ' + permissionStatus },
+          stop: { status: 'unsupported', reason: 'System units are read-only.' },
+          restart: { status: 'unsupported', reason: 'No restart plan.' },
+          executable: false,
+        }],
+      }),
+    },
   });
   t.after(async () => app.close());
 
@@ -94,6 +114,8 @@ test('project lifecycle preview is authenticated, read-only and hash guarded', a
   assert.equal(first.status, 'blocked');
   assert.deepEqual(first.order, [REF]);
   assert.equal(first.nodes[0]?.state, 'running');
+  assert.equal(first.nodes[0]?.systemdCapability?.status, 'unsupported');
+  assert.equal(first.nodes[0]?.systemdCapability?.reason, 'Scope policy: unsupported');
   assert.equal(first.executable, false);
   assert.equal(first.planHash.length, 64);
 
@@ -134,6 +156,19 @@ test('project lifecycle preview is authenticated, read-only and hash guarded', a
     headers,
   });
   assert.equal(repeat.statusCode, 200);
+
+  permissionStatus = 'unknown';
+  const permissionChanged = await app.inject({
+    method: 'GET',
+    url: uri + '&expectedPlanHash=' + first.planHash,
+    headers,
+  });
+  assert.equal(permissionChanged.statusCode, 409);
+  const permissionPreview = await app.inject({ method: 'GET', url: uri, headers });
+  assert.equal(permissionPreview.statusCode, 200);
+  assert.equal(permissionPreview.json<ServiceLifecyclePlan>().nodes[0]?.systemdCapability?.status, 'unknown');
+  assert.equal(permissionPreview.json<ServiceLifecyclePlan>().executable, false);
+  permissionStatus = 'unsupported';
 
   catalog.entries[0]!.state = 'stopped';
   const stale = await app.inject({
