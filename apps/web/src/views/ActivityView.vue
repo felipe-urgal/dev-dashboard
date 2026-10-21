@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { RouterLink } from 'vue-router';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { RouterLink, useRoute } from 'vue-router';
 import {
   ArrowPathIcon,
   CpuChipIcon,
@@ -24,6 +24,7 @@ import {
   cancelActivityJob,
 } from '../utils/activity-resources';
 
+const route = useRoute();
 const snapshot = ref<ActivitySnapshot | null>(null);
 const loading = ref(false);
 const cancellingJobId = ref('');
@@ -33,6 +34,17 @@ const domainFilter = ref('');
 const statusFilter = ref('');
 const jobsProjectFilter = ref('');
 const jobsDomainFilter = ref('');
+// Project links into Activity filter both streams without fetching per-service logs.
+// Reapply the scope when navigating between projects on the same view.
+watch(
+  () => route.query.projectId,
+  (value) => {
+    const projectId = typeof value === 'string' ? value : '';
+    projectFilter.value = projectId;
+    jobsProjectFilter.value = projectId;
+  },
+  { immediate: true },
+);
 let timer: ReturnType<typeof setTimeout> | undefined;
 let disposed = false;
 let generation = 0;
@@ -264,7 +276,7 @@ onBeforeUnmount(() => {
           <strong>{{ jobs.length }}</strong>
         </div>
 
-        <div v-if="(snapshot?.jobs.length ?? 0) > 5" class="activity-filters">
+        <div v-if="(snapshot?.jobs.length ?? 0) > 5 || jobsProjectFilter" class="activity-filters">
           <label
             >Projeto
             <select v-model="jobsProjectFilter">
