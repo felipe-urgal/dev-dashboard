@@ -1,14 +1,18 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { fetchProjectServiceBindings, fetchServiceDiagnostics } = vi.hoisted(
-  () => ({
-    fetchProjectServiceBindings: vi.fn(),
-    fetchServiceDiagnostics: vi.fn(),
-  }),
-);
+const {
+  fetchProjectServiceBindings,
+  fetchServiceDependencyPreview,
+  fetchServiceDiagnostics,
+} = vi.hoisted(() => ({
+  fetchProjectServiceBindings: vi.fn(),
+  fetchServiceDependencyPreview: vi.fn(),
+  fetchServiceDiagnostics: vi.fn(),
+}));
 vi.mock('../src/api/service-diagnostics', () => ({
   fetchProjectServiceBindings,
+  fetchServiceDependencyPreview,
   fetchServiceDiagnostics,
 }));
 const routeControl = vi.hoisted(() => ({
@@ -50,6 +54,66 @@ function binding(
     updatedAt: '',
   };
 }
+const databaseRef = 'compose:loto:database';
+const apiRef = 'compose:loto:api';
+const cacheRef = 'compose:loto:cache';
+const dependencyPreview = {
+  target: {
+    kind: 'project-environment',
+    projectId: 'loto',
+    environmentInstanceId: 'environment:primary:loto',
+  },
+  action: 'start',
+  status: 'blocked',
+  expectedRevision: 'a'.repeat(64),
+  planHash: 'b'.repeat(64),
+  observedAt: '2026-10-21T13:00:00Z',
+  expiresAt: '2026-10-21T13:00:30Z',
+  order: [databaseRef, cacheRef, apiRef],
+  nodes: [
+    {
+      serviceRef: databaseRef,
+      name: 'database',
+      provider: 'compose',
+      disposition: 'blocked',
+      state: 'failed',
+      readiness: 'unhealthy',
+      relation: 'owned',
+      ports: [],
+      consumerCount: 1,
+      dependencies: [],
+      diagnostic: 'Readiness or a safe stopped state could not be proven.',
+    },
+    {
+      serviceRef: cacheRef,
+      name: 'cache',
+      provider: 'compose',
+      disposition: 'alreadyReady',
+      state: 'running',
+      readiness: 'ready',
+      relation: 'owned',
+      ports: [],
+      consumerCount: 1,
+      dependencies: [],
+    },
+    {
+      serviceRef: apiRef,
+      name: 'api',
+      provider: 'compose',
+      disposition: 'blocked',
+      state: 'stopped',
+      readiness: 'unknown',
+      relation: 'owned',
+      ports: [],
+      consumerCount: 1,
+      dependencies: [databaseRef],
+      diagnostic: 'A dependency is blocked or its readiness is unknown.',
+    },
+  ],
+  diagnostics: ['One or more services cannot be safely operated.'],
+  executable: false,
+};
+
 const snapshot = {
   serviceRef: host,
   projectId: 'loto',
@@ -73,6 +137,7 @@ const snapshot = {
 describe('ProjectServiceDiagnosticsPanel', () => {
   beforeEach(() => {
     fetchProjectServiceBindings.mockReset();
+    fetchServiceDependencyPreview.mockReset();
     fetchServiceDiagnostics.mockReset();
     routeControl.setServiceRef('');
     fetchProjectServiceBindings.mockResolvedValue({
@@ -80,6 +145,7 @@ describe('ProjectServiceDiagnosticsPanel', () => {
       partial: false,
     });
     fetchServiceDiagnostics.mockResolvedValue(snapshot);
+    fetchServiceDependencyPreview.mockResolvedValue(dependencyPreview);
   });
 
   it('only reads logs on click, displays permission/freshness and preserves scoped environment', async () => {
@@ -102,6 +168,121 @@ describe('ProjectServiceDiagnosticsPanel', () => {
     expect(wrapper.text()).toContain(
       'Uma falha de permissão não significa log vazio',
     );
+  });
+
+  it('checks dependency readiness only on demand and identifies the blocking node', async () => {
+    fetchProjectServiceBindings.mockResolvedValue({
+      bindings: [
+        { ...binding(), serviceRef: databaseRef, role: 'PostgreSQL' },
+        { ...binding(), id: 'cache', serviceRef: cacheRef },
+        { ...binding(), id: 'api', serviceRef: apiRef },
+      ],
+      partial: false,
+    });
+    const wrapper = mount(ProjectServiceDiagnosticsPanel, {
+      props: { projectId: 'loto' },
+    });
+    await flushPromises();
+    expect(fetchServiceDependencyPreview).not.toHaveBeenCalled();
+    expect(wrapper.find('.service-dependency-preview').exists()).toBe(false);
+    await wrapper.get('.service-dependency-actions button').trigger('click');
+    await flushPromises();
+
+    expect(fetchServiceDependencyPreview).toHaveBeenCalledWith(
+      'loto',
+      'environment:primary:loto',
+    );
+    expect(fetchServiceDiagnostics).not.toHaveBeenCalled();
+    const preview = wrapper.get('.service-dependency-preview');
+    expect(preview.text()).toContain('1 de 3 serviços');
+    expect(preview.text()).toContain('PostgreSQL');
+    expect(preview.text()).toContain('Dependência bloqueante: PostgreSQL');
+    expect(preview.text()).toContain('Isto não é progresso de execução');
+    expect(preview.text()).toContain('Válido até:');
+    expect(preview.findAll('li')).toHaveLength(3);
+
+    await preview.findAll('li')[0]!.get('button').trigger('click');
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe(
+      databaseRef,
+    );
+    expect(fetchServiceDiagnostics).not.toHaveBeenCalled();
+    await wrapper.get('.service-diagnostics-actions button').trigger('click');
+    await flushPromises();
+    expect(fetchServiceDiagnostics).toHaveBeenCalledWith(
+      'loto',
+      databaseRef,
+      undefined,
+    );
+    wrapper.unmount();
+  });
+
+  it('never offers log navigation for a missing dependency without an active binding', async () => {
+    fetchProjectServiceBindings.mockResolvedValue({
+      bindings: [{ ...binding(), serviceRef: apiRef }],
+      partial: false,
+    });
+    const wrapper = mount(ProjectServiceDiagnosticsPanel, {
+      props: { projectId: 'loto' },
+    });
+    await flushPromises();
+    await wrapper.get('.service-dependency-actions button').trigger('click');
+    await flushPromises();
+    const preview = wrapper.get('.service-dependency-preview');
+    expect(preview.findAll('li')).toHaveLength(3);
+    expect(preview.findAll('li')[0]!.text()).toContain(
+      'Sem vínculo ativo para consultar logs',
+    );
+    expect(preview.findAll('li')[0]!.find('button').exists()).toBe(false);
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe(
+      apiRef,
+    );
+    wrapper.unmount();
+  });
+
+  it('isolates an unavailable dependency preview without hiding existing log reads', async () => {
+    fetchServiceDependencyPreview.mockRejectedValue(
+      new Error('private provider password or filesystem path'),
+    );
+    const wrapper = mount(ProjectServiceDiagnosticsPanel, {
+      props: { projectId: 'loto' },
+    });
+    await flushPromises();
+    await wrapper.get('.service-dependency-actions button').trigger('click');
+    await flushPromises();
+    expect(wrapper.text()).toContain(
+      'Não foi possível verificar as dependências',
+    );
+    expect(wrapper.text()).not.toContain('private provider password');
+    await wrapper.get('.service-diagnostics-actions button').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('.service-diagnostics-result').exists()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it('drops delayed dependency previews after a project change', async () => {
+    let completePreview!: (value: typeof dependencyPreview) => void;
+    fetchServiceDependencyPreview.mockImplementation(
+      () =>
+        new Promise<typeof dependencyPreview>((resolve) => {
+          completePreview = resolve;
+        }),
+    );
+    const wrapper = mount(ProjectServiceDiagnosticsPanel, {
+      props: { projectId: 'loto' },
+    });
+    await flushPromises();
+    await wrapper.get('.service-dependency-actions button').trigger('click');
+    fetchProjectServiceBindings.mockResolvedValue({
+      bindings: [],
+      partial: false,
+    });
+    await wrapper.setProps({ projectId: 'other' });
+    await flushPromises();
+    completePreview(dependencyPreview);
+    await flushPromises();
+    expect(wrapper.find('.service-dependency-preview').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('1 de 3 serviços');
+    wrapper.unmount();
   });
 
   it('never links systemd to Process Manager or invents a mutable provider screen', async () => {
