@@ -295,7 +295,33 @@ test('correlated Activity rejects unavailable journal without leaking storage di
       request,
       '00000000-0000-4000-8000-000000000001',
     ),
-    /private path/,
+    /identity could not be verified/,
+  );
+  assert.deepEqual(entries, []);
+});
+
+test('correlated events cannot be emitted without any Job reader', async () => {
+  const entries: AppendActivityEventInput[] = [];
+  const writer = new ConfirmedServiceLifecycleActivityWriter({
+    activityEvents: {
+      append: async (entry) => {
+        entries.push(entry);
+        return {} as never;
+      },
+    },
+  });
+  await assert.rejects(
+    writer.append(
+      {
+        serviceRef: 'systemd:user:fixture-worker.service',
+        action: 'start',
+        dispositionBefore: 'willStart',
+        state: 'completed',
+      },
+      request,
+      '00000000-0000-4000-8000-000000000001',
+    ),
+    /identity could not be verified/,
   );
   assert.deepEqual(entries, []);
 });
