@@ -85,9 +85,13 @@ function binding(
   };
 }
 
+type ConfirmablePlan = Omit<ServiceLifecyclePlan, 'executable'> & {
+  executable: boolean;
+};
+
 function plan(
-  overrides: Partial<ServiceLifecyclePlan> = {},
-): ServiceLifecyclePlan {
+  overrides: Partial<ConfirmablePlan> = {},
+): ConfirmablePlan {
   return {
     target: {
       kind: 'project-environment',
@@ -156,7 +160,7 @@ function fixture(policy: SystemdUserLifecycleGrantPolicy) {
   return {
     authorizer,
     setBindings: (items: ProjectServiceBinding[]) => (observedBindings = items),
-    setPlan: (value: ServiceLifecyclePlan) => (lastPlan = value),
+    setPlan: (value: ConfirmablePlan) => (lastPlan = value),
     setRevision: (value: string) => (revision = value),
     setProjectExists: (value: boolean) => (projectExists = value),
     setEnvironmentKind: (value: string) => (environmentKind = value),
