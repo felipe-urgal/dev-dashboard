@@ -10,6 +10,7 @@
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import=tsx --test test/*.test.ts",
+    "test:systemd-user-fixture": "node --import=tsx --test test/systemd-user-lifecycle-linux-fixture.test.ts",
     "test:coverage": "node --import=tsx --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test test/*.test.ts"
   },
   "dependencies": {
