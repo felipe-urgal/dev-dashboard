@@ -114,7 +114,9 @@ watch(
   (value) => {
     if (typeof value !== 'string' || !value || selectedRef.value === value)
       return;
-    const exists = visible.value.some((binding) => binding.serviceRef === value);
+    const exists = visible.value.some(
+      (binding) => binding.serviceRef === value,
+    );
     selectedRef.value = exists ? value : '';
     changeSelection();
     if (!exists)

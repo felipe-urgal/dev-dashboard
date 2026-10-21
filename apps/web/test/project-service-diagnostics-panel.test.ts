@@ -188,12 +188,16 @@ describe('ProjectServiceDiagnosticsPanel', () => {
     await flushPromises();
     expect((wrapper.get('select').element as HTMLSelectElement).value).toBe('');
     expect(wrapper.text()).toContain('não está vinculado');
-    expect(wrapper.get('.service-diagnostics-actions button').attributes('disabled')).toBeDefined();
+    expect(
+      wrapper.get('.service-diagnostics-actions button').attributes('disabled'),
+    ).toBeDefined();
     expect(fetchServiceDiagnostics).not.toHaveBeenCalled();
 
     routeControl.setServiceRef(host);
     await flushPromises();
-    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe(host);
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe(
+      host,
+    );
     expect(wrapper.text()).not.toContain('não está vinculado');
     wrapper.unmount();
   });
