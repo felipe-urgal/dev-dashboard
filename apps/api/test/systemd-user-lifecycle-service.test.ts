@@ -53,13 +53,15 @@ function inventory(
   };
 }
 
-function fixture(options: {
-  authorized?: boolean | (() => boolean);
-  observations?: HostServiceInventory[];
-  platform?: NodeJS.Platform;
-  runnerError?: boolean;
-  guardError?: boolean;
-} = {}) {
+function fixture(
+  options: {
+    authorized?: boolean | (() => boolean);
+    observations?: HostServiceInventory[];
+    platform?: NodeJS.Platform;
+    runnerError?: boolean;
+    guardError?: boolean;
+  } = {},
+) {
   let inspected = 0;
   let authorized = 0;
   const commands: string[] = [];
@@ -101,8 +103,12 @@ function fixture(options: {
   return {
     service,
     commands,
-    get inspected() { return inspected; },
-    get authorized() { return authorized; },
+    get inspected() {
+      return inspected;
+    },
+    get authorized() {
+      return authorized;
+    },
   };
 }
 
@@ -126,7 +132,11 @@ test('um serviço já no estado alvo não dispara comando', async () => {
 
 test('stop não altera boot policy e restart exige unidade running', async () => {
   const stop = fixture({
-    observations: [inventory('running'), inventory('running'), inventory('stopped')],
+    observations: [
+      inventory('running'),
+      inventory('running'),
+      inventory('stopped'),
+    ],
   });
   const stopped = await stop.service.run({ ...REQUEST, action: 'stop' });
   assert.equal(stopped.state, 'stopped');
