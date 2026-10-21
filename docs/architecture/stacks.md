@@ -122,6 +122,17 @@ Instance e processo usam o detalhe neutro do projeto: a definição da Stack nã
 o runtime da Environment Instance nem o `ManagedProcess.kind`, portanto a UI não
 infere Sidekiq/Webpack/Testes/Servidor a partir de ids ou nomes.
 
+## Journal opt-in de operações (base de recovery)
+
+O backend possui `StackOperationJournal`, um journal local de **metadados** versionados e limitados por tamanho (diretório `stack-operations-v1`, permissões `0700`/`0600`), com ID aleatório para cada solicitação e lock exclusivo por identidade da Stack (hash SHA-256 do ID). O journal registra intenção, revisão aceita, ordem de nodes e, após resposta do owner, somente `nodeId`/`state` dos steps retornados. Nunca persiste logs, caminhos, comandos ou diagnósticos brutos.
+
+**Não é habilitado automaticamente no bootstrap**: sem uma interface/procedimento completo de revisão manual, uma operação `blocked`/`failed` ou interrompida deixa o lock deliberadamente retido. Testes e injeções de bootstrap confiáveis podem passar `stackOperationJournal` ao `buildApp`. Nesse modo, as rotas existentes Start/Stop/Restart verificam o Check e a revisão antes de persistir o intent e executar o owner; respostas podem incluir `operationId`. O endpoint autenticado `GET /api/stacks/:stackId/operations` oferece snapshots read-only. Activity/Jobs reutiliza esse journal como leitor de Jobs `stack-operation`, navegando a Stacks sem cancelamento. Sem injeção confiável, o endpoint retorna lista vazia e o lifecycle conserva o comportamento atual.
+
+- Outra instância que observe uma operação `running` não pode presumir que seu processo original morreu; exibe `reconciliation-required`, sem replay nem autorização de novo dispatch.
+- Resultados `completed` liberam a reivindicação; `blocked`, `failed` e erros incertos conservam o lock até revisão explícita futura. Falhas ao escrever o journal também bloqueiam por precaução.
+- Os steps **não são atualizados ao vivo durante a execução HTTP** nesta primeira etapa: caso o processo caia, os passos em andamento são desconhecidos e devem ser reconciliados com o owner real. Não há retomada de mutações, rollback, fencing físico entre Stacks que compartilham serviços, lock distribuído entre filesystems, garantia contra queda abrupta antes do flush, nem interface de desbloqueio.
+- A operação continua síncrona e vinculada ao request HTTP; este journal não deve ser apresentado como recuperação completa até que exista etapa durável por node, verificação pós-crash e controle manual do recurso.
+
 ## Resultado de operação por node (UI)
 
 A resposta já existente de `POST Start/Stop/Restart` inclui `state`, os `steps` efetivamente processados (ou `nodeId` em Restart), `diagnostic` e um `StackCheck` ao término. A página de Stacks agora mantém **por Stack** o resultado da última operação retornada e o exibe separadamente do Check de saúde observado.
