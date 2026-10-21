@@ -1,6 +1,7 @@
 import type {
   ProjectServiceBindingView,
   ServiceDiagnosticsSnapshot,
+  ServiceLifecyclePlan,
 } from '@dev-dashboard/contracts';
 
 import { requestJson } from './core';
@@ -35,4 +36,20 @@ export async function fetchServiceDiagnostics(
     signal ? { signal } : {},
   );
   return response.diagnostics;
+}
+
+/** The existing server-side Start plan is observational and never executable. */
+export async function fetchServiceDependencyPreview(
+  projectId: string,
+  environmentInstanceId?: string,
+  signal?: AbortSignal,
+): Promise<ServiceLifecyclePlan> {
+  const query = new URLSearchParams({ action: 'start' });
+  if (environmentInstanceId) {
+    query.set('environmentInstanceId', environmentInstanceId);
+  }
+  return requestJson(
+    `/api/projects/${encodeURIComponent(projectId)}/service-plan?${query.toString()}`,
+    signal ? { signal } : {},
+  );
 }
