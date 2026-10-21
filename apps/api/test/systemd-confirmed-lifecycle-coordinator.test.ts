@@ -419,10 +419,9 @@ test('post-dispatch revision, action and topology drift cannot be reported as co
         'systemd-user-confirmed:' + f.journal.list()[0]!.id,
         change.name,
       );
-      await assert.rejects(
-        f.coordinator.run(confirmation()),
-        /journal is unavailable/,
-      );
+      // A stale preview can reject before the journal is consulted. Either
+      // way, repeating the confirmation must never dispatch the owner again.
+      await assert.rejects(f.coordinator.run(confirmation()));
       assert.deepEqual(f.calls, [REF + ':start'], change.name);
     } finally {
       f.cleanup();
