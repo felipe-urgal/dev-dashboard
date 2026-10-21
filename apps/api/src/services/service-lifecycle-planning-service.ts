@@ -206,7 +206,6 @@ export class ServiceLifecyclePlanningService {
       conflict('Environment has too many services to safely plan.');
     }
 
-
     // Advisory capability evidence participates in the plan hash, so grant
     // revocation and provider uncertainty cause stale plan confirmations (409).
     // This does not change executable:false or authorize a lifecycle command.
@@ -228,10 +227,7 @@ export class ServiceLifecyclePlanningService {
             if (capability.executable !== false) continue;
             const key = capability.bindingId + '\\0' + capability.serviceRef;
             const candidate = capability[action];
-            if (
-              candidate.status !== 'supported' &&
-              !systemdEvidence.has(key)
-            ) {
+            if (candidate.status !== 'supported' && !systemdEvidence.has(key)) {
               systemdEvidence.set(key, candidate);
             }
           }
@@ -275,11 +271,12 @@ export class ServiceLifecyclePlanningService {
         ...(binding.serviceRef.startsWith('systemd:') &&
         this.dependencies.systemdCapabilities
           ? {
-              systemdCapability:
-                systemdEvidence.get(binding.id + '\\0' + binding.serviceRef) ?? {
-                  status: 'unknown' as const,
-                  reason: 'Systemd lifecycle capability evidence is unavailable.',
-                },
+              systemdCapability: systemdEvidence.get(
+                binding.id + '\\0' + binding.serviceRef,
+              ) ?? {
+                status: 'unknown' as const,
+                reason: 'Systemd lifecycle capability evidence is unavailable.',
+              },
             }
           : {}),
       };
