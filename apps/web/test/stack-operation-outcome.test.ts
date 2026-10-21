@@ -75,6 +75,30 @@ describe('Stack operation outcome (not a plan or a live Check)', () => {
     expect(outcomeStepTone('failed')).toBe('danger');
   });
 
+  it('does not claim a retained node was stopped when the overall Stop completed', () => {
+    const result: StackStopResult = {
+      stackId: 'shared',
+      state: 'completed',
+      check,
+      steps: [
+        { nodeId: 'api', state: 'stopped' },
+        {
+          nodeId: 'postgres',
+          state: 'retained',
+          diagnostic: 'Shared service is required by another project.',
+        },
+        { nodeId: 'environment', state: 'already-stopped' },
+      ],
+    };
+    const steps = outcomeSteps({ kind: 'stop', result });
+    expect(outcomeStateLabel(result.state)).toBe('Concluído');
+    expect(outcomeStepLabel(steps[0]!.state)).toBe('Parado');
+    expect(outcomeStepLabel(steps[1]!.state)).toBe('Mantido (não encerrado)');
+    expect(outcomeStepTone(steps[1]!.state)).toBe('warning');
+    expect(steps[1]!.diagnostic).toContain('another project');
+    expect(steps[2]!.state).toBe('already-stopped');
+  });
+
   it('keeps Restart scoped to its single node and never creates synthetic steps', () => {
     const result: StackRestartResult = {
       stackId: 'local',
