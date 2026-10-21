@@ -53,6 +53,7 @@ import { StackHealthCheckAdapter } from './services/stack-health-check-adapter.j
 import { StackLogsService } from './services/stack-logs-service.js';
 import { StackRestartService } from './services/stack-restart-service.js';
 import { StackStartService } from './services/stack-start-service.js';
+import { StackOperationJournal } from './services/stack-operation-journal.js';
 import { StackStopService } from './services/stack-stop-service.js';
 import { SystemdServiceInventory } from './services/systemd-service-inventory.js';
 import { SystemdLifecycleCapabilitiesService } from './services/systemd-lifecycle-capabilities-service.js';
@@ -160,7 +161,14 @@ export async function buildApp(options: BuildAppOptions = {}) {
     createAppContext({
       languageServerLogger: app.log,
     });
-  const composition = createAppComposition(context, options);
+  const stackOperationJournal = new StackOperationJournal(
+    context.processManager.stateDirectory,
+    options.now ? { now: () => new Date(options.now!()) } : {},
+  );
+  const composition = createAppComposition(context, {
+    ...options,
+    stackOperationJobs: stackOperationJournal,
+  });
   const dashboardTerminalService = new DashboardTerminalService();
   const stackDefinitionService = new StackDefinitionService({
     stackStore: context.stackStore,
@@ -486,6 +494,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   app.register(stackRoutes, {
     prefix: '/api',
+    stackOperationJournal,
     stackDefinitionService,
     stackDependencyDiscoveryService,
     stackCheckService,
