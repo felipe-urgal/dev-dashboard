@@ -42,3 +42,33 @@ O mesmo `ActivitySnapshotService` existente recebe um `activityJobReader` basead
 - Isolamento por projeto, UUID bounded, arquivo inválido/versão futura e ausência de diagnósticos sensíveis.
 
 Referências: #1113, #1116, #1126–#1130.
+
+## Durable systemd user recovery fence (#1117)
+
+When an internal Job includes systemd units, `begin()` accepts **only**
+canonical `systemd:user:<unit>.service` refs. Mixed-provider and system-scope
+jobs remain unsupported. Before writing an intent, the journal checks **all
+projects and environments** for a prior Job involving the same physical unit.
+A Job still `running` (including one from a crashed process) or terminal with
+`reconciliationRequired=true` blocks the new Job. A completed and verified
+Job does not. Rebinding a unit to another project cannot bypass this check.
+
+An operator must reconcile ambiguous systemd jobs outside this endpoint; a
+terminal partial result is not automatically upgraded to verified merely
+because the unit now appears active or stopped.
+
+This is a conservative **recovery fence**, not a transactional lease: concurrent
+processes can race between journal reads. A future executable owner still
+requires the shared physical lease protocol and pre-dispatch revalidation.
+There is deliberately **no automatic reset** of interrupted/partial records
+and no API to approve retry. A human reconciliation workflow is still needed.
+
+Activity's existing Job reader uses `security` and
+`systemd-user-confirmed:<uuid>` for these records, including terminal
+partial/failed Jobs requiring reconciliation. Compose Jobs keep their
+existing identity and behavior. The recovery evidence inspector also checks
+the **same canonical systemd:user physical lease key** held by the user-unit
+adapter, not only the coordinator's `resource:` prefixed key.
+
+All integration tests use local temporary journal files and fake lease/catalog
+readers; no host systemd units are operated. This does not enable Start/Stop.

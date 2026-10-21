@@ -189,3 +189,152 @@ test('jobs are scoped by project and identities cannot traverse state root', () 
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('systemd journal fences interrupted physical user units across project/environment rebinding', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'systemd-recovery-jobs-'));
+  try {
+    const unit = 'systemd:user:fixture-worker.service';
+    const writer = create(root);
+    const jobId = writer.begin(REQUEST, [unit]);
+    writer.beforeStep(jobId, unit);
+
+    const reopened = create(root);
+    const crossProject: ConfirmedLifecycleRequest = {
+      ...REQUEST,
+      projectId: 'other',
+      environmentInstanceId: 'environment:primary:other',
+    };
+    assert.throws(
+      () => reopened.begin(crossProject, [unit]),
+      /journal is unavailable/,
+    );
+    assert.equal(reopened.get(jobId)?.inFlightRef, unit);
+    assert.equal(reopened.get(jobId)?.reconciliationRequired, true);
+    assert.deepEqual(reopened.activityJobs('other'), []);
+    const visible = reopened.activityJobs('loto')[0]!;
+    assert.equal(visible.id, 'systemd-user-confirmed:' + jobId);
+    assert.equal(visible.domain, 'security');
+    assert.equal(visible.resourceRef?.kind, 'systemd-user-lifecycle');
+    assert.equal(visible.stage, 'reconciliation-required');
+    assert.equal(visible.cancelSupported, false);
+    // A different user unit remains independent; its own physical lease
+    // must still be acquired by a future owner before any operation.
+    const other = reopened.begin(crossProject, [
+      'systemd:user:other-fixture.service',
+    ]);
+    assert.ok(other);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('terminal partial systemd user Jobs remain visible and block physical-unit reuse', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'systemd-recovery-jobs-'));
+  try {
+    const unit = 'systemd:user:fixture-worker.service';
+    const journal = create(root);
+    const id = journal.begin(REQUEST, [unit]);
+    journal.beforeStep(id, unit);
+    const failedStep: ConfirmedLifecycleStep = {
+      serviceRef: unit,
+      action: 'start',
+      dispositionBefore: 'willStart',
+      state: 'unverified',
+      diagnostic: 'secret from systemctl /home/private',
+    };
+    journal.step(id, failedStep);
+    journal.finish(id, {
+      ...result,
+      status: 'partial',
+      steps: [failedStep],
+    });
+    const reopened = create(root);
+    const job = reopened.get(id)!;
+    assert.equal(job.reconciliationRequired, true);
+    assert.equal(job.inFlightRef, undefined);
+    assert.equal(job.steps[0]?.state, 'unverified');
+    assert.deepEqual(
+      reopened.activityJobs('loto').map((x) => x.id),
+      ['systemd-user-confirmed:' + id],
+    );
+    assert.equal(reopened.activityJobs('loto')[0]?.status, 'failed');
+    assert.equal(
+      reopened.activityJobs('loto')[0]?.stage,
+      'reconciliation-required',
+    );
+    assert.throws(
+      () =>
+        reopened.begin(
+          {
+            ...REQUEST,
+            projectId: 'other',
+            environmentInstanceId: 'environment:primary:other',
+          },
+          [unit],
+        ),
+      /journal is unavailable/,
+    );
+    const raw = readFileSync(
+      path.join(root, 'confirmed-lifecycle-jobs-v1', id + '.json'),
+      'utf8',
+    );
+    assert.doesNotMatch(raw, /secret from systemctl|\/home\/private/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('verified completed systemd Job releases recovery fence but never a physical lease', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'systemd-recovery-jobs-'));
+  try {
+    const unit = 'systemd:user:fixture-worker.service';
+    const journal = create(root);
+    const id = journal.begin(REQUEST, [unit]);
+    journal.beforeStep(id, unit);
+    const completedStep: ConfirmedLifecycleStep = {
+      serviceRef: unit,
+      action: 'start',
+      dispositionBefore: 'willStart',
+      state: 'completed',
+    };
+    journal.step(id, completedStep);
+    journal.finish(id, { ...result, steps: [completedStep] });
+    const reopened = create(root);
+    assert.deepEqual(reopened.activityJobs('loto'), []);
+    const second = reopened.begin(
+      {
+        ...REQUEST,
+        projectId: 'other',
+        environmentInstanceId: 'environment:primary:other',
+      },
+      [unit],
+    );
+    assert.notEqual(second, id);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('system scope, malformed and mixed-provider systemd Jobs never record intent', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'systemd-recovery-jobs-'));
+  try {
+    const journal = create(root);
+    for (const refs of [
+      ['systemd:system:postgresql.service'],
+      ['systemd:user:dev-dashboard.service'],
+      ['systemd:user:worker@.service'],
+      ['systemd:user:../bad.service'],
+      ['systemd:user:--bad.service'],
+      ['systemd:user:fixture-worker.service', 'compose:loto:api'],
+      ['systemd:unknown:foo.service'],
+    ]) {
+      assert.throws(
+        () => journal.begin(REQUEST, refs),
+        /journal is unavailable/,
+      );
+    }
+    assert.deepEqual(journal.list(), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

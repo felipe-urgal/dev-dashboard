@@ -188,3 +188,38 @@ test('job id in another project is never disclosed', async () => {
     /not found/,
   );
 });
+
+test('systemd user observation cannot prove prior ownership or readiness', async () => {
+  const f = fixture();
+  const ref = 'systemd:user:fixture-worker.service';
+  f.setJob({
+    ...job,
+    plannedRefs: [ref],
+    inFlightRef: ref,
+    steps: [],
+  });
+  f.snapshot.providers.push({ provider: 'systemd', status: 'ready' });
+  f.snapshot.entries.push({
+    id: ref,
+    provider: 'systemd',
+    name: 'fixture-worker.service',
+    state: 'running',
+    readiness: 'unknown',
+    ownership: 'unmanaged',
+    scope: 'user',
+    observedAt: '2026-10-20T11:02:00.000Z',
+    ports: [],
+  });
+  const found = await f.service.inspect('loto', job.id);
+  assert.equal(found.observationComplete, true);
+  assert.equal(found.safeToRetry, false);
+  assert.equal(found.possibleActiveExecution, true);
+  assert.equal(found.nodes[0]?.journalState, 'in-flight');
+  assert.equal(found.nodes[0]?.observedState, 'running');
+  assert.equal(found.nodes[0]?.assessment, 'unverifiable');
+  assert.match(
+    found.nodes[0]?.diagnostic ?? '',
+    /does not prove an authorized project binding/,
+  );
+  assert.doesNotMatch(JSON.stringify(found), /expectedPlanHash/);
+});

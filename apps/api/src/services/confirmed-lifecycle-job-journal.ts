@@ -17,6 +17,10 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import { ApiError } from '../http/api-error.js';
+import {
+  isSystemdUserJob,
+  isSystemdUserUnit,
+} from './confirmed-lifecycle-systemd-evidence.js';
 
 const DIRECTORY = 'confirmed-lifecycle-jobs-v1';
 const MAX_JOBS = 1000;
@@ -129,8 +133,29 @@ export class ConfirmedLifecycleJobJournal {
       plannedRefs.some((ref) => !ref || ref.length > 512)
     )
       unavailable();
+    // Until a mixed-provider owner is proven, a persisted systemd Job may
+    // contain only canonical user units. System-scope or critical refs deny.
+    const userJob = isSystemdUserJob(plannedRefs);
+    if (
+      plannedRefs.some((ref) => ref.startsWith('systemd:')) &&
+      (!userJob || plannedRefs.some((ref) => !isSystemdUserUnit(ref)))
+    )
+      unavailable();
     const records = this.readAll();
     if (records.length >= MAX_JOBS) unavailable();
+    // A crashed or partial user-unit mutation can be owned by another project.
+    // Do not treat a new binding/project as evidence it is safe to retry.
+    if (userJob) {
+      const physicalRefs = new Set(plannedRefs);
+      if (
+        records.some(
+          (record) =>
+            (record.status === 'running' || record.reconciliationRequired) &&
+            record.plannedRefs.some((ref) => physicalRefs.has(ref)),
+        )
+      )
+        unavailable();
+    }
     // Refuse a new operation in an environment with an unreconciled record.
     // Terminal records do not block unrelated future operations.
     if (
@@ -270,16 +295,29 @@ export class ConfirmedLifecycleJobJournal {
   /** Reuses existing ActivitySnapshotService readers; no new public mutation route. */
   public activityJobs(projectId: string): ActivityJob[] {
     return this.list(projectId)
-      .filter((job) => job.status === 'running')
+      .filter(
+        (job) =>
+          job.status === 'running' ||
+          (isSystemdUserJob(job.plannedRefs) && job.reconciliationRequired),
+      )
       .map((job) => ({
-        id: 'compose-confirmed:' + job.id,
+        id:
+          (isSystemdUserJob(job.plannedRefs)
+            ? 'systemd-user-confirmed:'
+            : 'compose-confirmed:') + job.id,
         projectId: job.projectId,
         environmentInstanceId: job.environmentInstanceId,
-        domain: 'compose',
+        domain: isSystemdUserJob(job.plannedRefs) ? 'security' : 'compose',
         action: 'Lifecycle ' + job.action,
         status: job.reconciliationRequired ? 'failed' : 'running',
         startedAt: job.startedAt,
-        resourceRef: { kind: 'docker-compose-lifecycle', id: job.id },
+        ...(job.finishedAt ? { finishedAt: job.finishedAt } : {}),
+        resourceRef: {
+          kind: isSystemdUserJob(job.plannedRefs)
+            ? 'systemd-user-lifecycle'
+            : 'docker-compose-lifecycle',
+          id: job.id,
+        },
         stage: job.reconciliationRequired
           ? 'reconciliation-required'
           : job.stage,

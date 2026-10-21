@@ -33,3 +33,19 @@ Apenas possuir um relatório `matches-target` ou um evento de revisão **não é
 ## Testes
 
 Os testes exercitam lease ativo com PID observado/não observado, diretório ausente, owner.json corrompido, symlink, falha de inspeção, isolamento por projeto, autenticação HTTP, evento de Activity e ausência de qualquer autorização de replay.
+
+
+## User-unit physical lock evidence (#1117)
+
+For a persisted Job involving canonical `systemd:user:<unit>.service`,
+recovery review includes both the coordinator resource key
+`resource:systemd:user:<unit>.service` and the actual adapter lease key
+`systemd:user:<unit>.service`. Checking only the first key could incorrectly
+suggest that the physical user unit has no active lease. An unavailable lease
+reader still produces `unverifiable` evidence, never permission to release
+or retry. An Activity review for this provider uses the `security` domain
+and `systemd-user-confirmed:<uuid>` Job identity.
+
+Current systemd inventory remains unmanaged and does not prove which Job
+changed a unit; reconciliation must stay observational and
+`safeToRetry: false`, including when a unit is currently active or stopped.

@@ -1,4 +1,8 @@
 import type { ActivityEventRepository } from '@dev-dashboard/core';
+import {
+  isSystemdUserJob,
+  systemdUserPhysicalLeaseKey,
+} from './confirmed-lifecycle-systemd-evidence.js';
 
 import type {
   ConfirmedLifecycleReconciliationService,
@@ -54,6 +58,8 @@ export class ConfirmedLifecycleRecoveryReviewService {
       ...reconciliation.nodes.map((node) => 'resource:' + node.serviceRef),
     ];
     for (const node of reconciliation.nodes) {
+      const unitLease = systemdUserPhysicalLeaseKey(node.serviceRef);
+      if (unitLease) physicalKeys.push(unitLease);
       if (node.serviceRef.startsWith('compose:' + projectId + ':')) {
         physicalKeys.push('compose-project:' + projectId);
       }
@@ -110,17 +116,23 @@ export class ConfirmedLifecycleRecoveryReviewService {
     leaseReleaseAuthorized: false;
   }> {
     const evidence = await this.inspect(projectId, jobId);
+    const userJob = isSystemdUserJob(
+      evidence.reconciliation.nodes.map((node) => node.serviceRef),
+    );
     await this.deps.activity.append({
       projectId: evidence.projectId,
       environmentInstanceId: evidence.environmentInstanceId,
-      domain: 'compose',
-      type: 'compose.lifecycle-recovery-reviewed',
+      domain: userJob ? 'security' : 'compose',
+      type: userJob
+        ? 'systemd.user.lifecycle-recovery-reviewed'
+        : 'compose.lifecycle-recovery-reviewed',
       status: 'warning',
       summary:
         'Recovery evidence reviewed; no retry, release or completion authorized.',
-      jobId: 'compose-confirmed:' + jobId,
+      jobId:
+        (userJob ? 'systemd-user-confirmed:' : 'compose-confirmed:') + jobId,
       resourceRef: {
-        kind: 'docker-compose-lifecycle',
+        kind: userJob ? 'systemd-user-lifecycle' : 'docker-compose-lifecycle',
         id: jobId,
       },
     });

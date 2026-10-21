@@ -4,6 +4,7 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import { ApiError } from '../http/api-error.js';
+import { isSystemdUserUnit } from './confirmed-lifecycle-systemd-evidence.js';
 import type { ProjectStore } from '../store/project-store.js';
 import type {
   ConfirmedLifecycleJob,
@@ -173,7 +174,9 @@ export class ConfirmedLifecycleReconciliationService {
       } else if (!entry) {
         diagnostic = 'Service is missing from the current catalog.';
       } else if (!owned) {
-        diagnostic = 'Recorded project/environment ownership is not confirmed.';
+        diagnostic = isSystemdUserUnit(ref)
+          ? 'Observed user unit does not prove an authorized project binding or the prior command.'
+          : 'Recorded project/environment ownership is not confirmed.';
       }
       return {
         serviceRef: ref,
