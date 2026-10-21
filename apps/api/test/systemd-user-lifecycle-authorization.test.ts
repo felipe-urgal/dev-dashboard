@@ -46,7 +46,10 @@ const GRANT = {
 const CLOCK = new Date('2026-10-21T12:00:00.000Z');
 
 function withPolicy(
-  run: (policy: SystemdUserLifecycleGrantPolicy, file: string) => void | Promise<void>,
+  run: (
+    policy: SystemdUserLifecycleGrantPolicy,
+    file: string,
+  ) => void | Promise<void>,
 ): Promise<void> {
   const folder = mkdtempSync(path.join(os.tmpdir(), 'systemd-user-policy-'));
   const file = path.join(folder, 'policy.json');
@@ -82,7 +85,9 @@ function binding(
   };
 }
 
-function plan(overrides: Partial<ServiceLifecyclePlan> = {}): ServiceLifecyclePlan {
+function plan(
+  overrides: Partial<ServiceLifecyclePlan> = {},
+): ServiceLifecyclePlan {
   return {
     target: {
       kind: 'project-environment',
@@ -138,7 +143,8 @@ function fixture(policy: SystemdUserLifecycleGrantPolicy) {
     bindings: {
       revision: () => revision,
       byProject: () => observedBindings,
-      byResource: (ref) => observedBindings.filter((item) => item.serviceRef === ref),
+      byResource: (ref) =>
+        observedBindings.filter((item) => item.serviceRef === ref),
     },
     planner: {
       preview: async () => {
@@ -171,7 +177,13 @@ test('missing policy never grants, valid secure file grants exact scoped action'
       policy.find({ ...REQUEST, environmentInstanceId: 'another-environment' }),
       null,
     );
-    assert.equal(policy.find({ ...REQUEST, serviceRef: 'systemd:system:fixture-worker.service' }), null);
+    assert.equal(
+      policy.find({
+        ...REQUEST,
+        serviceRef: 'systemd:system:fixture-worker.service',
+      }),
+      null,
+    );
   });
 });
 
@@ -294,7 +306,9 @@ test('restart and mismatched plan disposition fail closed', async () => {
       await f.authorizer.authorize({ ...REQUEST, action: 'restart' }),
       false,
     );
-    f.setPlan(plan({ nodes: [{ ...plan().nodes[0]!, disposition: 'retained' }] }));
+    f.setPlan(
+      plan({ nodes: [{ ...plan().nodes[0]!, disposition: 'retained' }] }),
+    );
     assert.equal(await f.authorizer.authorize(REQUEST), false);
   });
 });
