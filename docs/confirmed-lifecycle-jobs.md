@@ -72,3 +72,16 @@ adapter, not only the coordinator's `resource:` prefixed key.
 
 All integration tests use local temporary journal files and fake lease/catalog
 readers; no host systemd units are operated. This does not enable Start/Stop.
+
+## Systemd pre-dispatch journal proof (#1117)
+
+Future systemd --user owner authorization requires an exclusive,
+fresh `invoking` Job referencing the unit, exact project/environment,
+action, revision and `planHash`. `begin` on its own is never authority.
+A reopened process that finds an orphaned `running` Job reports
+`reconciliationRequired` and refuses to dispatch, even when policy
+and observations appear unchanged. An alternate project with an
+unreconciled job for the same physical unit also blocks execution.
+
+No API dispatch path exists yet; the new requirement is enforced solely
+inside the internal future authorizer.
