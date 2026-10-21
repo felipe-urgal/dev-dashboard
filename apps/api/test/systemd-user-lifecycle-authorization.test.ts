@@ -89,9 +89,7 @@ type ConfirmablePlan = Omit<ServiceLifecyclePlan, 'executable'> & {
   executable: boolean;
 };
 
-function plan(
-  overrides: Partial<ConfirmablePlan> = {},
-): ConfirmablePlan {
+function plan(overrides: Partial<ConfirmablePlan> = {}): ConfirmablePlan {
   return {
     target: {
       kind: 'project-environment',
