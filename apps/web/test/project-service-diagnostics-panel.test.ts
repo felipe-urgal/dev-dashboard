@@ -180,6 +180,24 @@ describe('ProjectServiceDiagnosticsPanel', () => {
     wrapper.unmount();
   });
 
+  it('never substitutes a different service for an invalid deep link', async () => {
+    routeControl.setServiceRef('systemd:user:removed.service');
+    const wrapper = mount(ProjectServiceDiagnosticsPanel, {
+      props: { projectId: 'loto' },
+    });
+    await flushPromises();
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe('');
+    expect(wrapper.text()).toContain('não está vinculado');
+    expect(wrapper.get('.service-diagnostics-actions button').attributes('disabled')).toBeDefined();
+    expect(fetchServiceDiagnostics).not.toHaveBeenCalled();
+
+    routeControl.setServiceRef(host);
+    await flushPromises();
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe(host);
+    expect(wrapper.text()).not.toContain('não está vinculado');
+    wrapper.unmount();
+  });
+
   it('drops prior selection and results when project/environment changes', async () => {
     const wrapper = mount(ProjectServiceDiagnosticsPanel, {
       props: { projectId: 'loto' },
