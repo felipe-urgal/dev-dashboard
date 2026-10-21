@@ -44,26 +44,26 @@ function node(
   };
 }
 
-function fixture(
-  result?: {
-    serviceRef: string;
-    action: 'start' | 'stop' | 'restart';
-    outcome: 'changed' | 'already-in-target-state';
-    state: 'running' | 'stopped';
-    readiness: 'unknown';
-  },
-) {
+function fixture(result?: {
+  serviceRef: string;
+  action: 'start' | 'stop' | 'restart';
+  outcome: 'changed' | 'already-in-target-state';
+  state: 'running' | 'stopped';
+  readiness: 'unknown';
+}) {
   const calls: unknown[] = [];
   const owner = {
     run: async (input: unknown) => {
       calls.push(input);
-      return result ?? {
-        serviceRef: REF,
-        action: 'start' as const,
-        outcome: 'changed' as const,
-        state: 'running' as const,
-        readiness: 'unknown' as const,
-      };
+      return (
+        result ?? {
+          serviceRef: REF,
+          action: 'start' as const,
+          outcome: 'changed' as const,
+          state: 'running' as const,
+          readiness: 'unknown' as const,
+        }
+      );
     },
   };
   const runner = new SystemdConfirmedLifecycleRunner(owner, { now: () => NOW });
@@ -73,14 +73,16 @@ function fixture(
 test('internal Start bridge passes canonical identity/hash to owner and never claims readiness', async () => {
   const f = fixture();
   await f.runner.run('start', node(), request);
-  assert.deepEqual(f.calls, [{
-    projectId: 'demo',
-    environmentInstanceId: 'environment:primary:demo',
-    serviceRef: REF,
-    action: 'start',
-    expectedRevision: REV,
-    planHash: HASH,
-  }]);
+  assert.deepEqual(f.calls, [
+    {
+      projectId: 'demo',
+      environmentInstanceId: 'environment:primary:demo',
+      serviceRef: REF,
+      action: 'start',
+      expectedRevision: REV,
+      planHash: HASH,
+    },
+  ]);
 });
 
 test('internal Stop bridge uses the correct expected transition', async () => {
@@ -113,10 +115,21 @@ test('system scope, Dashboard, unknown and other nodes never enter owner', async
     node({ readiness: 'ready' }),
     node({ state: 'running' }),
     node({ disposition: 'alreadyReady' }),
-    (() => { const absent = node(); delete absent.systemdCapability; return absent; })(),
-    node({ systemdCapability: { status: 'permission-required', reason: 'missing grant' } }),
+    (() => {
+      const absent = node();
+      delete absent.systemdCapability;
+      return absent;
+    })(),
+    node({
+      systemdCapability: {
+        status: 'permission-required',
+        reason: 'missing grant',
+      },
+    }),
     node({ systemdCapability: { status: 'unknown', reason: 'incomplete' } }),
-    node({ systemdCapability: { status: 'unsupported', reason: 'scope policy' } }),
+    node({
+      systemdCapability: { status: 'unsupported', reason: 'scope policy' },
+    }),
   ];
   for (const candidate of denied) {
     const f = fixture();
@@ -130,8 +143,20 @@ test('stale/foreign/malformed confirmations cannot delegate', async () => {
     req: ConfirmedLifecycleRequest;
     action: 'start' | 'stop';
   }> = [
-    { req: { ...request, acceptedObservedAt: new Date(NOW.getTime()-30_001).toISOString() }, action: 'start' },
-    { req: { ...request, acceptedObservedAt: new Date(NOW.getTime()+1).toISOString() }, action: 'start' },
+    {
+      req: {
+        ...request,
+        acceptedObservedAt: new Date(NOW.getTime() - 30_001).toISOString(),
+      },
+      action: 'start',
+    },
+    {
+      req: {
+        ...request,
+        acceptedObservedAt: new Date(NOW.getTime() + 1).toISOString(),
+      },
+      action: 'start',
+    },
     { req: { ...request, acceptedObservedAt: 'invalid' }, action: 'start' },
     { req: { ...request, expectedPlanHash: '' }, action: 'start' },
     { req: { ...request, expectedRevision: 'c' }, action: 'start' },
@@ -139,7 +164,7 @@ test('stale/foreign/malformed confirmations cannot delegate', async () => {
     { req: { ...request, environmentInstanceId: '' }, action: 'start' },
     { req: request, action: 'stop' },
   ];
-  for (const {req,action} of denied) {
+  for (const { req, action } of denied) {
     const f = fixture();
     await assert.rejects(f.runner.run(action, node(), req));
     assert.equal(f.calls.length, 0);
@@ -148,20 +173,52 @@ test('stale/foreign/malformed confirmations cannot delegate', async () => {
 
 test('no-op and post-dispatch mismatches fail closed and require reconciliation', async () => {
   for (const outcome of [
-    { serviceRef: REF, action: 'start' as const, outcome: 'already-in-target-state' as const, state: 'running' as const, readiness: 'unknown' as const },
-    { serviceRef: 'systemd:user:different.service', action: 'start' as const, outcome: 'changed' as const, state: 'running' as const, readiness: 'unknown' as const },
-    { serviceRef: REF, action: 'start' as const, outcome: 'changed' as const, state: 'stopped' as const, readiness: 'unknown' as const },
-    { serviceRef: REF, action: 'stop' as const, outcome: 'changed' as const, state: 'running' as const, readiness: 'unknown' as const },
+    {
+      serviceRef: REF,
+      action: 'start' as const,
+      outcome: 'already-in-target-state' as const,
+      state: 'running' as const,
+      readiness: 'unknown' as const,
+    },
+    {
+      serviceRef: 'systemd:user:different.service',
+      action: 'start' as const,
+      outcome: 'changed' as const,
+      state: 'running' as const,
+      readiness: 'unknown' as const,
+    },
+    {
+      serviceRef: REF,
+      action: 'start' as const,
+      outcome: 'changed' as const,
+      state: 'stopped' as const,
+      readiness: 'unknown' as const,
+    },
+    {
+      serviceRef: REF,
+      action: 'stop' as const,
+      outcome: 'changed' as const,
+      state: 'running' as const,
+      readiness: 'unknown' as const,
+    },
   ]) {
     const f = fixture(outcome);
-    await assert.rejects(f.runner.run('start', node(), request), /reconciliation/);
+    await assert.rejects(
+      f.runner.run('start', node(), request),
+      /reconciliation/,
+    );
     assert.equal(f.calls.length, 1);
   }
 });
 
 test('owner errors propagate to coordinator for sanitized partial result', async () => {
-  const runner = new SystemdConfirmedLifecycleRunner({
-    run: async () => { throw new Error('private path /home/user/token'); },
-  }, { now: () => NOW });
+  const runner = new SystemdConfirmedLifecycleRunner(
+    {
+      run: async () => {
+        throw new Error('private path /home/user/token');
+      },
+    },
+    { now: () => NOW },
+  );
   await assert.rejects(runner.run('start', node(), request), /private path/);
 });

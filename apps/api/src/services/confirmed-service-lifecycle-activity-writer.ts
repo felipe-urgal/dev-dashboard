@@ -48,7 +48,9 @@ export class ConfirmedServiceLifecycleActivityWriter implements ConfirmedLifecyc
       projectId: request.projectId,
       environmentInstanceId: request.environmentInstanceId,
       domain: systemdUser ? 'security' : 'compose',
-      type: (systemdUser ? 'systemd.user.confirmed-' : 'compose.confirmed-') + request.action,
+      type:
+        (systemdUser ? 'systemd.user.confirmed-' : 'compose.confirmed-') +
+        request.action,
       status,
       summary,
       resourceRef: {
