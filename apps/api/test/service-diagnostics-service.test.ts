@@ -215,7 +215,10 @@ test('unexpected journal provider error is isolated and keeps Activity evidence'
   assert.equal(result.content, undefined);
   assert.equal(result.events.length, 1);
   assert.match(result.diagnostic ?? '', /Journal reader failed/);
-  assert.doesNotMatch(JSON.stringify(result), /secret|access-token|\/home\/private/);
+  assert.doesNotMatch(
+    JSON.stringify(result),
+    /secret|access-token|\/home\/private/,
+  );
 });
 
 test('denied journal is unavailable not empty; stale timestamps and partial Activity visible', async () => {
