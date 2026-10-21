@@ -6,7 +6,10 @@ import {
   readFileSync,
 } from 'node:fs';
 
-import type { ProjectServiceBinding, ServiceLifecyclePlan } from '@dev-dashboard/contracts';
+import type {
+  ProjectServiceBinding,
+  ServiceLifecyclePlan,
+} from '@dev-dashboard/contracts';
 
 import type {
   SystemdUserLifecycleAction,
@@ -17,7 +20,11 @@ const MAX_POLICY_BYTES = 64 * 1024;
 const MAX_GRANTS = 100;
 const HASH = /^[a-f0-9]{64}$/;
 const UNIT_REF = /^systemd:user:[A-Za-z0-9][A-Za-z0-9_.@:-]{0,190}\.service$/;
-const ACTIONS: readonly SystemdUserLifecycleAction[] = ['start', 'stop', 'restart'];
+const ACTIONS: readonly SystemdUserLifecycleAction[] = [
+  'start',
+  'stop',
+  'restart',
+];
 
 interface UserUnitGrant {
   projectId: string;
@@ -110,7 +117,11 @@ export class SystemdUserLifecycleGrantPolicy {
         return null;
       const identities = parsed.grants.map(
         (grant: UserUnitGrant) =>
-          grant.projectId + '\0' + grant.environmentInstanceId + '\0' + grant.serviceRef,
+          grant.projectId +
+          '\0' +
+          grant.environmentInstanceId +
+          '\0' +
+          grant.serviceRef,
       );
       if (new Set(identities).size !== identities.length) return null;
       const grant = parsed.grants.find(
@@ -120,10 +131,7 @@ export class SystemdUserLifecycleGrantPolicy {
           item.serviceRef === request.serviceRef &&
           item.actions.includes(request.action),
       ) as UserUnitGrant | undefined;
-      if (
-        !grant ||
-        Date.parse(grant.expiresAt) <= this.now().getTime()
-      )
+      if (!grant || Date.parse(grant.expiresAt) <= this.now().getTime())
         return null;
       return structuredClone(grant);
     } catch {
@@ -149,10 +157,9 @@ interface Dependencies {
   policy: Pick<SystemdUserLifecycleGrantPolicy, 'find'>;
   projects: { findProject(id: string): { id: string } | null | undefined };
   environments: {
-    findById(id: string):
-      | { projectId: string; runtime: { kind: string } }
-      | null
-      | undefined;
+    findById(
+      id: string,
+    ): { projectId: string; runtime: { kind: string } } | null | undefined;
   };
   bindings: {
     revision(projectId: string): string;
@@ -165,16 +172,18 @@ interface Dependencies {
       action: 'start' | 'stop',
       environmentInstanceId?: string,
       expectedPlanHash?: string,
-    ): Promise<Pick<
-      ServiceLifecyclePlan,
-      | 'target'
-      | 'action'
-      | 'status'
-      | 'expectedRevision'
-      | 'planHash'
-      | 'executable'
-      | 'nodes'
-    >>;
+    ): Promise<
+      Pick<
+        ServiceLifecyclePlan,
+        | 'target'
+        | 'action'
+        | 'status'
+        | 'expectedRevision'
+        | 'planHash'
+        | 'executable'
+        | 'nodes'
+      >
+    >;
   };
 }
 
@@ -192,10 +201,7 @@ export class SystemdUserLifecycleAuthorizer {
     try {
       // Restart needs a dedicated restart plan; a Start plan is not authority.
       if (request.action === 'restart') return false;
-      if (
-        !HASH.test(request.expectedRevision) ||
-        !HASH.test(request.planHash)
-      )
+      if (!HASH.test(request.expectedRevision) || !HASH.test(request.planHash))
         return false;
       const grant = this.d.policy.find(request);
       if (!grant || grant.bindingRevision !== request.expectedRevision)
@@ -209,7 +215,9 @@ export class SystemdUserLifecycleAuthorizer {
         environment.runtime.kind !== 'host'
       )
         return false;
-      if (this.d.bindings.revision(request.projectId) !== request.expectedRevision)
+      if (
+        this.d.bindings.revision(request.projectId) !== request.expectedRevision
+      )
         return false;
       const matches = this.d.bindings
         .byProject(request.projectId)
@@ -225,10 +233,7 @@ export class SystemdUserLifecycleAuthorizer {
       if (matches.length !== 1) return false;
       // Shared or stale consumers are unsafe even when their bindings are disabled.
       const consumers = this.d.bindings.byResource(request.serviceRef);
-      if (
-        consumers.length !== 1 ||
-        consumers[0]?.id !== grant.bindingId
-      )
+      if (consumers.length !== 1 || consumers[0]?.id !== grant.bindingId)
         return false;
       const plan = await this.d.planner.preview(
         request.projectId,
