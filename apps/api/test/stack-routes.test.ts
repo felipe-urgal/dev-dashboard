@@ -825,7 +825,12 @@ test('opt-in Stack operation journal records real HTTP outcomes without enabling
   assert.match(payload.operationId, /^[a-f0-9-]{36}$/);
   assert.equal(payload.result.state, 'completed');
   assert.deepEqual(payload.result.steps, [
-    { nodeId: 'environment', state: 'retained', diagnostic: 'Environment Instance is an execution context and is not stopped by Stack lifecycle.' },
+    {
+      nodeId: 'environment',
+      state: 'retained',
+      diagnostic:
+        'Environment Instance is an execution context and is not stopped by Stack lifecycle.',
+    },
   ]);
 
   const history = await app.inject({
