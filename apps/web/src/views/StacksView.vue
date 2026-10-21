@@ -812,14 +812,17 @@ onMounted(() => {
           <div class="stack-outcome-header">
             <div>
               <strong>
-                Última operação: {{ outcomeActionLabel(outcomeFor(stack.id)!.kind) }}
+                Última operação:
+                {{ outcomeActionLabel(outcomeFor(stack.id)!.kind) }}
               </strong>
               <small>
                 Resultado retornado pela operação, não uma prévia ou estado
                 observado em tempo real.
               </small>
             </div>
-            <StatusBadge :tone="outcomeStateTone(outcomeFor(stack.id)!.result.state)">
+            <StatusBadge
+              :tone="outcomeStateTone(outcomeFor(stack.id)!.result.state)"
+            >
               {{ outcomeStateLabel(outcomeFor(stack.id)!.result.state) }}
             </StatusBadge>
           </div>
@@ -1048,12 +1051,16 @@ onMounted(() => {
                 type="button"
                 :disabled="isStackBusy(stack.id)"
                 @click="
-                  mutate(stack.id, `restart-${stack.id}-${node.id}`, 'restart', () =>
-                    restartStackNode(
-                      stack.id,
-                      node.id,
-                      expectedRevision(stack.id),
-                    ),
+                  mutate(
+                    stack.id,
+                    `restart-${stack.id}-${node.id}`,
+                    'restart',
+                    () =>
+                      restartStackNode(
+                        stack.id,
+                        node.id,
+                        expectedRevision(stack.id),
+                      ),
                   )
                 "
               >

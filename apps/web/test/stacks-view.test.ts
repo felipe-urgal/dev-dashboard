@@ -87,11 +87,17 @@ describe('Stacks multi-projeto', () => {
 
   it('preserva resultados por node sem confundir operação com Check ou prévia', () => {
     expect(viewSource).toContain('const outcomes = ref(');
-    expect(viewSource).toContain('outcomes.value = new Map(outcomes.value).set');
+    expect(viewSource).toContain(
+      'outcomes.value = new Map(outcomes.value).set',
+    );
     expect(viewSource).toContain('outcomeSteps(outcomeFor(stack.id)!)');
     expect(viewSource).toContain('Resultado retornado pela operação');
-    expect(viewSource).toContain('Os demais nodes podem não ter sido executados');
-    expect(viewSource).toContain('response.revisions[id] === revisions.value[id]');
+    expect(viewSource).toContain(
+      'Os demais nodes podem não ter sido executados',
+    );
+    expect(viewSource).toContain(
+      'response.revisions[id] === revisions.value[id]',
+    );
     expect(viewSource).toContain('nextOutcomes.delete(stackId)');
     expect(viewSource).toContain('setCheck(result.check)');
   });
