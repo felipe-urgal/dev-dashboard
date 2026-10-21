@@ -8,7 +8,7 @@ A issue #1119 reutiliza log readers e Activity/Jobs, sem um novo armazenamento. 
 - `compose`: delega a `DockerComposeLifecycleService.logs` do projeto owner com tail 200 e guarda de ownership antes da leitura; não consulta containers externos como se fossem Compose.
 - `managed-process`: reusa os leitores de server, worker, webpack e test existentes, após confirmar a identidade persistida. `script` mantém seu proprietário Script Execution.
 - `docker` unmanaged: logs não suportados; apenas inventário read-only, sem `docker logs` amplo.
-- Todos os conteúdos têm limite de 64 KiB e passam por redaction adicional no agregador. `observedAt` e `readAt` não são equivalentes; `stale` (>30 segundos) indica que o estado atual precisa ser reobservado. Erros de provider e de Activity degradam independentemente para `partial`.
+- Todos os conteúdos têm limite de 64 KiB e passam por redaction adicional no agregador. `observedAt` e `readAt` não são equivalentes; `stale` (>30 segundos) indica que o estado atual precisa ser reobservado. Erros de provider e de Activity degradam independentemente para `partial`. Uma falha inesperada do leitor de journal retorna `source: journal`, `status: unavailable`, `partial: true` sem descartar Activity/Jobs ou expor detalhes internos.
 - Até 20 eventos e 20 jobs do Activity existente, filtrados por identidade de recurso e ambiente; o diagnóstico só retorna IDs, action/status e timestamp, sem summary, output bruto ou novo evento. Leitura não cria eventos, evita polling, não propõe replay/rollback e não duplica histórico.
 
 ## Interface
