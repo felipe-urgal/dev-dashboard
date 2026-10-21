@@ -15,6 +15,7 @@ import type { ProjectServiceBindingStore } from '../store/project-service-bindin
 import type { SystemdServiceInventory } from './systemd-service-inventory.js';
 import type { SystemdUserLifecycleGrantPolicy } from './systemd-user-lifecycle-authorization.js';
 
+const MAX_OBSERVATION_AGE_MS = 30_000;
 const SAFE_USER_REF =
   /^systemd:user:[A-Za-z0-9][A-Za-z0-9_.@:-]{0,190}\.service$/;
 
@@ -56,6 +57,13 @@ function safeUserRef(ref: string): boolean {
     !ref.includes('@.service') &&
     !/^systemd:user:dev-dashboard(?:[.@-]|\.service)/i.test(ref)
   );
+}
+
+function fresh(iso: string, nowMs: number): boolean {
+  const observedAt = Date.parse(iso);
+  return Number.isFinite(observedAt) &&
+    observedAt <= nowMs &&
+    nowMs - observedAt <= MAX_OBSERVATION_AGE_MS;
 }
 
 function verifiedObservation(
@@ -138,10 +146,13 @@ export class SystemdLifecycleCapabilitiesService {
       }
     }
 
+    const readAt = this.now();
     const userComplete =
       inventory?.sources.some(
         (source) => source.scope === 'user' && source.status === 'ready',
-      ) === true && inventory.truncated === false;
+      ) === true &&
+      inventory.truncated === false &&
+      fresh(inventory.observedAt, readAt.getTime());
     const revision = this.d.bindings.revision(projectId);
     const services = bindings.map((binding) =>
       this.describe(
@@ -150,12 +161,13 @@ export class SystemdLifecycleCapabilitiesService {
         inventory,
         userComplete,
         environment.runtime.kind,
+        readAt.getTime(),
       ),
     );
     return {
       projectId,
       environmentInstanceId: environmentId,
-      readAt: this.now().toISOString(),
+      readAt: readAt.toISOString(),
       partial:
         bindings.length > 0 &&
         environment.runtime.kind === 'host' &&
@@ -171,6 +183,7 @@ export class SystemdLifecycleCapabilitiesService {
     inventory: HostServiceInventory | undefined,
     userComplete: boolean,
     runtimeKind: string,
+    readAtMs: number,
   ): SystemdBoundServiceCapabilities {
     const scope = scopeOf(binding.serviceRef);
     const matches =
@@ -236,7 +249,7 @@ export class SystemdLifecycleCapabilitiesService {
       both(unsupported('Service has another consumer or ambiguous ownership.'));
       return view;
     }
-    if (!userComplete || !observation) {
+    if (!userComplete || !observation || !fresh(observation.observedAt, readAtMs)) {
       both(unknown('Systemd user observation is incomplete or stale.'));
       return view;
     }
@@ -257,15 +270,20 @@ export class SystemdLifecycleCapabilitiesService {
       if (name === 'stop' && observation.state !== 'running') {
         return unsupported('Stop requires a verified running unit.');
       }
-      const grant = this.d.grants.find({
-        projectId: binding.projectId,
-        environmentInstanceId: binding.environmentInstanceId,
-        serviceRef: binding.serviceRef,
-        action: name,
-        expectedRevision: revision,
-        // The policy ignores planHash; an actual operation must validate it.
-        planHash: '0'.repeat(64),
-      });
+      let grant: ReturnType<Dependencies['grants']['find']>;
+      try {
+        grant = this.d.grants.find({
+          projectId: binding.projectId,
+          environmentInstanceId: binding.environmentInstanceId,
+          serviceRef: binding.serviceRef,
+          action: name,
+          expectedRevision: revision,
+          // The policy ignores planHash; an actual operation must validate it.
+          planHash: '0'.repeat(64),
+        });
+      } catch {
+        return unknown('Operator policy cannot be evaluated.');
+      }
       if (
         !grant ||
         grant.bindingId !== binding.id ||
