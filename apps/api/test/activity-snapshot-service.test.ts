@@ -116,6 +116,7 @@ function createService(
     gitHistory?: () => Promise<GitMutationHistoryPage>;
     testHistory?: () => Promise<TestExecutionHistory>;
     scriptHistory?: () => Promise<ScriptExecutionHistory>;
+    events?: ActivityEvent[];
     processes?: () => Promise<ManagedProcess[]>;
     agentRuntime?: Pick<
       AgentRuntimeApiServicePort,
@@ -130,7 +131,7 @@ function createService(
 ) {
   return new ActivitySnapshotService({
     eventStore: {
-      list: () => [storedEvent],
+      list: () => overrides.events ?? [storedEvent],
     },
     gitHistory: {
       history: overrides.gitHistory ?? (async () => gitHistory),
@@ -155,6 +156,115 @@ function createService(
     now: () => new Date('2026-09-19T10:06:00.000Z'),
   });
 }
+
+test('preserves repeated lifecycle actions for the same resource across Jobs and unlinked events', async () => {
+  const resourceRef = { kind: 'compose-service', id: 'compose:project-a:db' };
+  const base: ActivityEvent = {
+    id: 'lifecycle-1',
+    projectId: project.id,
+    environmentInstanceId: 'environment:primary:project-a',
+    domain: 'compose',
+    type: 'compose.confirmed-start',
+    status: 'succeeded',
+    summary: 'Lifecycle start: verified',
+    occurredAt: '2026-09-19T10:05:40.000Z',
+    jobId: 'compose-confirmed:job-1',
+    resourceRef,
+  };
+  const secondJob: ActivityEvent = {
+    ...base,
+    id: 'lifecycle-2',
+    jobId: 'compose-confirmed:job-2',
+    occurredAt: '2026-09-19T10:05:30.000Z',
+  };
+  const noJob = {
+    ...base,
+    id: 'lifecycle-unlinked-1',
+    jobId: undefined,
+    occurredAt: '2026-09-19T10:05:20.000Z',
+  };
+  const nextUnlinked = {
+    ...noJob,
+    id: 'lifecycle-unlinked-2',
+    occurredAt: '2026-09-19T10:05:10.000Z',
+  };
+  const service = createService({
+    events: [base, secondJob, noJob, nextUnlinked],
+  });
+  for (const snapshot of [
+    await service.readProject(project.id),
+    await service.readGlobal(),
+  ]) {
+    const matching = snapshot.events.filter((event) =>
+      event.type === base.type,
+    );
+    assert.deepEqual(
+      matching.map((event) => event.id),
+      [
+        'lifecycle-1',
+        'lifecycle-2',
+        'lifecycle-unlinked-1',
+        'lifecycle-unlinked-2',
+      ],
+    );
+  }
+});
+
+test('deduplicates reattached Job steps without erasing distinct states, nodes or environments', async () => {
+  const first: ActivityEvent = {
+    id: 'reattached-latest',
+    projectId: project.id,
+    environmentInstanceId: 'environment:primary:project-a',
+    domain: 'compose',
+    type: 'compose.confirmed-restart',
+    status: 'succeeded',
+    summary: 'Lifecycle restart: verified',
+    occurredAt: '2026-09-19T10:05:50.000Z',
+    jobId: 'compose-confirmed:job-one',
+    resourceRef: { kind: 'compose-service', id: 'compose:project-a:db' },
+  };
+  const events: ActivityEvent[] = [
+    first,
+    {
+      ...first,
+      id: 'reattached-earlier',
+      occurredAt: '2026-09-19T10:05:45.000Z',
+    },
+    {
+      ...first,
+      id: 'failed-step',
+      status: 'failed',
+      occurredAt: '2026-09-19T10:05:40.000Z',
+    },
+    {
+      ...first,
+      id: 'other-node',
+      resourceRef: { kind: 'compose-service', id: 'compose:project-a:api' },
+      occurredAt: '2026-09-19T10:05:35.000Z',
+    },
+    {
+      ...first,
+      id: 'other-environment',
+      environmentInstanceId: 'environment:worktree:project-a:wt',
+      occurredAt: '2026-09-19T10:05:30.000Z',
+    },
+    { ...first, id: 'another-attempt', jobId: 'compose-confirmed:job-two', occurredAt: '2026-09-19T10:05:25.000Z' },
+  ];
+  const service = createService({ events });
+  const projectSnapshot = await service.readProject(project.id);
+  assert.deepEqual(
+    projectSnapshot.events.filter((event) => event.domain === 'compose').map((event) => event.id),
+    [
+      'reattached-latest',
+      'failed-step',
+      'other-node',
+      'other-environment',
+      'another-attempt',
+    ],
+  );
+  const global = await service.readGlobal();
+  assert.equal(global.events.filter((event) => event.domain === 'compose').length, 5);
+});
 
 test('agrega timeline e jobs sem expor cwd, argv ou logs', async () => {
   const snapshot = await createService().readProject(project.id);
