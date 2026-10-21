@@ -269,6 +269,87 @@ test('correlation requires one matching persisted step and refuses forged Job id
   }
 });
 
+test('multi-node Compose Job correlates only its latest persisted step and rejects stale replay', async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'compose-job-activity-'));
+  try {
+    const db = 'compose:loto:db';
+    const api = 'compose:loto:api';
+    const steps: ConfirmedLifecycleStep[] = [
+      { serviceRef: db, action: 'start', dispositionBefore: 'willStart', state: 'completed' },
+      { serviceRef: api, action: 'start', dispositionBefore: 'willStart', state: 'failed' },
+    ];
+    const journal = new ConfirmedLifecycleJobJournal(root, {
+      now: () => new Date(request.acceptedObservedAt),
+    });
+    const events: AppendActivityEventInput[] = [];
+    const writer = new ConfirmedServiceLifecycleActivityWriter({
+      jobs: journal,
+      activityEvents: {
+        append: async (entry) => {
+          events.push(entry);
+          return {} as never;
+        },
+      },
+    });
+    const uuid = journal.begin(request, [db, api]);
+    await assert.rejects(
+      writer.append(steps[0]!, request, uuid),
+      /identity could not be verified/,
+    );
+    journal.beforeStep(uuid, db);
+    journal.step(uuid, steps[0]!);
+    await writer.append(steps[0]!, request, uuid);
+    journal.beforeStep(uuid, api);
+    journal.step(uuid, steps[1]!);
+    await assert.rejects(
+      writer.append(steps[0]!, request, uuid),
+      /identity could not be verified/,
+    );
+    await assert.rejects(
+      writer.append({ ...steps[1]!, state: 'completed' }, request, uuid),
+      /identity could not be verified/,
+    );
+    await assert.rejects(
+      writer.append({ ...steps[1]!, serviceRef: 'compose:loto:forged' }, request, uuid),
+      /identity could not be verified/,
+    );
+    await writer.append(steps[1]!, request, uuid);
+    assert.deepEqual(
+      events.map((entry) => ({
+        jobId: entry.jobId,
+        resourceRef: entry.resourceRef,
+        status: entry.status,
+      })),
+      [
+        {
+          jobId: 'compose-confirmed:' + uuid,
+          resourceRef: { kind: 'compose-service', id: db },
+          status: 'succeeded',
+        },
+        {
+          jobId: 'compose-confirmed:' + uuid,
+          resourceRef: { kind: 'compose-service', id: api },
+          status: 'failed',
+        },
+      ],
+    );
+    journal.finish(uuid, {
+      projectId: request.projectId,
+      environmentInstanceId: request.environmentInstanceId,
+      action: request.action,
+      status: 'partial',
+      steps,
+    });
+    await assert.rejects(
+      writer.append(steps[1]!, request, uuid),
+      /identity could not be verified/,
+    );
+    assert.equal(events.length, 2);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('correlated Activity rejects unavailable journal without leaking storage diagnostics', async () => {
   const entries: AppendActivityEventInput[] = [];
   const writer = new ConfirmedServiceLifecycleActivityWriter({
