@@ -10,6 +10,7 @@ import { ApiError } from '../http/api-error.js';
 import type { ServiceLifecyclePlanningService } from './service-lifecycle-planning-service.js';
 import type { ConfirmedLifecycleJobJournal } from './confirmed-lifecycle-job-journal.js';
 import { ServiceResourceOperationLock } from './service-resource-operation-lock.js';
+import { isSystemdUserUnit } from './confirmed-lifecycle-systemd-evidence.js';
 
 const ACCEPTANCE_TTL_MS = 30_000;
 
@@ -43,7 +44,7 @@ function plannedNodes(plan: ServiceLifecyclePlan): ServiceLifecyclePlanNode[] {
   );
 }
 
-function resourceKeys(plan: ServiceLifecyclePlan): string[] {
+export function confirmedLifecycleResourceKeys(plan: ServiceLifecyclePlan): string[] {
   const keys = [
     'environment:' +
       plan.target.projectId +
@@ -54,6 +55,10 @@ function resourceKeys(plan: ServiceLifecyclePlan): string[] {
     // The coordinator holds per-node + environment locks. The Compose
     // lifecycle owner holds compose-project:<projectId> around each actual
     // mutation; acquiring it here too would self-deadlock on the same lease.
+    // The systemd user owner acquires both resource:<ref> and its physical
+    // unit key. Nested coordinator acquisition would self-conflict.
+    // Systemd execution remains disallowed by ensureApproved().
+    if (node.provider === 'systemd' && isSystemdUserUnit(node.serviceRef)) continue;
     keys.push('resource:' + node.serviceRef);
   }
   return keys;
@@ -122,7 +127,7 @@ export class ConfirmedServiceLifecycleCoordinator {
     const approved = plannedNodes(initial);
 
     return this.dependencies.locks.withResources(
-      resourceKeys(initial),
+      confirmedLifecycleResourceKeys(initial),
       async () => {
         // Two different projects can share one resource. Revalidate after
         // taking every lock before invoking a provider-owned lifecycle action.

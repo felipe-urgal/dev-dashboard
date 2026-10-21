@@ -42,3 +42,9 @@ Novos leases passam a gravar, além de `pid`, o campo `processIdentity`: `bootId
 A inspeção devolve `processIdentity: verified-same|different|unverifiable`: compara o marcador com a leitura atual **somente quando o PID está presente**. Leases legados, sem `processIdentity`, continuam compatíveis e recebem evidência `unverifiable`; o sistema jamais remove, renova ou rouba esses locks automaticamente. Quando `/proc` não está disponível, a leitura é inconclusiva, sem fallback para acreditar apenas no PID.
 
 **Isso ainda não constitui fencing ou prova de quiescência.** Mesmo `different` não exclui outro executor, worker ou máquina; mesmo `verified-same` não comprova se o processo está alterando o Compose. Nenhum resultado habilita `retry`, `cancel`, limpeza de lease ou finalização de Job. Essas etapas exigem um protocolo explícito e interoperável de controle do executor.
+
+## systemd --user dual-key ownership (#1117)
+
+The internal user-unit owner atomically acquires both `resource:systemd:user:<unit>.service` (shared logical service identity) and `systemd:user:<unit>.service` (physical adapter identity). Both must be free on the same local state directory. Calls using either key conflict with an active owner, even from separate lock instances. The coordinator delegates both keys to the owner to avoid self-conflict and retains the environment lease. It still **rejects** systemd nodes; the planner remains `executable:false` and no HTTP mutation route exists.
+
+Tests use temporary directories and an injected fake command runner; they exercise collisions and lease release without calling systemctl or changing host units. These cooperative leases do not fence external tools, other state roots, remote machines or commands already running at crash time.

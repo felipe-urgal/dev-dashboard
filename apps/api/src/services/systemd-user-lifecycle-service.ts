@@ -7,6 +7,7 @@ import type {
 
 import { ApiError } from '../http/api-error.js';
 import type { ServiceResourceOperationLock } from './service-resource-operation-lock.js';
+import { systemdUserOwnerLeaseKeys } from './confirmed-lifecycle-systemd-evidence.js';
 import type { SystemdServiceInventory } from './systemd-service-inventory.js';
 
 const UNIT_NAME = /^[A-Za-z0-9][A-Za-z0-9_.@:-]{0,190}\.service$/;
@@ -176,12 +177,14 @@ export class SystemdUserLifecycleService {
       forbidden('A server-verified lifecycle plan is required.');
     }
     const unit = unitName(request.serviceRef);
+    const keys = systemdUserOwnerLeaseKeys(request.serviceRef);
+    if (!keys) forbidden('Unit identity is not supported for lifecycle mutation.');
     // No inventory result, catalog entry or ownership claim grants permission.
     if (!(await this.d.authorize(request)))
       forbidden('Unit is not explicitly authorized for this lifecycle plan.');
 
     return this.d.locks.withResources(
-      ['systemd:user:' + unit],
+      keys,
       async (lease) => {
         await lease.assertOwned();
         const before = observedUnit(await this.d.inventory.inspect(), unit);

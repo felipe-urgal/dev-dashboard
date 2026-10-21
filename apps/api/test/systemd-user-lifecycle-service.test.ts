@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 import type {
@@ -7,6 +11,8 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import { SystemdUserLifecycleService } from '../src/services/systemd-user-lifecycle-service.js';
+import { ServiceResourceOperationLock } from '../src/services/service-resource-operation-lock.js';
+import { systemdUserOwnerLeaseKeys } from '../src/services/confirmed-lifecycle-systemd-evidence.js';
 
 const REV = 'a'.repeat(64);
 const PLAN = 'b'.repeat(64);
@@ -228,4 +234,92 @@ test('falha de lease, provider e resultado ambíguo nunca viram sucesso', async 
   const ambiguous = fixture({ observations: [inventory('stopped')] });
   await assert.rejects(ambiguous.service.run(REQUEST), /unverified/);
   assert.deepEqual(ambiguous.commands, ['start:fixture-worker.service']);
+});
+
+test('systemd owner holds physical and logical durable leases until reobservation', async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'systemd-owner-lock-'));
+  let resume: (() => void) | undefined;
+  try {
+    const ownerLocks = new ServiceResourceOperationLock({ stateDirectory: root });
+    const other = new ServiceResourceOperationLock({ stateDirectory: root });
+    let entered!: () => void;
+    const arrived = new Promise<void>((r) => { entered = r; });
+    const pending = new Promise<void>((r) => { resume = r; });
+    let observed = 0;
+    let dispatched = 0;
+    const owner = new SystemdUserLifecycleService({
+      inventory: { inspect: async () => inventory(observed++ < 2 ? 'stopped' : 'running') },
+      locks: ownerLocks,
+      authorize: async () => true,
+    }, {
+      platform: 'linux',
+      runSystemctl: async () => { dispatched++; entered(); await pending; },
+    });
+    const first = owner.run(REQUEST);
+    await arrived;
+    assert.equal(dispatched, 1);
+    const keys = systemdUserOwnerLeaseKeys(REF);
+    assert.deepEqual(keys, ['resource:' + REF, REF]);
+    for (const key of keys!) {
+      const dir = path.join(root, 'service-resource-leases-v1',
+        createHash('sha256').update(key).digest('hex'));
+      assert.equal(existsSync(dir), true);
+      await assert.rejects(
+        other.withResources([key], async () => 'unexpected'),
+        /already using one of these resources/,
+      );
+    }
+    assert.equal(await other.withResources(
+      ['systemd:user:independent-fixture.service'],
+      async () => 'unrelated',
+    ), 'unrelated');
+    resume?.();
+    const result = await first;
+    assert.equal(result.outcome, 'changed');
+    assert.equal(result.readiness, 'unknown');
+    assert.equal(dispatched, 1);
+    assert.equal(observed, 3);
+    for (const key of keys!) {
+      const dir = path.join(root, 'service-resource-leases-v1',
+        createHash('sha256').update(key).digest('hex'));
+      assert.equal(existsSync(dir), false);
+    }
+  } finally {
+    resume?.();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('preexisting logical coordinator lease denies systemd owner before dispatch', async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'systemd-owner-lock-'));
+  try {
+    const coordinator = new ServiceResourceOperationLock({ stateDirectory: root });
+    const ownerLocks = new ServiceResourceOperationLock({ stateDirectory: root });
+    let observed = 0;
+    let dispatched = 0;
+    const owner = new SystemdUserLifecycleService({
+      inventory: { inspect: async () => { observed++; return inventory('stopped'); } },
+      locks: ownerLocks,
+      authorize: async () => true,
+    }, {
+      platform: 'linux', runSystemctl: async () => { dispatched++; },
+    });
+    await coordinator.withResources(['resource:' + REF], async () => {
+      await assert.rejects(owner.run(REQUEST), /already using one of these resources/);
+    });
+    assert.equal(observed, 0);
+    assert.equal(dispatched, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('unsafe unit refs cannot create shared owner lease keys', () => {
+  for (const ref of [
+    'systemd:system:fixture-worker.service',
+    'systemd:user:dev-dashboard.service',
+    'systemd:user:worker@.service',
+    'systemd:user:../bad.service',
+    'systemd:user:--bad.service',
+  ]) assert.equal(systemdUserOwnerLeaseKeys(ref), null);
 });

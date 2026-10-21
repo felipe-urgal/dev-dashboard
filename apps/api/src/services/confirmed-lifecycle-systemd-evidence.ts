@@ -22,3 +22,8 @@ export function isSystemdUserJob(refs: readonly string[]): boolean {
 export function systemdUserPhysicalLeaseKey(ref: string): string | null {
   return isSystemdUserUnit(ref) ? ref : null;
 }
+
+/** Both physical and logical keys are owned atomically by the user-unit adapter. */
+export function systemdUserOwnerLeaseKeys(ref: string): string[] | null {
+  return isSystemdUserUnit(ref) ? ['resource:' + ref, ref] : null;
+}
