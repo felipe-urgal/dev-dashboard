@@ -1,6 +1,11 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
-import type { Stack } from '@dev-dashboard/contracts';
+import type {
+  Stack,
+  StackRestartResult,
+  StackStartResult,
+  StackStopResult,
+} from '@dev-dashboard/contracts';
 
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
@@ -25,6 +30,7 @@ import type { StackStartService } from '../services/stack-start-service.js';
 import type { StackStopService } from '../services/stack-stop-service.js';
 import { StackTopologyServiceError } from '../services/stack-topology-service.js';
 import { stackRevision } from '../services/stack-revision.js';
+import type { StackOperationJournal } from '../services/stack-operation-journal.js';
 
 interface Options extends FastifyPluginOptions {
   stackDefinitionService: Pick<
@@ -40,6 +46,10 @@ interface Options extends FastifyPluginOptions {
   stackRestartService: Pick<StackRestartService, 'restart'>;
   stackStartService: Pick<StackStartService, 'start'>;
   stackStopService: Pick<StackStopService, 'stop'>;
+  stackOperationJournal?: Pick<
+    StackOperationJournal,
+    'begin' | 'finish' | 'interrupted' | 'list'
+  >;
 }
 
 interface RevisionBody {
@@ -287,6 +297,39 @@ const stackLogsSnapshotSchema = {
   },
 } as const;
 
+const stackOperationRecordSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'version', 'id', 'stackId', 'projectIds', 'action', 'expectedRevision',
+    'plannedNodeIds', 'status', 'steps', 'startedAt', 'updatedAt',
+    'reconciliationRequired',
+  ],
+  properties: {
+    version: { type: 'integer', const: 1 },
+    id: { type: 'string' },
+    stackId: { type: 'string' },
+    projectIds: { type: 'array', items: { type: 'string' } },
+    action: { type: 'string', enum: ['start', 'stop', 'restart'] },
+    expectedRevision: { type: 'string' },
+    plannedNodeIds: { type: 'array', items: { type: 'string' } },
+    status: { type: 'string', enum: ['running', 'completed', 'blocked', 'failed', 'interrupted'] },
+    steps: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['nodeId', 'state'],
+        properties: { nodeId: { type: 'string' }, state: { type: 'string' } },
+      },
+    },
+    startedAt: { type: 'string' },
+    updatedAt: { type: 'string' },
+    finishedAt: { type: 'string' },
+    reconciliationRequired: { type: 'boolean' },
+  },
+} as const;
+
 const stackStartStepSchema = {
   type: 'object',
   additionalProperties: false,
@@ -422,6 +465,46 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
   app,
   options,
 ) => {
+  async function recordedOperation<
+    T extends StackStartResult | StackStopResult | StackRestartResult,
+  >(
+    stackId: string,
+    action: 'start' | 'stop' | 'restart',
+    expectedRevision: string,
+    execute: () => Promise<T>,
+    restartNodeId?: string,
+  ): Promise<{ result: T; operationId?: string }> {
+    const journal = options.stackOperationJournal;
+    if (!journal) return { result: await execute() };
+    // Only the server-observed topology is allowed to define journal intent.
+    const check = await options.stackCheckService.check(stackId);
+    requireRevision(check.stack, expectedRevision);
+    const order =
+      action === 'start'
+        ? check.topology.startOrder
+        : action === 'stop'
+          ? check.topology.stopOrder
+          : restartNodeId
+            ? [restartNodeId]
+            : [];
+    if (order.some((id) => !check.stack.nodes.some((node) => node.id === id))) {
+      throw new ApiError({
+        statusCode: 409,
+        code: 'CONFLICT',
+        message: 'Stack topology changed. Refresh before retrying.',
+      });
+    }
+    const id = journal.begin(check.stack, action, expectedRevision, order);
+    try {
+      const result = await execute();
+      journal.finish(id, result);
+      return { result, operationId: id };
+    } catch (error) {
+      journal.interrupted(id);
+      throw error;
+    }
+  }
+
   app.get(
     '/stacks',
     {
@@ -545,6 +628,38 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       } catch (error) {
         throw mapStackError(error);
       }
+    },
+  );
+
+  app.get<{ Params: StackParams }>(
+    '/stacks/:stackId/operations',
+    {
+      schema: {
+        params: stackParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['operations'],
+            properties: {
+              operations: { type: 'array', items: stackOperationRecordSchema },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      if (!options.stackDefinitionService.findById(request.params.stackId)) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'NOT_FOUND',
+          message: 'Stack not found.',
+        });
+      }
+      return {
+        operations: options.stackOperationJournal?.list(request.params.stackId) ?? [],
+      };
     },
   );
 
