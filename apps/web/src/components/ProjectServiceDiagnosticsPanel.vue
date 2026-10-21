@@ -291,25 +291,26 @@ function providerRoute(provider: string) {
       </p>
       <p>
         Plano de início:
-        {{ dependencyPreview.status === 'blocked' ? 'bloqueado' : 'sem bloqueio identificado' }}.
-        Verificação:
+        {{
+          dependencyPreview.status === 'blocked'
+            ? 'bloqueado'
+            : 'sem bloqueio identificado'
+        }}. Verificação:
         <time :datetime="dependencyPreview.observedAt">{{
           new Date(dependencyPreview.observedAt).toLocaleString('pt-BR')
-        }}</time>.
-        Válido até:
+        }}</time
+        >. Válido até:
         <time :datetime="dependencyPreview.expiresAt">{{
           new Date(dependencyPreview.expiresAt).toLocaleString('pt-BR')
-        }}</time>.
+        }}</time
+        >.
       </p>
       <p v-if="dependencyPreview.diagnostics.length" role="status">
         Evidência incompleta ou restrição de planejamento:
         {{ dependencyPreview.diagnostics.join(' ') }}
       </p>
       <ol class="service-dependency-list">
-        <li
-          v-for="node in dependencyPreview.nodes"
-          :key="node.serviceRef"
-        >
+        <li v-for="node in dependencyPreview.nodes" :key="node.serviceRef">
           <strong>{{ nodeLabel(node.serviceRef) }}</strong>
           <span>
             {{
@@ -329,7 +330,9 @@ function providerRoute(provider: string) {
             {{ blockingDependencies(node).map(nodeLabel).join(', ') }}
           </p>
           <button
-            v-if="visible.some((binding) => binding.serviceRef === node.serviceRef)"
+            v-if="
+              visible.some((binding) => binding.serviceRef === node.serviceRef)
+            "
             type="button"
             @click="inspectDependency(node.serviceRef)"
           >
