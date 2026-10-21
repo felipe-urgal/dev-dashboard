@@ -140,7 +140,8 @@ test('omits incomplete tail lines instead of exposing a secret value suffix', as
   ]);
   await fixture.manager.startServer(fixture.project);
 
-  let observed: Awaited<ReturnType<typeof fixture.manager.readServerLog>> | undefined;
+  let observed:
+    Awaited<ReturnType<typeof fixture.manager.readServerLog>> | undefined;
   for (let attempt = 0; attempt < 80; attempt += 1) {
     const snapshot = await fixture.manager.readServerLog(fixture.project.id, {
       maxBytes: 256,
