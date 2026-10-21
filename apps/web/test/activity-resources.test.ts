@@ -34,6 +34,7 @@ describe('Activity resource registry', () => {
     ['deployment', 'project-production'],
     ['compose', 'project-compose'],
     ['compose-service', 'project-compose'],
+    ['stack-operation', 'stacks'],
     ['docker-compose-lifecycle', 'project-compose'],
     ['systemd-user-lifecycle', 'project-doctor'],
     ['systemd-user-unit', 'project-doctor'],
