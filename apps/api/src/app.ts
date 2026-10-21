@@ -53,6 +53,7 @@ import { StackHealthCheckAdapter } from './services/stack-health-check-adapter.j
 import { StackLogsService } from './services/stack-logs-service.js';
 import { StackRestartService } from './services/stack-restart-service.js';
 import { StackStartService } from './services/stack-start-service.js';
+import type { StackOperationJournal } from './services/stack-operation-journal.js';
 import { StackStopService } from './services/stack-stop-service.js';
 import { SystemdServiceInventory } from './services/systemd-service-inventory.js';
 import { SystemdLifecycleCapabilitiesService } from './services/systemd-lifecycle-capabilities-service.js';
@@ -132,6 +133,8 @@ export interface BuildAppOptions extends AppCompositionOptions {
   sessionSecret?: string;
   browserBootstrapToken?: string;
   sessionTtlSeconds?: number;
+  /** Trusted server injection only. Disabled until recovery review is supported. */
+  stackOperationJournal?: StackOperationJournal;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -160,7 +163,15 @@ export async function buildApp(options: BuildAppOptions = {}) {
     createAppContext({
       languageServerLogger: app.log,
     });
-  const composition = createAppComposition(context, options);
+  // Do not enable operation journaling for real host mutations by default:
+  // a partial request may hold a conservative claim until manual review exists.
+  const stackOperationJournal = options.stackOperationJournal;
+  const composition = createAppComposition(context, {
+    ...options,
+    ...(stackOperationJournal
+      ? { stackOperationJobs: stackOperationJournal }
+      : {}),
+  });
   const dashboardTerminalService = new DashboardTerminalService();
   const stackDefinitionService = new StackDefinitionService({
     stackStore: context.stackStore,
@@ -486,6 +497,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   app.register(stackRoutes, {
     prefix: '/api',
+    ...(stackOperationJournal ? { stackOperationJournal } : {}),
     stackDefinitionService,
     stackDependencyDiscoveryService,
     stackCheckService,

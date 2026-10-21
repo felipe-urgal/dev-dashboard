@@ -99,6 +99,10 @@ const registry: Record<string, ResourceHandler> = {
         : null,
   },
   'stack-node': { label: 'Abrir Stacks', route: () => ({ name: 'stacks' }) },
+  'stack-operation': {
+    label: 'Abrir Stacks',
+    route: () => ({ name: 'stacks' }),
+  },
   'migration-mutation': {
     label: 'Abrir migrações',
     route: (item) => toolRoute('migrations', item),
