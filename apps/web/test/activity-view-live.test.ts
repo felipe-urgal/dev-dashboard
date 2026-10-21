@@ -10,7 +10,10 @@ vi.mock('vue-router', async () => {
   const { reactive } = await import('vue');
   const query = reactive({ projectId: '' });
   routeControl.setProjectId = (id: string) => { query.projectId = id; };
-  return { useRoute: () => ({ query }) };
+  return {
+    useRoute: () => ({ query }),
+    RouterLink: { props: ['to'], template: '<a><slot /></a>' },
+  };
 });
 vi.mock('../src/api/activity', () => ({ fetchActivity }));
 vi.mock('../src/stores/dashboard', async () => {
