@@ -34,6 +34,7 @@ export class ConfirmedServiceLifecycleActivityWriter implements ConfirmedLifecyc
           : 'warning';
     // Do not interpolate untrusted runtime error text. Keep the reference
     // for navigation and use stable action/status words for the summary.
+    const systemdUser = step.serviceRef.startsWith('systemd:user:');
     const summary =
       'Lifecycle ' +
       request.action +
@@ -46,18 +47,20 @@ export class ConfirmedServiceLifecycleActivityWriter implements ConfirmedLifecyc
     await this.dependencies.activityEvents.append({
       projectId: request.projectId,
       environmentInstanceId: request.environmentInstanceId,
-      domain: 'compose',
-      type: 'compose.confirmed-' + request.action,
+      domain: systemdUser ? 'security' : 'compose',
+      type:
+        (systemdUser ? 'systemd.user.confirmed-' : 'compose.confirmed-') +
+        request.action,
       status,
       summary,
       resourceRef: {
-        kind: 'compose-service',
+        kind: systemdUser ? 'systemd-user-unit' : 'compose-service',
         // Activity resource IDs are limited to 256 characters. Preserve short
         // identities; hash longer ones without truncation/collision by prefix.
         id:
           step.serviceRef.length <= 256
             ? step.serviceRef
-            : 'compose-ref-sha256:' +
+            : (systemdUser ? 'systemd-ref-sha256:' : 'compose-ref-sha256:') +
               createHash('sha256').update(step.serviceRef).digest('hex'),
       },
     });

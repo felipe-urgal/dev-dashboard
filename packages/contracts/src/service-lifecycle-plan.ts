@@ -15,7 +15,7 @@ export interface ServiceLifecyclePlanNode {
    * Changes to this value invalidate the planHash.
    */
   systemdCapability?: {
-    status: 'permission-required' | 'unsupported' | 'unknown';
+    status: 'supported' | 'permission-required' | 'unsupported' | 'unknown';
     reason: string;
   };
   serviceRef: string;

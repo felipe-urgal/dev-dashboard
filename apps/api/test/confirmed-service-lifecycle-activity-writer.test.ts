@@ -107,3 +107,76 @@ test('bounds long service references without truncation or losing stable identit
     /^compose-ref-sha256:[a-f0-9]{64}$/,
   );
 });
+
+test('systemd user step is classified as security audit without leaking diagnostics', async () => {
+  const events: AppendActivityEventInput[] = [];
+  const writer = new ConfirmedServiceLifecycleActivityWriter({
+    activityEvents: {
+      append: async (event) => {
+        events.push(event);
+        return {} as never;
+      },
+    },
+  });
+  for (const state of ['completed', 'failed', 'unverified'] as const) {
+    await writer.append(
+      {
+        serviceRef: 'systemd:user:fixture-worker.service',
+        action: 'start',
+        dispositionBefore: 'willStart',
+        state,
+        diagnostic: 'secret /home/developer/key',
+      },
+      request,
+    );
+  }
+  assert.deepEqual(
+    events.map((e) => e.domain),
+    ['security', 'security', 'security'],
+  );
+  assert.deepEqual(
+    events.map((e) => e.type),
+    [
+      'systemd.user.confirmed-start',
+      'systemd.user.confirmed-start',
+      'systemd.user.confirmed-start',
+    ],
+  );
+  assert.deepEqual(
+    events.map((e) => e.status),
+    ['succeeded', 'failed', 'warning'],
+  );
+  assert.equal(events[0]?.resourceRef?.kind, 'systemd-user-unit');
+  assert.equal(
+    events[0]?.resourceRef?.id,
+    'systemd:user:fixture-worker.service',
+  );
+  assert.doesNotMatch(JSON.stringify(events), /secret|\/home\//);
+});
+
+test('long systemd resource identity is hashed with provider-specific prefix', async () => {
+  const events: AppendActivityEventInput[] = [];
+  const writer = new ConfirmedServiceLifecycleActivityWriter({
+    activityEvents: {
+      append: async (event) => {
+        events.push(event);
+        return {} as never;
+      },
+    },
+  });
+  await writer.append(
+    {
+      serviceRef: 'systemd:user:' + 'a'.repeat(290) + '.service',
+      action: 'stop',
+      dispositionBefore: 'willStop',
+      state: 'failed',
+    },
+    { ...request, action: 'stop' },
+  );
+  assert.match(
+    events[0]?.resourceRef?.id ?? '',
+    /^systemd-ref-sha256:[a-f0-9]{64}$/,
+  );
+  assert.equal(events[0]?.resourceRef?.kind, 'systemd-user-unit');
+  assert.equal(events[0]?.domain, 'security');
+});
