@@ -33,6 +33,8 @@ describe('Activity resource registry', () => {
     ['dev-container-lifecycle', 'project-dev-container'],
     ['deployment', 'project-production'],
     ['compose', 'project-compose'],
+    ['compose-service', 'project-compose'],
+    ['systemd-user-unit', 'project-doctor'],
     ['stack-node', 'stacks'],
     ['migration-mutation', 'project-migrations'],
     ['local-ci', 'project-local-ci'],
@@ -41,6 +43,24 @@ describe('Activity resource registry', () => {
   ])('resolves %s to %s', (kind, expected) => {
     expect(resolveActivityResource(makeJob(kind)).to?.name).toBe(expected);
   });
+  it('routes systemd Activity to project-bound diagnostics with the exact unit', () => {
+    const job = makeJob('systemd-user-unit');
+    job.resourceRef = {
+      kind: 'systemd-user-unit',
+      id: 'systemd:user:fixture.service',
+    };
+    const resolved = resolveActivityResource(job);
+    expect(resolved.to).toEqual({
+      name: 'project-doctor',
+      params: { projectId: 'project-1' },
+      query: {
+        environmentInstanceId: 'environment-1',
+        serviceRef: 'systemd:user:fixture.service',
+      },
+    });
+    expect(canCancelActivityJob(job)).toBe(false);
+  });
+
   it('does not silently navigate an unknown kind', () => {
     expect(resolveActivityResource(makeJob('future-kind'))).toEqual({
       known: false,

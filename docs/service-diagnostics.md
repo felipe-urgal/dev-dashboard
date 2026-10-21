@@ -13,7 +13,7 @@ A issue #1119 reutiliza log readers e Activity/Jobs, sem um novo armazenamento. 
 
 ## Interface
 
-Projeto → **Diagnóstico** → **Diagnóstico de serviços vinculados**. Ao selecionar um vínculo habilitado e clicar em `Consultar diagnóstico e logs`, a UI faz uma única leitura. Exibe estado/readiness separados, última observação, stale/partial, erros de permissão, log sanitizado e eventos relacionados. Links para provider e Activity/Jobs preservam o projeto e, quando aplicável, a Environment Instance.
+Projeto → **Diagnóstico** → **Diagnóstico de serviços vinculados**. Ao selecionar um vínculo habilitado e clicar em `Consultar diagnóstico e logs`, a UI faz uma única leitura. Exibe estado/readiness separados, última observação, stale/partial, erros de permissão, log sanitizado e eventos relacionados. Links para providers suportados (Compose e Process Manager) preservam o projeto e, quando aplicável, a Environment Instance. Unidades systemd e containers Docker unmanaged não são encaminhados erroneamente para Process Manager: são apenas observáveis, sem ação de lifecycle. O link para Activity/Jobs filtra ambos os fluxos pelo projeto; eventos de `systemd-user-unit` retornam ao diagnóstico read-only da unidade por `serviceRef`, preservando o ambiente, inclusive em navegação na mesma aba.
 
 ## Matriz de permissão
 

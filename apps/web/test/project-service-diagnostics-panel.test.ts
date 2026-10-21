@@ -11,10 +11,24 @@ vi.mock('../src/api/service-diagnostics', () => ({
   fetchProjectServiceBindings,
   fetchServiceDiagnostics,
 }));
-vi.mock('vue-router', () => ({
-  useRoute: () => ({ query: {} }),
-  RouterLink: { props: ['to'], template: '<a><slot /></a>' },
+const routeControl = vi.hoisted(() => ({
+  setServiceRef: (_id: string) => {},
 }));
+vi.mock('vue-router', async () => {
+  const { reactive } = await import('vue');
+  const query = reactive({ serviceRef: '' });
+  routeControl.setServiceRef = (id: string) => {
+    query.serviceRef = id;
+  };
+  return {
+    useRoute: () => ({ query }),
+    RouterLink: {
+      props: ['to'],
+      template:
+        '<a :data-route="to.name" :data-environment="to.query?.environmentInstanceId"><slot /></a>',
+    },
+  };
+});
 
 import ProjectServiceDiagnosticsPanel from '../src/components/ProjectServiceDiagnosticsPanel.vue';
 
@@ -60,6 +74,7 @@ describe('ProjectServiceDiagnosticsPanel', () => {
   beforeEach(() => {
     fetchProjectServiceBindings.mockReset();
     fetchServiceDiagnostics.mockReset();
+    routeControl.setServiceRef('');
     fetchProjectServiceBindings.mockResolvedValue({
       bindings: [binding(), binding('loto', 'environment:worktree:other')],
       partial: false,
@@ -87,6 +102,104 @@ describe('ProjectServiceDiagnosticsPanel', () => {
     expect(wrapper.text()).toContain(
       'Uma falha de permissão não significa log vazio',
     );
+  });
+
+  it('never links systemd to Process Manager or invents a mutable provider screen', async () => {
+    const wrapper = mount(ProjectServiceDiagnosticsPanel, {
+      props: { projectId: 'loto' },
+    });
+    await flushPromises();
+    await wrapper.get('.service-diagnostics-actions button').trigger('click');
+    await flushPromises();
+    expect(wrapper.text()).toContain('Provider apenas observável');
+    expect(
+      wrapper.findAll('a').map((link) => link.attributes('data-route')),
+    ).not.toContain('project-server');
+    expect(
+      wrapper.findAll('a').map((link) => link.attributes('data-route')),
+    ).not.toContain('project-compose');
+    wrapper.unmount();
+  });
+
+  it('routes exclusively owned Compose to Compose with the environment context', async () => {
+    const serviceRef = 'compose:loto:api';
+    fetchProjectServiceBindings.mockResolvedValue({
+      bindings: [{ ...binding(), serviceRef }],
+      partial: false,
+    });
+    fetchServiceDiagnostics.mockResolvedValue({
+      ...snapshot,
+      serviceRef,
+      provider: 'compose',
+    });
+    const wrapper = mount(ProjectServiceDiagnosticsPanel, {
+      props: {
+        projectId: 'loto',
+        environmentInstanceId: 'environment:primary:loto',
+      },
+    });
+    await flushPromises();
+    await wrapper.get('.service-diagnostics-actions button').trigger('click');
+    await flushPromises();
+    const providerLink = wrapper
+      .findAll('a')
+      .find((link) => link.text().includes('Abrir ferramenta do provider'));
+    expect(providerLink?.attributes('data-route')).toBe('project-compose');
+    expect(providerLink?.attributes('data-environment')).toBe(
+      'environment:primary:loto',
+    );
+    wrapper.unmount();
+  });
+
+  it('updates the selected bound unit when an Activity deep link changes', async () => {
+    const second = 'systemd:user:other.service';
+    fetchProjectServiceBindings.mockResolvedValue({
+      bindings: [
+        binding(),
+        { ...binding(), id: 'binding2', serviceRef: second },
+      ],
+      partial: false,
+    });
+    routeControl.setServiceRef(second);
+    const wrapper = mount(ProjectServiceDiagnosticsPanel, {
+      props: { projectId: 'loto' },
+    });
+    await flushPromises();
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe(
+      second,
+    );
+    await wrapper.get('.service-diagnostics-actions button').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('.service-diagnostics-result').exists()).toBe(true);
+    routeControl.setServiceRef(host);
+    await flushPromises();
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe(
+      host,
+    );
+    expect(wrapper.find('.service-diagnostics-result').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('never substitutes a different service for an invalid deep link', async () => {
+    routeControl.setServiceRef('systemd:user:removed.service');
+    const wrapper = mount(ProjectServiceDiagnosticsPanel, {
+      props: { projectId: 'loto' },
+    });
+    await flushPromises();
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe('');
+    expect(wrapper.text()).toContain('não está vinculado');
+    expect(
+      wrapper.get('.service-diagnostics-actions button').attributes('disabled'),
+    ).toBeDefined();
+    expect(fetchServiceDiagnostics).not.toHaveBeenCalled();
+
+    routeControl.setServiceRef(host);
+    await flushPromises();
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe(
+      host,
+    );
+    expect(wrapper.text()).not.toContain('não está vinculado');
+    wrapper.unmount();
   });
 
   it('drops prior selection and results when project/environment changes', async () => {
