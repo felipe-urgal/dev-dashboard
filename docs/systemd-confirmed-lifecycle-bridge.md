@@ -33,3 +33,41 @@ E2E are still required.
 
 Unit tests inject a fake owner and Activity repository. They do not run
 `systemctl` or alter host services. #1117 and #1116 remain open.
+
+
+## Internal single-unit confirmed coordinator (PR #1156)
+
+The new `SystemdConfirmedLifecycleCoordinator` is an **unregistered internal**
+service. No HTTP/UI route or runtime application composition is added. The
+production planner still returns `executable:false`, and cannot reach
+`journal.begin` or a systemd command through this coordinator.
+
+For a **hypothetical future executable plan**, it accepts exactly one
+exclusive, project-bound, persistent `systemd --user` service and no mixed
+providers, runtime profiles or dependencies. It performs:
+
+1. Validate the short-lived confirmation, preview, action capability and
+   target. Acquire the environment lease; revalidate the entire plan.
+2. Persist `begin` and `beforeStep` to mark `invoking` before dispatch.
+   The systemd owner separately acquires the logical and physical unit
+   leases, then rechecks the grant, plan and that durable intent. Do not nest
+   unit leases in the coordinator, or it would conflict with its own owner.
+3. Invoke the existing internal `SystemdConfirmedLifecycleRunner` and
+   observe the service independently. A running unit with
+   `readiness:unknown` proves a state transition, **not app readiness**.
+4. Persist completed/failed/unverified step, append the sanitized
+   `security/systemd.user.confirmed-start|stop` Activity event, and
+   finalize the durable Job. Activity failure cannot cause command replay.
+   Journal failures after invocation require manual recovery.
+
+Interrupted and partial Jobs remain non-replayable and block the same unit,
+even after rebinding to another project. There is **no automatic retry,
+reattach, cancellation or release** in this increment.
+
+Tests use a real temporary Job journal and resource lease state, the real
+Activity step writer with fake event storage, and a fake owner. They assert
+pre-dispatch journal ordering, completed and uncertain outcomes, audit
+redaction, crash/orphan denial, stale plans and environment-lock conflicts.
+No host systemd unit is modified in this PR. The Linux opt-in fixture remains
+a separate qualification, and operational authorization / E2E recovery remain
+pending in #1117.
