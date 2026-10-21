@@ -43,3 +43,12 @@ user-unit steps. See `docs/systemd-confirmed-lifecycle-bridge.md`.
 current planner never emits a supported systemd node, the coordinator remains
 Compose-only and the user-unit authorizer requires a separately executable
 plan. The new bridge cannot start or stop real units in this application.
+
+## Dedicated CI fixture gate
+
+A pull request named with `[systemd-fixture]` enables a separate
+`Disposable Systemd User Fixture` job that runs the opt-in integration test
+as the existing non-root runner user of a dedicated ephemeral Linux VM. The three normal
+jobs still skip that test; details and isolation limits are documented in
+`docs/systemd-user-linux-fixture.md`. A successful run proves the fixture
+only, not the application approval/Activity/Jobs recovery path.

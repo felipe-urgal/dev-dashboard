@@ -9,10 +9,13 @@ Run:
 
     DD_SYSTEMD_USER_FIXTURE_E2E=1 npm run test:systemd-user-fixture --workspace=@dev-dashboard/api
 
-Normal npm test, npm run check and GitHub CI **skip the real systemd case**.
+Normal npm test and npm run check **skip the real systemd case**. A separate
+CI job, **Disposable Systemd User Fixture**, runs only for pull requests whose
+title explicitly contains `[systemd-fixture]`, using an ephemeral GitHub Linux
+runner and a newly created disposable local user.
 An opt-in run fails rather than skipping when the user manager is unavailable.
-Only record the issue's Linux integration E2E checkbox as complete after a
-separately verified successful opt-in run, not after ordinary CI passes.
+Only check the issue's Linux fixture E2E requirement after the opt-in job
+successfully runs all real transitions (never from the three normal jobs).
 
 The test creates exactly one random dd-fixture-UUID.service file in the
 test account's systemd user unit directory, with a fixed /usr/bin/sleep
@@ -49,3 +52,26 @@ run. This fixture does not test the persisted operator policy, the
 HTTP confirmation path, full Activity/Jobs recovery, or system scope.
 The planner still returns executable:false and no systemd mutation endpoint
 is exposed.
+
+## Dedicated GitHub Actions qualification
+
+The opt-in job uses `scripts/qualify-systemd-user-fixture.sh` and requires
+`RUNNER_ENVIRONMENT=github-hosted`, Linux, systemd PID 1, and the non-root
+`runner` account with an accessible user manager. GitHub-hosted runners are
+**ephemeral VMs**, not shared operator hosts. Unlike the previous attempt to
+create a new user, this gate does **not** call `sudo`, `useradd`,
+`loginctl` or any system-scope systemctl command.
+
+The script first validates `systemctl --user show-environment`, then runs
+the opt-in test with a minimal environment and a bounded timeout. Only the
+random user-unit fixture is created, started, restarted and stopped. The
+test's own finally cleanup removes the unit file after checking its identity.
+Even if the job fails or the process is killed, the entire hosted VM is
+discarded. A missing user manager fails the job; it cannot count as
+successful real-provider evidence. No application-level mutation route,
+persisted production grant or system-scope delegation is enabled.
+
+This job is deliberately selected by the PR title marker
+`[systemd-fixture]`. The ordinary CI jobs and main-branch pushes do not run
+it. A green result here validates the Linux fixture only, **not** complete
+planner authorization or Activity/Jobs recovery.
