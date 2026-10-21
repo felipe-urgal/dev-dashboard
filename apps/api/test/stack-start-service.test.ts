@@ -140,6 +140,51 @@ test('starts Compose nodes in topology order and rechecks readiness before depen
   assert.equal(starts[0]?.[2], 'postgres');
 });
 
+test('halts before the next Compose node when the Stack definition changes after a start', async () => {
+  const initial = check('stopped', 'stopped');
+  initial.stack.nodes[1] = {
+    id: 'api',
+    name: 'API',
+    target: {
+      kind: 'compose-service',
+      projectId: 'api',
+      environmentInstanceId: 'environment:primary:api',
+      service: 'api',
+    },
+  };
+  const drifted = check('ready', 'stopped');
+  drifted.stack.nodes[1] = {
+    ...initial.stack.nodes[1]!,
+    target: {
+      kind: 'compose-service',
+      projectId: 'api',
+      environmentInstanceId: 'environment:primary:api',
+      service: 'rebound-api',
+    },
+  };
+  const started: string[] = [];
+  const service = createService(
+    [initial, drifted],
+    async (_project, _options, serviceName) => {
+      started.push(serviceName as string);
+      return { state: 'started' };
+    },
+  );
+  const result = await service.start('local-stack');
+  assert.equal(result.state, 'blocked');
+  assert.deepEqual(started, ['postgres']);
+  assert.deepEqual(
+    result.steps.map((step) => [step.nodeId, step.state]),
+    [
+      ['postgres', 'started'],
+      ['api', 'blocked'],
+    ],
+  );
+  assert.match(result.steps[1]?.diagnostic ?? '', /definition changed/);
+  assert.match(result.steps[1]?.diagnostic ?? '', /not rolled back/);
+  assert.equal(result.check.stack.nodes[1]?.target.kind, 'compose-service');
+});
+
 test('blocks at a non-mutable readiness gate without touching later nodes', async () => {
   const value = check('ready', 'stopped');
   value.topology.startOrder = ['api', 'postgres'];

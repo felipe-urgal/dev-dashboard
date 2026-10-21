@@ -180,6 +180,46 @@ test('stops mutable nodes in reverse topology order', async () => {
   );
 });
 
+test('preserves completed process stop and blocks Compose stop after topology drift', async () => {
+  const initial = check('ready', 'ready');
+  const drifted = check('ready', 'stopped');
+  drifted.stack.nodes[0] = {
+    ...drifted.stack.nodes[0]!,
+    target: {
+      kind: 'compose-service',
+      projectId: 'api',
+      environmentInstanceId: 'environment:primary:api',
+      service: 'rebound-postgres',
+    },
+  };
+  let stopServerCalls = 0;
+  let composeStopCalls = 0;
+  const service = createService({
+    checks: [initial, drifted],
+    stopServer: async () => {
+      stopServerCalls += 1;
+      return managedProcess({ status: 'stopped' });
+    },
+    composeStop: async () => {
+      composeStopCalls += 1;
+      return { state: 'stopped' };
+    },
+  });
+  const result = await service.stop('local-stack');
+  assert.equal(result.state, 'blocked');
+  assert.equal(stopServerCalls, 1);
+  assert.equal(composeStopCalls, 0);
+  assert.deepEqual(
+    result.steps.map((step) => [step.nodeId, step.state]),
+    [
+      ['api-server', 'stopped'],
+      ['postgres', 'blocked'],
+    ],
+  );
+  assert.match(result.steps[1]?.diagnostic ?? '', /definition changed/);
+  assert.match(result.steps[1]?.diagnostic ?? '', /not rolled back/);
+});
+
 test('blocks before stopping a process when explicit ownership drifted', async () => {
   let stopCalls = 0;
   const service = createService({

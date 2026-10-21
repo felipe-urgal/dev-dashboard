@@ -46,9 +46,22 @@ export class StackStartService {
         message: 'Stack definition changed. Refresh the Stack before retrying.',
       });
     }
+    const acceptedRevision = stackRevision(check.stack);
     const steps: StackStartStep[] = [];
 
     for (const nodeId of check.topology.startOrder) {
+      // A previous owner mutation may have completed while another session
+      // edited the Stack. Never dispatch the next node against a different
+      // definition; keep completed steps visible and require reconciliation.
+      if (stackRevision(check.stack) !== acceptedRevision) {
+        steps.push({
+          nodeId,
+          state: 'blocked',
+          diagnostic:
+            'Stack definition changed during lifecycle. Prior steps were not rolled back; refresh and review before retrying.',
+        });
+        return { stackId, state: 'blocked', steps, check };
+      }
       const node = check.stack.nodes.find(
         (candidate) => candidate.id === nodeId,
       )!;

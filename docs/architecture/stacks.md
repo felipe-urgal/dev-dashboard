@@ -86,6 +86,8 @@ Nodes `environment`, `process` e `health-check` funcionam como gates de readines
 
 Falha parcial é retornada explicitamente como `completed`, `blocked` ou `failed`, acompanhada dos steps processados e de um novo `StackCheck`.
 
+A revisão canônica da Stack aprovada no Check inicial é mantida durante todo o Start. Se a reobservação após uma mutação mostrar outra revisão/topologia, a próxima etapa é marcada `blocked` e **nenhum próximo owner é invocado**. Steps já executados continuam no resultado; não há rollback, repetição de operação nem uso da nova definição como autoridade para concluir o plano antigo. Essa proteção é um fence observacional por revisão, não substitui locks distribuídos nem um Job durável com reconciliação pós-crash. Alterações simultâneas posteriores à última leitura de Check ainda exigem fencing pelo owner antes da próxima mutação; a revisão não concede exclusividade nem autoriza reexecutar passos que possam ter sido concluídos por outra instância.
+
 ## Stop coordenado
 
 `POST /api/stacks/:stackId/stop` percorre `stopOrder`, que é a ordem reversa da topologia.
@@ -95,6 +97,8 @@ Nodes `compose-service` delegam ao `DockerComposeLifecycleService.stop(project, 
 Nodes `environment` e `health-check` são `retained`: Environment Instance é contexto operacional, não um processo genérico, e health check é somente leitura. O Stop não tenta encerrar checkout, worktree, container ou serviço externo por heurística.
 
 Resultado parcial continua explícito como `completed`, `blocked` ou `failed`, com steps por node e um `StackCheck` final.
+
+O Stop aplica o mesmo fence entre nodes: uma alteração de revisão detectada na reobservação após o Stop anterior interrompe a sequência antes de alcançar qualquer recurso da nova topologia, incluindo Compose reatribuído a outro serviço ou processo de outro ambiente. O resultado preserva `stopped` dos nodes já confirmados e `blocked` para a próxima etapa. Nenhuma recuperação automática ou autorização para retry é inferida.
 
 ## Restart direcionado
 
