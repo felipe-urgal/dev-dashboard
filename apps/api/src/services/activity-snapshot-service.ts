@@ -85,21 +85,25 @@ async function capture<T>(operation: () => Promise<T>): Promise<Captured<T>> {
   }
 }
 
-// Canonical operational identity wins over reader-specific event IDs.
+// A physical resource can have many legitimate executions with identical
+// action/status. Only a durable Job + step identity can collapse reattached
+// emissions with different event IDs. Otherwise the event ID is authoritative.
 function uniqueEvents(events: ActivityEvent[]): ActivityEvent[] {
   const seen = new Set<string>();
   return events.filter((event) => {
-    const key = event.resourceRef?.id
-      ? JSON.stringify([
-          event.projectId,
-          event.environmentInstanceId ?? '',
-          event.domain,
-          event.type,
-          event.resourceRef.kind,
-          event.resourceRef.id,
-          event.status ?? '',
-        ])
-      : event.id;
+    const key =
+      event.jobId && event.resourceRef
+        ? JSON.stringify([
+            event.projectId,
+            event.environmentInstanceId ?? '',
+            event.domain,
+            event.jobId,
+            event.type,
+            event.resourceRef.kind,
+            event.resourceRef.id,
+            event.status ?? '',
+          ])
+        : event.id;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
