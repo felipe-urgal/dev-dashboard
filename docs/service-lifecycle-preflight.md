@@ -35,3 +35,26 @@ Autenticação local existente do Dashboard. `environmentInstanceId` omitido sel
 Este PR entrega o **preflight de Project + Environment Instance** e não modifica os executores de Stacks/Compose/Process Manager. As próximas atividades da #1116 abrangem alvo Stack, confirmação de revisão e hash imediatamente antes da mutação, bloqueio exclusivo por recurso físico, execução em steps e auditoria/reattach do Activity/Jobs. Esses mecanismos precisam ser implementados e testados antes de habilitar uma ação única de Start/Stop. Nenhum serviço real foi alterado nesta implementação.
 
 Referências: #1113, #1114, #1115, #1116, #1072.
+
+
+## Systemd grant evidence in read-only plans (#1117)
+
+When a project/environment has an enabled systemd binding, the planner now
+reads the exact same scoped capability service as
+`GET /api/projects/:projectId/systemd-capabilities`. Its individual systemd
+plan nodes include `systemdCapability.status` and a sanitized
+`systemdCapability.reason` for the requested Start/Stop action. System units
+are always unsupported; `systemd --user` units may be
+`permission-required`, `unsupported` or `unknown`. No `supported`
+status is emitted until a confirmed executor exists.
+
+The advisory status and reason are hashed into `planHash`; a changed or
+revoked grant yields HTTP 409 for an old `expectedPlanHash`. A missing,
+inconsistent or failed capability inspection is treated as `unknown` and
+cannot authorize anything. This is **not** a guarantee that an unexpired hash
+is dispatch-safe: the actual executor must revalidate project, binding,
+grant, live systemd unit and ownership lease before every command.
+
+No plan dispositions are upgraded by this read-only evidence. The planner
+still returns `executable: false`, the systemd user lifecycle adapter is
+still internal/unwired, and no new service mutation endpoint exists.

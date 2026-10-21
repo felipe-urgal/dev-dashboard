@@ -429,11 +429,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
     }),
   });
 
-  app.register(systemdLifecycleCapabilitiesRoutes, {
-    prefix: '/api',
-    capabilities:
-      options.systemdCapabilities ??
-      new SystemdLifecycleCapabilitiesService(
+  const systemdCapabilities =
+    options.systemdCapabilities ??
+    new SystemdLifecycleCapabilitiesService(
         {
           projects: context.projectStore,
           environments: context.developmentEnvironmentInstanceStore,
@@ -447,7 +445,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
           }),
         },
         options.now ? { now: () => new Date(options.now!()) } : {},
-      ),
+      );
+  app.register(systemdLifecycleCapabilitiesRoutes, {
+    prefix: '/api',
+    capabilities: systemdCapabilities,
   });
   app.register(serviceLifecyclePlanRoutes, {
     prefix: '/api',
@@ -457,6 +458,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
       projects: context.projectStore,
       environments: context.developmentEnvironmentInstanceStore,
       catalog,
+      systemdCapabilities,
     }),
   });
 
