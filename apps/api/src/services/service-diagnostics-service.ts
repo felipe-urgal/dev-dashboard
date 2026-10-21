@@ -161,8 +161,17 @@ export class ServiceDiagnosticsService {
         entry.provider === 'systemd' &&
         (entry.scope === 'system' || entry.scope === 'user')
       ) {
-        const journal = await this.deps.journal.read(entry.scope, entry.name);
-        result = { source: 'journal', ...journal };
+        try {
+          const journal = await this.deps.journal.read(entry.scope, entry.name);
+          result = { source: 'journal', ...journal };
+        } catch {
+          // A broken journal provider must not discard other diagnostics,
+          // Activity/Jobs or leak command errors into the API response.
+          result = unavailable(
+            'journal',
+            'Journal reader failed; service evidence is unavailable.',
+          );
+        }
       } else if (entry.provider === 'compose') {
         const owned =
           entry.ownership === 'confirmed' &&
