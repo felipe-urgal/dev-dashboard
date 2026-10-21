@@ -55,6 +55,7 @@ function setup(
     value?: ServiceCatalogEntry;
     stale?: boolean;
     denied?: boolean;
+    journalFailure?: boolean;
     catalogFailure?: boolean;
     activityFailure?: boolean;
   } = {},
@@ -142,6 +143,8 @@ function setup(
       journal: {
         read: async (scope, name) => {
           journalCalls.push(scope + ':' + name);
+          if (options.journalFailure)
+            throw Error('secret journal path /home/private/access-token');
           return options.denied
             ? {
                 status: 'unavailable' as const,
@@ -200,6 +203,19 @@ test('resolved bound unit returns journal and matching activity ids, not summari
   assert.deepEqual(journalCalls, ['user:fixture.service']);
   assert.equal(result.events.length, 1);
   assert.doesNotMatch(JSON.stringify(result), /sensitive private value/);
+});
+
+test('unexpected journal provider error is isolated and keeps Activity evidence', async () => {
+  const { service, journalCalls } = setup({ journalFailure: true });
+  const result = await service.read('loto', 'systemd:user:fixture.service');
+  assert.deepEqual(journalCalls, ['user:fixture.service']);
+  assert.equal(result.status, 'unavailable');
+  assert.equal(result.source, 'journal');
+  assert.equal(result.partial, true);
+  assert.equal(result.content, undefined);
+  assert.equal(result.events.length, 1);
+  assert.match(result.diagnostic ?? '', /Journal reader failed/);
+  assert.doesNotMatch(JSON.stringify(result), /secret|access-token|\/home\/private/);
 });
 
 test('denied journal is unavailable not empty; stale timestamps and partial Activity visible', async () => {
