@@ -86,7 +86,7 @@ Nodes `environment`, `process` e `health-check` funcionam como gates de readines
 
 Falha parcial é retornada explicitamente como `completed`, `blocked` ou `failed`, acompanhada dos steps processados e de um novo `StackCheck`.
 
-A revisão canônica da Stack aprovada no Check inicial é mantida durante todo o Start. Se a reobservação após uma mutação mostrar outra revisão/topologia, a próxima etapa é marcada `blocked` e **nenhum próximo owner é invocado**. Steps já executados continuam no resultado; não há rollback, repetição de operação nem uso da nova definição como autoridade para concluir o plano antigo. Essa proteção é um fence observacional por revisão, não substitui locks distribuídos nem um Job durável com reconciliação pós-crash.
+A revisão canônica da Stack aprovada no Check inicial é mantida durante todo o Start. Se a reobservação após uma mutação mostrar outra revisão/topologia, a próxima etapa é marcada `blocked` e **nenhum próximo owner é invocado**. Steps já executados continuam no resultado; não há rollback, repetição de operação nem uso da nova definição como autoridade para concluir o plano antigo. Essa proteção é um fence observacional por revisão, não substitui locks distribuídos nem um Job durável com reconciliação pós-crash. Alterações simultâneas posteriores à última leitura de Check ainda exigem fencing pelo owner antes da próxima mutação; a revisão não concede exclusividade nem autoriza reexecutar passos que possam ter sido concluídos por outra instância.
 
 ## Stop coordenado
 
