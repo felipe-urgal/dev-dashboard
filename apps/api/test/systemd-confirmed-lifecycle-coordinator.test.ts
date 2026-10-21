@@ -23,9 +23,13 @@ const REV = 'b'.repeat(64);
 const PROJECT = 'demo';
 const ENV = 'environment:primary:demo';
 
-type FuturePlan = Omit<ServiceLifecyclePlan, 'executable'> & { executable: boolean };
+type FuturePlan = Omit<ServiceLifecyclePlan, 'executable'> & {
+  executable: boolean;
+};
 
-function confirmation(action: 'start' | 'stop' = 'start'): ConfirmedLifecycleRequest {
+function confirmation(
+  action: 'start' | 'stop' = 'start',
+): ConfirmedLifecycleRequest {
   return {
     projectId: PROJECT,
     environmentInstanceId: ENV,
@@ -53,7 +57,11 @@ function setup(action: 'start' | 'stop' = 'start') {
   const plan = (): FuturePlan => {
     const prior = action === 'start' ? 'stopped' : 'running';
     return {
-      target: { kind: 'project-environment', projectId: PROJECT, environmentInstanceId: ENV },
+      target: {
+        kind: 'project-environment',
+        projectId: PROJECT,
+        environmentInstanceId: ENV,
+      },
       action,
       status: 'ready',
       executable,
@@ -62,50 +70,63 @@ function setup(action: 'start' | 'stop' = 'start') {
       observedAt: NOW.toISOString(),
       expiresAt: new Date(NOW.getTime() + 30_000).toISOString(),
       order: [ref],
-      nodes: [{
-        serviceRef: ref,
-        name: ref.slice('systemd:user:'.length),
-        provider: 'systemd',
-        state,
-        readiness: 'unknown',
-        relation: 'required',
-        consumerCount: 1,
-        dependencies: [],
-        ports: [],
-        disposition: state === prior
-          ? (action === 'start' ? 'willStart' : 'willStop')
-          : 'retained',
-        systemdCapability: { status: 'supported', reason: 'Fixture-only future plan.' },
-      }],
+      nodes: [
+        {
+          serviceRef: ref,
+          name: ref.slice('systemd:user:'.length),
+          provider: 'systemd',
+          state,
+          readiness: 'unknown',
+          relation: 'required',
+          consumerCount: 1,
+          dependencies: [],
+          ports: [],
+          disposition:
+            state === prior
+              ? action === 'start'
+                ? 'willStart'
+                : 'willStop'
+              : 'retained',
+          systemdCapability: {
+            status: 'supported',
+            reason: 'Fixture-only future plan.',
+          },
+        },
+      ],
       diagnostics: [],
     };
   };
   const planner = {
     preview: async () => {
       previews++;
-      if (failAfter && previews >= 3) throw new Error('secret DBus /home/token');
+      if (failAfter && previews >= 3)
+        throw new Error('secret DBus /home/token');
       return plan();
     },
   };
-  const runner = new SystemdConfirmedLifecycleRunner({
-    run: async (request) => {
-      calls.push(request.serviceRef + ':' + request.action);
-      const rows = journal.list();
-      assert.equal(rows.length, 1);
-      assert.equal(rows[0]?.stage, 'invoking');
-      assert.equal(rows[0]?.inFlightRef, REF);
-      assert.equal(rows[0]?.reconciliationRequired, false);
-      if (failOwner) throw new Error('secret systemctl /home/user/credential');
-      state = action === 'start' ? 'running' : 'stopped';
-      return {
-        serviceRef: ref,
-        action,
-        outcome: 'changed' as const,
-        state,
-        readiness: 'unknown' as const,
-      };
+  const runner = new SystemdConfirmedLifecycleRunner(
+    {
+      run: async (request) => {
+        calls.push(request.serviceRef + ':' + request.action);
+        const rows = journal.list();
+        assert.equal(rows.length, 1);
+        assert.equal(rows[0]?.stage, 'invoking');
+        assert.equal(rows[0]?.inFlightRef, REF);
+        assert.equal(rows[0]?.reconciliationRequired, false);
+        if (failOwner)
+          throw new Error('secret systemctl /home/user/credential');
+        state = action === 'start' ? 'running' : 'stopped';
+        return {
+          serviceRef: ref,
+          action,
+          outcome: 'changed' as const,
+          state,
+          readiness: 'unknown' as const,
+        };
+      },
     },
-  }, { now: () => NOW });
+    { now: () => NOW },
+  );
   const eventsWriter = new ConfirmedServiceLifecycleActivityWriter({
     activityEvents: {
       append: async (entry) => {
@@ -115,16 +136,37 @@ function setup(action: 'start' | 'stop' = 'start') {
       },
     },
   });
-  const coordinator = new SystemdConfirmedLifecycleCoordinator({
-    planner, runner, locks, jobs: journal, events: eventsWriter,
-  }, { now: () => NOW });
+  const coordinator = new SystemdConfirmedLifecycleCoordinator(
+    {
+      planner,
+      runner,
+      locks,
+      jobs: journal,
+      events: eventsWriter,
+    },
+    { now: () => NOW },
+  );
   return {
-    coordinator, journal, locks, events, calls,
-    setRef: (value: string) => { ref = value; },
-    setExecutable: (value: boolean) => { executable = value; },
-    setFailAfter: () => { failAfter = true; },
-    setFailOwner: () => { failOwner = true; },
-    setFailEvents: () => { failEvents = true; },
+    coordinator,
+    journal,
+    locks,
+    events,
+    calls,
+    setRef: (value: string) => {
+      ref = value;
+    },
+    setExecutable: (value: boolean) => {
+      executable = value;
+    },
+    setFailAfter: () => {
+      failAfter = true;
+    },
+    setFailOwner: () => {
+      failOwner = true;
+    },
+    setFailEvents: () => {
+      failEvents = true;
+    },
     cleanup: () => rmSync(root, { recursive: true, force: true }),
   };
 }
@@ -158,7 +200,10 @@ test('production-style executable:false plan cannot create Job or invoke owner',
   const f = setup();
   try {
     f.setExecutable(false);
-    await assert.rejects(f.coordinator.run(confirmation()), /confirmation is unavailable/);
+    await assert.rejects(
+      f.coordinator.run(confirmation()),
+      /confirmation is unavailable/,
+    );
     assert.deepEqual(f.journal.list(), []);
     assert.deepEqual(f.calls, []);
     assert.deepEqual(f.events, []);
@@ -172,11 +217,21 @@ test('stale confirmation, mismatched action and unsafe refs create no Job', asyn
   try {
     for (const input of [
       { ...confirmation(), expectedPlanHash: 'c'.repeat(64) },
-      { ...confirmation(), acceptedObservedAt: new Date(NOW.getTime() - 30_001).toISOString() },
-      { ...confirmation(), acceptedObservedAt: new Date(NOW.getTime() + 1).toISOString() },
-      { ...confirmation(), environmentInstanceId: 'environment:primary:foreign' },
+      {
+        ...confirmation(),
+        acceptedObservedAt: new Date(NOW.getTime() - 30_001).toISOString(),
+      },
+      {
+        ...confirmation(),
+        acceptedObservedAt: new Date(NOW.getTime() + 1).toISOString(),
+      },
+      {
+        ...confirmation(),
+        environmentInstanceId: 'environment:primary:foreign',
+      },
       { ...confirmation(), action: 'stop' as const },
-    ]) await assert.rejects(f.coordinator.run(input));
+    ])
+      await assert.rejects(f.coordinator.run(input));
     for (const identity of [
       'systemd:system:postgresql.service',
       'systemd:user:dev-dashboard.service',
@@ -207,9 +262,15 @@ test('owner failure persists sanitized partial and never automatically replays',
     assert.equal(job.reconciliationRequired, true);
     assert.equal(f.events[0]?.status, 'failed');
     assert.doesNotMatch(JSON.stringify(f.events), /secret|\/home\//);
-    await assert.rejects(f.coordinator.run(confirmation()), /journal is unavailable/);
+    await assert.rejects(
+      f.coordinator.run(confirmation()),
+      /journal is unavailable/,
+    );
     assert.equal(f.calls.length, 1);
-    assert.equal(f.journal.activityJobs(PROJECT)[0]?.stage, 'reconciliation-required');
+    assert.equal(
+      f.journal.activityJobs(PROJECT)[0]?.stage,
+      'reconciliation-required',
+    );
   } finally {
     f.cleanup();
   }
@@ -247,9 +308,15 @@ test('Activity failure cannot replay the owner or discard the durable Job', asyn
 test('environment lease conflict denies before a journal intent is written', async () => {
   const f = setup();
   try {
-    await f.locks.withResources(['environment:' + PROJECT + ':' + ENV], async () => {
-      await assert.rejects(f.coordinator.run(confirmation()), /already using/);
-    });
+    await f.locks.withResources(
+      ['environment:' + PROJECT + ':' + ENV],
+      async () => {
+        await assert.rejects(
+          f.coordinator.run(confirmation()),
+          /already using/,
+        );
+      },
+    );
     assert.deepEqual(f.calls, []);
     assert.deepEqual(f.journal.list(), []);
   } finally {
