@@ -58,7 +58,8 @@ is exposed.
 The opt-in job uses `scripts/qualify-systemd-user-fixture.sh` and refuses
 non-Linux runners or a host without systemd PID 1. It creates a random
 non-root test account with `useradd`, starts only that account's user
-manager with `loginctl enable-linger`, and checks its own DBus socket.
+manager with `loginctl enable-linger`, and checks its own user-manager private socket. No user session D-Bus
+broker is required for the local systemctl --user manager connection.
 The Node fixture runs without elevated privileges, with a minimal,
 explicitly scoped environment. The wrapper uses an EXIT trap to disable
 lingering, terminate only the newly created test user and remove that
