@@ -104,6 +104,21 @@ async function loadDiagnostics(): Promise<void> {
   }
 }
 
+// Activity deep links can change the resource on an already-mounted Doctor tab.
+watch(
+  () => route.query.serviceRef,
+  (value) => {
+    if (
+      typeof value === 'string' &&
+      selectedRef.value !== value &&
+      visible.value.some((binding) => binding.serviceRef === value)
+    ) {
+      selectedRef.value = value;
+      changeSelection();
+    }
+  },
+);
+
 function changeSelection(): void {
   readGeneration++;
   loadingLogs.value = false;
@@ -112,21 +127,15 @@ function changeSelection(): void {
 }
 
 function providerRoute(provider: string) {
-  return provider === 'compose'
-    ? {
-        name: 'project-compose',
-        params: { projectId: props.projectId },
-        query: props.environmentInstanceId
-          ? { environmentInstanceId: props.environmentInstanceId }
-          : {},
-      }
-    : {
-        name: 'project-server',
-        params: { projectId: props.projectId },
-        query: props.environmentInstanceId
-          ? { environmentInstanceId: props.environmentInstanceId }
-          : {},
-      };
+  // Neither systemd nor unmanaged Docker has a Dashboard lifecycle owner.
+  if (provider !== 'compose' && provider !== 'managed-process') return null;
+  return {
+    name: provider === 'compose' ? 'project-compose' : 'project-server',
+    params: { projectId: props.projectId },
+    query: props.environmentInstanceId
+      ? { environmentInstanceId: props.environmentInstanceId }
+      : {},
+  };
 }
 </script>
 
@@ -218,9 +227,12 @@ function providerRoute(provider: string) {
         Nenhuma saída exibível. Uma falha de permissão não significa log vazio.
       </p>
       <div class="service-diagnostics-links">
-        <RouterLink :to="providerRoute(snapshot.provider)"
+        <RouterLink
+          v-if="providerRoute(snapshot.provider)"
+          :to="providerRoute(snapshot.provider)!"
           >Abrir ferramenta do provider</RouterLink
         >
+        <span v-else>Provider apenas observável; controle não disponível nesta tela.</span>
         <RouterLink :to="{ name: 'activity', query: { projectId } }"
           >Ver Activity e Jobs</RouterLink
         >
