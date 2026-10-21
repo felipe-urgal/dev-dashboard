@@ -408,14 +408,21 @@ test('post-dispatch revision, action and topology drift cannot be reported as co
       assert.equal(result.status, 'partial', change.name);
       assert.equal(result.steps[0]?.state, 'unverified', change.name);
       assert.deepEqual(f.calls, [REF + ':start'], change.name);
-      assert.equal(f.journal.list()[0]?.reconciliationRequired, true, change.name);
+      assert.equal(
+        f.journal.list()[0]?.reconciliationRequired,
+        true,
+        change.name,
+      );
       assert.equal(f.events[0]?.status, 'warning', change.name);
       assert.equal(
         f.events[0]?.jobId,
         'systemd-user-confirmed:' + f.journal.list()[0]!.id,
         change.name,
       );
-      await assert.rejects(f.coordinator.run(confirmation()), /journal is unavailable/);
+      await assert.rejects(
+        f.coordinator.run(confirmation()),
+        /journal is unavailable/,
+      );
       assert.deepEqual(f.calls, [REF + ':start'], change.name);
     } finally {
       f.cleanup();
