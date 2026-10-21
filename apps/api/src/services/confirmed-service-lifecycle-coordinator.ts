@@ -44,7 +44,9 @@ function plannedNodes(plan: ServiceLifecyclePlan): ServiceLifecyclePlanNode[] {
   );
 }
 
-export function confirmedLifecycleResourceKeys(plan: ServiceLifecyclePlan): string[] {
+export function confirmedLifecycleResourceKeys(
+  plan: ServiceLifecyclePlan,
+): string[] {
   const keys = [
     'environment:' +
       plan.target.projectId +
@@ -58,7 +60,8 @@ export function confirmedLifecycleResourceKeys(plan: ServiceLifecyclePlan): stri
     // The systemd user owner acquires both resource:<ref> and its physical
     // unit key. Nested coordinator acquisition would self-conflict.
     // Systemd execution remains disallowed by ensureApproved().
-    if (node.provider === 'systemd' && isSystemdUserUnit(node.serviceRef)) continue;
+    if (node.provider === 'systemd' && isSystemdUserUnit(node.serviceRef))
+      continue;
     keys.push('resource:' + node.serviceRef);
   }
   return keys;

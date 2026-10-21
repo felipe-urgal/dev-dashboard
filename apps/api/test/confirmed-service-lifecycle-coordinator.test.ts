@@ -11,7 +11,10 @@ import type {
   ServiceLifecyclePlanNode,
 } from '@dev-dashboard/contracts';
 
-import { ConfirmedServiceLifecycleCoordinator, confirmedLifecycleResourceKeys } from '../src/services/confirmed-service-lifecycle-coordinator.js';
+import {
+  ConfirmedServiceLifecycleCoordinator,
+  confirmedLifecycleResourceKeys,
+} from '../src/services/confirmed-service-lifecycle-coordinator.js';
 import { ServiceResourceOperationLock } from '../src/services/service-resource-operation-lock.js';
 import { ConfirmedLifecycleJobJournal } from '../src/services/confirmed-lifecycle-job-journal.js';
 
@@ -456,15 +459,20 @@ test('future systemd owner receives both locks; coordinator retains only environ
   assert.deepEqual(confirmedLifecycleResourceKeys(sys.plan()), [
     'environment:loto:environment:primary:loto',
   ]);
-  await assert.rejects(sys.coordinator.run(request()), /exclusively owned lifecycle adapter/);
+  await assert.rejects(
+    sys.coordinator.run(request()),
+    /exclusively owned lifecycle adapter/,
+  );
   assert.deepEqual(sys.steps, []);
 
   const compose = fixture({ refs: [API] });
   assert.deepEqual(confirmedLifecycleResourceKeys(compose.plan()), [
-    'environment:loto:environment:primary:loto', 'resource:' + API,
+    'environment:loto:environment:primary:loto',
+    'resource:' + API,
   ]);
   const systemScope = fixture({
-    refs: ['systemd:system:fixture-worker.service'], provider: 'systemd',
+    refs: ['systemd:system:fixture-worker.service'],
+    provider: 'systemd',
   });
   assert.deepEqual(confirmedLifecycleResourceKeys(systemScope.plan()), [
     'environment:loto:environment:primary:loto',

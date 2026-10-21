@@ -178,72 +178,70 @@ export class SystemdUserLifecycleService {
     }
     const unit = unitName(request.serviceRef);
     const keys = systemdUserOwnerLeaseKeys(request.serviceRef);
-    if (!keys) forbidden('Unit identity is not supported for lifecycle mutation.');
+    if (!keys)
+      forbidden('Unit identity is not supported for lifecycle mutation.');
     // No inventory result, catalog entry or ownership claim grants permission.
     if (!(await this.d.authorize(request)))
       forbidden('Unit is not explicitly authorized for this lifecycle plan.');
 
-    return this.d.locks.withResources(
-      keys,
-      async (lease) => {
-        await lease.assertOwned();
-        const before = observedUnit(await this.d.inventory.inspect(), unit);
-        const target = request.action === 'stop' ? 'stopped' : 'running';
-        if (request.action === 'restart' && before.state !== 'running') {
-          conflict('Restart requires a verified running user unit.');
-        }
-        // No command if the unit is already in the target state.
-        if (request.action !== 'restart' && before.state === target) {
-          if (!(await this.d.authorize(request)))
-            forbidden('Unit authorization changed. Refresh the plan.');
-          return {
-            serviceRef: request.serviceRef,
-            action: request.action,
-            outcome: 'already-in-target-state' as const,
-            state: target,
-            readiness: 'unknown' as const,
-          };
-        }
-
-        const current = observedUnit(await this.d.inventory.inspect(), unit);
-        if (
-          current.state !== before.state ||
-          current.bootState !== before.bootState ||
-          current.unitKind !== before.unitKind ||
-          current.fragmentKind !== before.fragmentKind
-        ) {
-          conflict('Unit state changed since preflight. Refresh the plan.');
-        }
+    return this.d.locks.withResources(keys, async (lease) => {
+      await lease.assertOwned();
+      const before = observedUnit(await this.d.inventory.inspect(), unit);
+      const target = request.action === 'stop' ? 'stopped' : 'running';
+      if (request.action === 'restart' && before.state !== 'running') {
+        conflict('Restart requires a verified running user unit.');
+      }
+      // No command if the unit is already in the target state.
+      if (request.action !== 'restart' && before.state === target) {
         if (!(await this.d.authorize(request)))
           forbidden('Unit authorization changed. Refresh the plan.');
-        await lease.assertOwned();
-        try {
-          await this.runner(request.action, unit);
-        } catch {
-          // Never return systemctl output: it may contain paths or secrets.
-          conflict(
-            'Systemd user lifecycle command failed or timed out; reobserve before retrying.',
-          );
-        }
-        // Command exit status alone does not prove the transition.
-        const after = observedUnit(await this.d.inventory.inspect(), unit);
-        if (
-          after.state !== target ||
-          after.bootState !== before.bootState ||
-          after.unitKind !== before.unitKind ||
-          after.fragmentKind !== before.fragmentKind
-        )
-          conflict(
-            'Systemd unit transition is unverified; reconcile before retrying.',
-          );
         return {
           serviceRef: request.serviceRef,
           action: request.action,
-          outcome: 'changed' as const,
+          outcome: 'already-in-target-state' as const,
           state: target,
           readiness: 'unknown' as const,
         };
-      },
-    );
+      }
+
+      const current = observedUnit(await this.d.inventory.inspect(), unit);
+      if (
+        current.state !== before.state ||
+        current.bootState !== before.bootState ||
+        current.unitKind !== before.unitKind ||
+        current.fragmentKind !== before.fragmentKind
+      ) {
+        conflict('Unit state changed since preflight. Refresh the plan.');
+      }
+      if (!(await this.d.authorize(request)))
+        forbidden('Unit authorization changed. Refresh the plan.');
+      await lease.assertOwned();
+      try {
+        await this.runner(request.action, unit);
+      } catch {
+        // Never return systemctl output: it may contain paths or secrets.
+        conflict(
+          'Systemd user lifecycle command failed or timed out; reobserve before retrying.',
+        );
+      }
+      // Command exit status alone does not prove the transition.
+      const after = observedUnit(await this.d.inventory.inspect(), unit);
+      if (
+        after.state !== target ||
+        after.bootState !== before.bootState ||
+        after.unitKind !== before.unitKind ||
+        after.fragmentKind !== before.fragmentKind
+      )
+        conflict(
+          'Systemd unit transition is unverified; reconcile before retrying.',
+        );
+      return {
+        serviceRef: request.serviceRef,
+        action: request.action,
+        outcome: 'changed' as const,
+        state: target,
+        readiness: 'unknown' as const,
+      };
+    });
   }
 }
