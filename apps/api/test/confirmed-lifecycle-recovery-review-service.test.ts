@@ -51,7 +51,10 @@ function harness(systemdRef?: string) {
             ? {
                 ...report,
                 inFlightRef: systemdRef,
-                nodes: report.nodes.map((node) => ({ ...node, serviceRef: systemdRef })),
+                nodes: report.nodes.map((node) => ({
+                  ...node,
+                  serviceRef: systemdRef,
+                })),
               }
             : report;
         },

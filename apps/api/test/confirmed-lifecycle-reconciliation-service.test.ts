@@ -217,6 +217,9 @@ test('systemd user observation cannot prove prior ownership or readiness', async
   assert.equal(found.nodes[0]?.journalState, 'in-flight');
   assert.equal(found.nodes[0]?.observedState, 'running');
   assert.equal(found.nodes[0]?.assessment, 'unverifiable');
-  assert.match(found.nodes[0]?.diagnostic ?? '', /does not prove an authorized project binding/);
+  assert.match(
+    found.nodes[0]?.diagnostic ?? '',
+    /does not prove an authorized project binding/,
+  );
   assert.doesNotMatch(JSON.stringify(found), /expectedPlanHash/);
 });

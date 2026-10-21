@@ -190,7 +190,6 @@ test('jobs are scoped by project and identities cannot traverse state root', () 
   }
 });
 
-
 test('systemd journal fences interrupted physical user units across project/environment rebinding', () => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'systemd-recovery-jobs-'));
   try {
@@ -220,7 +219,9 @@ test('systemd journal fences interrupted physical user units across project/envi
     assert.equal(visible.cancelSupported, false);
     // A different user unit remains independent; its own physical lease
     // must still be acquired by a future owner before any operation.
-    const other = reopened.begin(crossProject, ['systemd:user:other-fixture.service']);
+    const other = reopened.begin(crossProject, [
+      'systemd:user:other-fixture.service',
+    ]);
     assert.ok(other);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -252,13 +253,25 @@ test('terminal partial systemd user Jobs remain visible and block physical-unit 
     assert.equal(job.reconciliationRequired, true);
     assert.equal(job.inFlightRef, undefined);
     assert.equal(job.steps[0]?.state, 'unverified');
-    assert.deepEqual(reopened.activityJobs('loto').map((x) => x.id), [
-      'systemd-user-confirmed:' + id,
-    ]);
+    assert.deepEqual(
+      reopened.activityJobs('loto').map((x) => x.id),
+      ['systemd-user-confirmed:' + id],
+    );
     assert.equal(reopened.activityJobs('loto')[0]?.status, 'failed');
-    assert.equal(reopened.activityJobs('loto')[0]?.stage, 'reconciliation-required');
+    assert.equal(
+      reopened.activityJobs('loto')[0]?.stage,
+      'reconciliation-required',
+    );
     assert.throws(
-      () => reopened.begin({ ...REQUEST, projectId: 'other', environmentInstanceId: 'environment:primary:other' }, [unit]),
+      () =>
+        reopened.begin(
+          {
+            ...REQUEST,
+            projectId: 'other',
+            environmentInstanceId: 'environment:primary:other',
+          },
+          [unit],
+        ),
       /journal is unavailable/,
     );
     const raw = readFileSync(
@@ -288,10 +301,14 @@ test('verified completed systemd Job releases recovery fence but never a physica
     journal.finish(id, { ...result, steps: [completedStep] });
     const reopened = create(root);
     assert.deepEqual(reopened.activityJobs('loto'), []);
-    const second = reopened.begin({
-      ...REQUEST, projectId: 'other',
-      environmentInstanceId: 'environment:primary:other',
-    }, [unit]);
+    const second = reopened.begin(
+      {
+        ...REQUEST,
+        projectId: 'other',
+        environmentInstanceId: 'environment:primary:other',
+      },
+      [unit],
+    );
     assert.notEqual(second, id);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -311,7 +328,10 @@ test('system scope, malformed and mixed-provider systemd Jobs never record inten
       ['systemd:user:fixture-worker.service', 'compose:loto:api'],
       ['systemd:unknown:foo.service'],
     ]) {
-      assert.throws(() => journal.begin(REQUEST, refs), /journal is unavailable/);
+      assert.throws(
+        () => journal.begin(REQUEST, refs),
+        /journal is unavailable/,
+      );
     }
     assert.deepEqual(journal.list(), []);
   } finally {
