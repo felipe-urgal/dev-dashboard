@@ -31,4 +31,6 @@ The future execution integration must independently validate grant, plan hash,
 revision, live observation and locks, and must not treat this GET result as
 authorization.
 
+The service rejects observations older than 30 seconds or dated in the future, and handles unreadable operator policies without leaking raw errors. A partial user inventory remains `unknown` even if system-scope inventory is available. These checks are advisory only; any future executor must repeat validation at dispatch time.
+
 This diagnostic endpoint does not close #1117 or #1116.
