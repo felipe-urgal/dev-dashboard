@@ -1,9 +1,6 @@
 /** Read-only guidance. A capability status is not an execution grant. */
 export type SystemdLifecycleCapabilityStatus =
-  | 'supported'
-  | 'permission-required'
-  | 'unsupported'
-  | 'unknown';
+  'supported' | 'permission-required' | 'unsupported' | 'unknown';
 
 export interface SystemdLifecycleActionCapability {
   status: SystemdLifecycleCapabilityStatus;

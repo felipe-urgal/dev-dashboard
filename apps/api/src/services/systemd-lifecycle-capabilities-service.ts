@@ -15,12 +15,16 @@ import type { ProjectServiceBindingStore } from '../store/project-service-bindin
 import type { SystemdServiceInventory } from './systemd-service-inventory.js';
 import type { SystemdUserLifecycleGrantPolicy } from './systemd-user-lifecycle-authorization.js';
 
-const SAFE_USER_REF = /^systemd:user:[A-Za-z0-9][A-Za-z0-9_.@:-]{0,190}\.service$/;
+const SAFE_USER_REF =
+  /^systemd:user:[A-Za-z0-9][A-Za-z0-9_.@:-]{0,190}\.service$/;
 
 type Dependencies = {
   projects: Pick<ProjectStore, 'findProject'>;
   environments: Pick<DevelopmentEnvironmentInstanceStore, 'findById'>;
-  bindings: Pick<ProjectServiceBindingStore, 'byProject' | 'byResource' | 'revision'>;
+  bindings: Pick<
+    ProjectServiceBindingStore,
+    'byProject' | 'byResource' | 'revision'
+  >;
   inventory: Pick<SystemdServiceInventory, 'inspect'>;
   grants: Pick<SystemdUserLifecycleGrantPolicy, 'find'>;
 };
@@ -65,7 +69,9 @@ function verifiedObservation(
     value.name === ref.slice('systemd:user:'.length) &&
     value.fragmentKind === 'persistent' &&
     (value.unitKind === 'regular' || value.unitKind === 'instance') &&
-    !['masked', 'generated', 'transient', 'unknown'].includes(value.bootState) &&
+    !['masked', 'generated', 'transient', 'unknown'].includes(
+      value.bootState,
+    ) &&
     ((value.state === 'running' &&
       value.activeState === 'active' &&
       value.subState === 'running') ||
@@ -120,7 +126,11 @@ export class SystemdLifecycleCapabilitiesService {
       );
 
     let inventory: HostServiceInventory | undefined;
-    if (bindings.length > 0 && environment.runtime.kind === 'host' && this.platform === 'linux') {
+    if (
+      bindings.length > 0 &&
+      environment.runtime.kind === 'host' &&
+      this.platform === 'linux'
+    ) {
       try {
         inventory = await this.d.inventory.inspect();
       } catch {
@@ -131,11 +141,16 @@ export class SystemdLifecycleCapabilitiesService {
     const userComplete =
       inventory?.sources.some(
         (source) => source.scope === 'user' && source.status === 'ready',
-      ) === true &&
-      inventory.truncated === false;
+      ) === true && inventory.truncated === false;
     const revision = this.d.bindings.revision(projectId);
     const services = bindings.map((binding) =>
-      this.describe(binding, revision, inventory, userComplete, environment.runtime.kind),
+      this.describe(
+        binding,
+        revision,
+        inventory,
+        userComplete,
+        environment.runtime.kind,
+      ),
     );
     return {
       projectId,
@@ -158,9 +173,10 @@ export class SystemdLifecycleCapabilitiesService {
     runtimeKind: string,
   ): SystemdBoundServiceCapabilities {
     const scope = scopeOf(binding.serviceRef);
-    const matches = inventory?.services.filter(
-      (service) => service.id === binding.serviceRef,
-    ) ?? [];
+    const matches =
+      inventory?.services.filter(
+        (service) => service.id === binding.serviceRef,
+      ) ?? [];
     const observation = matches.length === 1 ? matches[0] : undefined;
     const view: SystemdBoundServiceCapabilities = {
       bindingId: binding.id,
@@ -189,15 +205,25 @@ export class SystemdLifecycleCapabilitiesService {
       return view;
     }
     if (runtimeKind !== 'host') {
-      both(unsupported('Host systemd units cannot be operated from Dev Containers.'));
+      both(
+        unsupported(
+          'Host systemd units cannot be operated from Dev Containers.',
+        ),
+      );
       return view;
     }
     if (!safeUserRef(binding.serviceRef)) {
       both(unsupported('Unit identity is not eligible for lifecycle.'));
       return view;
     }
-    if (!binding.enabled || binding.relation !== 'required' || !binding.requiredForStart) {
-      both(unsupported('An enabled required binding is needed for this service.'));
+    if (
+      !binding.enabled ||
+      binding.relation !== 'required' ||
+      !binding.requiredForStart
+    ) {
+      both(
+        unsupported('An enabled required binding is needed for this service.'),
+      );
       return view;
     }
     const consumers = this.d.bindings.byResource(binding.serviceRef);
@@ -215,10 +241,16 @@ export class SystemdLifecycleCapabilitiesService {
       return view;
     }
     if (!verifiedObservation(observation, binding.serviceRef)) {
-      both(unsupported('Systemd unit or runtime state is not safely controllable.'));
+      both(
+        unsupported(
+          'Systemd unit or runtime state is not safely controllable.',
+        ),
+      );
       return view;
     }
-    const action = (name: 'start' | 'stop'): SystemdLifecycleActionCapability => {
+    const action = (
+      name: 'start' | 'stop',
+    ): SystemdLifecycleActionCapability => {
       if (name === 'start' && observation.state !== 'stopped') {
         return unsupported('Start requires a verified stopped unit.');
       }
@@ -238,8 +270,11 @@ export class SystemdLifecycleCapabilitiesService {
         !grant ||
         grant.bindingId !== binding.id ||
         grant.bindingRevision !== revision
-      ) return permissionRequired();
-      return unsupported('An executable, confirmed lifecycle plan is not available.');
+      )
+        return permissionRequired();
+      return unsupported(
+        'An executable, confirmed lifecycle plan is not available.',
+      );
     };
     view.start = action('start');
     view.stop = action('stop');

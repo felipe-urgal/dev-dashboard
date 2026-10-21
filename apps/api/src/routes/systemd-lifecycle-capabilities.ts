@@ -7,8 +7,12 @@ import type { SystemdLifecycleCapabilitiesService } from '../services/systemd-li
 interface Options extends FastifyPluginOptions {
   capabilities: Pick<SystemdLifecycleCapabilitiesService, 'inspect'>;
 }
-interface Params { projectId: string }
-interface Query { environmentInstanceId?: string }
+interface Params {
+  projectId: string;
+}
+interface Query {
+  environmentInstanceId?: string;
+}
 
 const actionSchema = {
   type: 'object',
@@ -25,7 +29,13 @@ const actionSchema = {
 const responseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['projectId', 'environmentInstanceId', 'readAt', 'partial', 'services'],
+  required: [
+    'projectId',
+    'environmentInstanceId',
+    'readAt',
+    'partial',
+    'services',
+  ],
   properties: {
     projectId: { type: 'string' },
     environmentInstanceId: { type: 'string' },
@@ -38,8 +48,15 @@ const responseSchema = {
         type: 'object',
         additionalProperties: false,
         required: [
-          'bindingId', 'serviceRef', 'scope', 'state', 'readiness',
-          'start', 'stop', 'restart', 'executable',
+          'bindingId',
+          'serviceRef',
+          'scope',
+          'state',
+          'readiness',
+          'start',
+          'stop',
+          'restart',
+          'executable',
         ],
         properties: {
           bindingId: { type: 'string' },
@@ -47,7 +64,14 @@ const responseSchema = {
           scope: { type: 'string', enum: ['user', 'system', 'unknown'] },
           state: {
             type: 'string',
-            enum: ['running', 'starting', 'stopping', 'stopped', 'failed', 'unknown'],
+            enum: [
+              'running',
+              'starting',
+              'stopping',
+              'stopped',
+              'failed',
+              'unknown',
+            ],
           },
           readiness: { type: 'string', enum: ['unknown'] },
           observedAt: { type: 'string' },
@@ -61,10 +85,9 @@ const responseSchema = {
   },
 } as const;
 
-export const systemdLifecycleCapabilitiesRoutes: FastifyPluginAsync<Options> = async (
-  app,
-  options,
-) => {
+export const systemdLifecycleCapabilitiesRoutes: FastifyPluginAsync<
+  Options
+> = async (app, options) => {
   app.get<{ Params: Params; Querystring: Query }>(
     '/projects/:projectId/systemd-capabilities',
     {
@@ -81,7 +104,11 @@ export const systemdLifecycleCapabilitiesRoutes: FastifyPluginAsync<Options> = a
           type: 'object',
           additionalProperties: false,
           properties: {
-            environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+            environmentInstanceId: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 512,
+            },
           },
         },
         response: { 200: responseSchema, ...commonErrorResponseSchemas },
