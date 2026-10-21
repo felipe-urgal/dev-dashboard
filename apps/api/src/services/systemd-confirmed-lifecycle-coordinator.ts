@@ -160,15 +160,24 @@ export class SystemdConfirmedLifecycleCoordinator {
           (item) => item.serviceRef === node.serviceRef,
         );
         if (
+          after.target.kind === 'project-environment' &&
           after.target.projectId === request.projectId &&
           after.target.environmentInstanceId ===
             request.environmentInstanceId &&
+          after.action === request.action &&
+          // Runtime state changes the plan hash, but must never change the
+          // binding revision or the identity/topology accepted for execution.
+          after.expectedRevision === request.expectedRevision &&
+          after.profile === undefined &&
+          after.order.length === 1 &&
+          after.order[0] === node.serviceRef &&
           after.nodes.length === 1 &&
           matching.length === 1 &&
           fresh(after.observedAt, this.now().getTime()) &&
           matching[0]?.provider === 'systemd' &&
           matching[0].relation === 'required' &&
           matching[0].consumerCount === 1 &&
+          matching[0].dependencies.length === 0 &&
           matching[0].readiness === 'unknown' &&
           matching[0].state ===
             (request.action === 'start' ? 'running' : 'stopped')
