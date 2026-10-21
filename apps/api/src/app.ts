@@ -53,7 +53,7 @@ import { StackHealthCheckAdapter } from './services/stack-health-check-adapter.j
 import { StackLogsService } from './services/stack-logs-service.js';
 import { StackRestartService } from './services/stack-restart-service.js';
 import { StackStartService } from './services/stack-start-service.js';
-import { StackOperationJournal } from './services/stack-operation-journal.js';
+import type { StackOperationJournal } from './services/stack-operation-journal.js';
 import { StackStopService } from './services/stack-stop-service.js';
 import { SystemdServiceInventory } from './services/systemd-service-inventory.js';
 import { SystemdLifecycleCapabilitiesService } from './services/systemd-lifecycle-capabilities-service.js';
