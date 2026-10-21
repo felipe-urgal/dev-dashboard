@@ -210,10 +210,13 @@ export class SystemdUserLifecycleAuthorizer {
       // direct owner calls unless the coordinator persisted the exact
       // in-flight intent BEFORE reaching the provider. Scan all projects to
       // deny collisions after a unit is rebound or a writer is interrupted.
-      const conflicts = this.d.jobs.list().filter((job) =>
-        job.plannedRefs.includes(request.serviceRef) &&
-        (job.status === 'running' || job.reconciliationRequired),
-      );
+      const conflicts = this.d.jobs
+        .list()
+        .filter(
+          (job) =>
+            job.plannedRefs.includes(request.serviceRef) &&
+            (job.status === 'running' || job.reconciliationRequired),
+        );
       if (conflicts.length !== 1) return false;
       const intent = conflicts[0]!;
       const updatedAt = Date.parse(intent.updatedAt);
@@ -233,7 +236,8 @@ export class SystemdUserLifecycleAuthorizer {
         !Number.isFinite(updatedAt) ||
         updatedAt > this.now().getTime() ||
         this.now().getTime() - updatedAt > 30_000
-      ) return false;
+      )
+        return false;
       const grant = this.d.policy.find(request);
       if (!grant || grant.bindingRevision !== request.expectedRevision)
         return false;
