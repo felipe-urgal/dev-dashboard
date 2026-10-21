@@ -168,7 +168,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const stackOperationJournal = options.stackOperationJournal;
   const composition = createAppComposition(context, {
     ...options,
-    ...(stackOperationJournal ? { stackOperationJobs: stackOperationJournal } : {}),
+    ...(stackOperationJournal
+      ? { stackOperationJobs: stackOperationJournal }
+      : {}),
   });
   const dashboardTerminalService = new DashboardTerminalService();
   const stackDefinitionService = new StackDefinitionService({
