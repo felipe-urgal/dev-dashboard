@@ -25,7 +25,9 @@ A reconciliação posterior deve verificar processo owner, Compose runtime, depe
 
 O mesmo `ActivitySnapshotService` existente recebe um `activityJobReader` baseado no journal. Jobs não terminados são exibidos com ID reanexável `compose-confirmed:<uuid>`, `resourceRef`, projeto e ambiente, ação e estágio; `reconciliation-required` destaca que a execução não pode ser considerada concluída. `cancelSupported=false` até existir mecanismo real de cancelamento seguro.
 
-**Não há rota adicional de execução, endpoint de replay nem reparação automática.** O leitor de Activity é apenas observacional. Os resultados de cada step continuam podendo ser registrados pelo `ConfirmedServiceLifecycleActivityWriter` já existente, sem armazenamento paralelo de eventos.
+**Não há rota adicional de execução, endpoint de replay nem reparação automática.** O leitor de Activity é apenas observacional. O `ConfirmedServiceLifecycleCoordinator` interno entrega o UUID durável ao `ConfirmedServiceLifecycleActivityWriter` para **cada step** Compose. O writer só correlaciona o último step persistido de um Job ativo, no escopo de projeto/ambiente/revisão/hash correspondentes; impede forjar o ID do Job ou reaproveitar step anterior após outra mutação. A Activity mantém o `resourceRef` exato do node e `jobId=compose-confirmed:<uuid>`, sem guardar erros brutos ou repetir a mutação.
+
+Jobs Compose `partial/failed` com `reconciliationRequired` continuam visíveis no leitor Activity/Jobs, assim como os systemd. O link do Job Compose abre seu owner; o systemd abre o Diagnóstico read-only. `cancelSupported=false` e nenhum link concede recuperação ou ação de host. `blocked`/`retained` de uma **prévia** não geram histórico: não houve execução, portanto nenhum resultado de Job pode ser afirmado.
 
 ## Limites para uma futura interface mutável
 
