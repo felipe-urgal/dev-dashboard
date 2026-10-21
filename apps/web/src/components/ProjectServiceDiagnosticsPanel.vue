@@ -2,11 +2,14 @@
 import type {
   ProjectServiceBindingView,
   ServiceDiagnosticsSnapshot,
+  ServiceLifecyclePlan,
+  ServiceLifecyclePlanNode,
 } from '@dev-dashboard/contracts';
 import { computed, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import {
   fetchProjectServiceBindings,
+  fetchServiceDependencyPreview,
   fetchServiceDiagnostics,
 } from '../api/service-diagnostics';
 
@@ -18,12 +21,16 @@ const route = useRoute();
 const bindings = ref<ProjectServiceBindingView[]>([]);
 const loading = ref(false);
 const loadingLogs = ref(false);
+const loadingPreview = ref(false);
+const dependencyPreview = ref<ServiceLifecyclePlan | null>(null);
+const previewError = ref('');
 const partial = ref(false);
 const selectedRef = ref('');
 const snapshot = ref<ServiceDiagnosticsSnapshot | null>(null);
 const error = ref('');
 let generation = 0;
 let readGeneration = 0;
+let previewGeneration = 0;
 const scopedEnvironment = computed(
   () => props.environmentInstanceId ?? 'environment:primary:' + props.projectId,
 );
@@ -33,6 +40,35 @@ const visible = computed(() =>
     (b) => b.enabled && b.environmentInstanceId === scopedEnvironment.value,
   ),
 );
+const readyCount = computed(
+  () =>
+    dependencyPreview.value?.nodes.filter(
+      (node) => node.disposition === 'alreadyReady',
+    ).length ?? 0,
+);
+
+function blockingDependencies(node: ServiceLifecyclePlanNode): string[] {
+  const nodes = dependencyPreview.value?.nodes ?? [];
+  return node.dependencies.filter((ref) =>
+    nodes.some(
+      (candidate) =>
+        candidate.serviceRef === ref &&
+        (candidate.disposition === 'blocked' ||
+          candidate.disposition === 'unsupported'),
+    ),
+  );
+}
+
+function nodeLabel(ref: string): string {
+  const binding = visible.value.find((item) => item.serviceRef === ref);
+  return binding?.role ?? ref;
+}
+
+function inspectDependency(ref: string): void {
+  if (!visible.value.some((item) => item.serviceRef === ref)) return;
+  selectedRef.value = ref;
+  changeSelection();
+}
 
 watch(
   () => [props.projectId, props.environmentInstanceId],
@@ -45,8 +81,12 @@ watch(
 async function loadBindings(): Promise<void> {
   const current = ++generation;
   readGeneration++;
+  previewGeneration++;
   loading.value = true;
   loadingLogs.value = false;
+  loadingPreview.value = false;
+  dependencyPreview.value = null;
+  previewError.value = '';
   bindings.value = [];
   selectedRef.value = '';
   snapshot.value = null;
@@ -74,6 +114,34 @@ async function loadBindings(): Promise<void> {
       error.value = 'Não foi possível consultar os vínculos de serviço.';
   } finally {
     if (current === generation) loading.value = false;
+  }
+}
+
+async function loadDependencyPreview(): Promise<void> {
+  if (loading.value || loadingPreview.value || visible.value.length === 0)
+    return;
+  const current = generation;
+  const read = ++previewGeneration;
+  loadingPreview.value = true;
+  dependencyPreview.value = null;
+  previewError.value = '';
+  try {
+    const response = await fetchServiceDependencyPreview(
+      props.projectId,
+      scopedEnvironment.value,
+    );
+    if (generation === current && previewGeneration === read) {
+      // A Start plan is never a permission to start services.
+      dependencyPreview.value = response;
+    }
+  } catch {
+    if (generation === current && previewGeneration === read) {
+      previewError.value =
+        'Não foi possível verificar as dependências. Nenhum estado foi confirmado.';
+    }
+  } finally {
+    if (generation === current && previewGeneration === read)
+      loadingPreview.value = false;
   }
 }
 
@@ -195,7 +263,89 @@ function providerRoute(provider: string) {
           {{ loadingLogs ? 'Consultando…' : 'Consultar diagnóstico e logs' }}
         </button>
       </div>
+      <div class="service-dependency-actions">
+        <button
+          type="button"
+          :disabled="loadingPreview || loading"
+          @click="loadDependencyPreview"
+        >
+          {{
+            loadingPreview
+              ? 'Verificando dependências…'
+              : 'Verificar dependências'
+          }}
+        </button>
+        <span>Consulta pontual, somente leitura; não inicia serviços.</span>
+      </div>
     </template>
+    <p v-if="previewError" role="alert">{{ previewError }}</p>
+    <section
+      v-if="dependencyPreview"
+      class="service-dependency-preview"
+      aria-label="Prévia de dependências do ambiente"
+    >
+      <h4>Prontidão observada dos serviços</h4>
+      <p>
+        {{ readyCount }} de {{ dependencyPreview.nodes.length }} serviços
+        comprovadamente prontos. Isto não é progresso de execução.
+      </p>
+      <p>
+        Plano de início:
+        {{
+          dependencyPreview.status === 'blocked'
+            ? 'bloqueado'
+            : 'sem bloqueio identificado'
+        }}. Verificação:
+        <time :datetime="dependencyPreview.observedAt">{{
+          new Date(dependencyPreview.observedAt).toLocaleString('pt-BR')
+        }}</time
+        >. Válido até:
+        <time :datetime="dependencyPreview.expiresAt">{{
+          new Date(dependencyPreview.expiresAt).toLocaleString('pt-BR')
+        }}</time
+        >.
+      </p>
+      <p v-if="dependencyPreview.diagnostics.length" role="status">
+        Evidência incompleta ou restrição de planejamento:
+        {{ dependencyPreview.diagnostics.join(' ') }}
+      </p>
+      <ol class="service-dependency-list">
+        <li v-for="node in dependencyPreview.nodes" :key="node.serviceRef">
+          <strong>{{ nodeLabel(node.serviceRef) }}</strong>
+          <span>
+            {{
+              node.disposition === 'alreadyReady'
+                ? 'pronto'
+                : node.disposition === 'willStart'
+                  ? 'aguardando início'
+                  : node.disposition === 'blocked'
+                    ? 'bloqueado'
+                    : 'sem operação suportada'
+            }}
+            · {{ node.state }} · readiness {{ node.readiness }}
+          </span>
+          <p v-if="node.diagnostic">{{ node.diagnostic }}</p>
+          <p v-if="blockingDependencies(node).length">
+            Dependência bloqueante:
+            {{ blockingDependencies(node).map(nodeLabel).join(', ') }}
+          </p>
+          <button
+            v-if="
+              visible.some((binding) => binding.serviceRef === node.serviceRef)
+            "
+            type="button"
+            @click="inspectDependency(node.serviceRef)"
+          >
+            Selecionar no diagnóstico
+          </button>
+          <span v-else>Sem vínculo ativo para consultar logs aqui.</span>
+        </li>
+      </ol>
+      <p>
+        Dados de planejamento expiram rapidamente. Verifique novamente antes de
+        concluir que o estado permanece igual. Nenhuma operação é executada.
+      </p>
+    </section>
     <p v-if="error" role="alert">{{ error }}</p>
     <article
       v-if="snapshot"
@@ -272,6 +422,7 @@ function providerRoute(provider: string) {
 }
 .service-diagnostics-heading,
 .service-diagnostics-actions,
+.service-dependency-actions,
 .service-diagnostics-links {
   display: flex;
   flex-wrap: wrap;
@@ -289,6 +440,32 @@ function providerRoute(provider: string) {
 }
 .service-diagnostics-actions {
   margin-block: 1rem;
+}
+.service-dependency-actions {
+  margin-block-end: 1rem;
+}
+.service-dependency-preview {
+  border: 1px solid var(--border-color, #64748b);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-block: 1rem;
+}
+.service-dependency-preview h4 {
+  margin: 0;
+}
+.service-dependency-list {
+  display: grid;
+  gap: 0.8rem;
+  padding-inline-start: 1.25rem;
+}
+.service-dependency-list li {
+  overflow-wrap: anywhere;
+}
+.service-dependency-list li > span {
+  display: block;
+}
+.service-dependency-list p {
+  margin: 0.25rem 0;
 }
 .service-diagnostics-actions select {
   min-width: min(100%, 22rem);

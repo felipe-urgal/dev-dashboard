@@ -16,6 +16,16 @@ A issue #1119 reutiliza log readers e Activity/Jobs, sem um novo armazenamento. 
 
 Projeto → **Diagnóstico** → **Diagnóstico de serviços vinculados**. Ao selecionar um vínculo habilitado e clicar em `Consultar diagnóstico e logs`, a UI faz uma única leitura. Exibe estado/readiness separados, última observação, stale/partial, erros de permissão, log sanitizado e eventos relacionados. Links para providers suportados (Compose e Process Manager) preservam o projeto e, quando aplicável, a Environment Instance. Unidades systemd e containers Docker unmanaged não são encaminhados erroneamente para Process Manager: são apenas observáveis, sem ação de lifecycle. O link para Activity/Jobs filtra ambos os fluxos pelo projeto; eventos de `systemd-user-unit` retornam ao diagnóstico read-only da unidade por `serviceRef`, preservando o ambiente, inclusive em navegação na mesma aba.
 
+## Prontidão e dependências (prévia pontual)
+
+No painel de Diagnóstico, `Verificar dependências` solicita **sob demanda** o plano read-only `GET /api/projects/:projectId/service-plan?action=start&environmentInstanceId=...` existente. O navegador não envia shell, operações de start/stop, novo executor nem autorização de lifecycle. A resposta mantém `executable: false`.
+
+- A contagem **X de Y serviços comprovadamente prontos** corresponde a nós com `alreadyReady` (estado `running` e readiness `ready` verificados pelo planner). `willStart` indica apenas que um início poderia ser planejado; **não significa iniciado, executando ou progresso real**.
+- `blocked` e `unsupported` exibem os motivos estáveis do planner. Quando o nó depende diretamente de outro nó bloqueado ou sem suporte, a interface identifica explicitamente a dependência bloqueante; a lista preserva nós ausentes e a ordem topológica da prévia.
+- O usuário pode selecionar para consulta de logs apenas a identidade exata de um serviço que tenha binding habilitado no ambiente; identidades ausentes não são redirecionadas para outros serviços e não disparam leitura de logs. Logs continuam sob demanda por clique separado.
+- `observedAt` é o horário da **verificação do plano**, não um relógio de execução nem promessa de que a observação individual permanece atual. `expiresAt` e a instrução para revalidar ficam visíveis. Não existe polling automático; uma falha de planejamento exibe indisponibilidade sem substituir a evidência dos logs por sucesso nem expor erro interno.
+- A prévia não substitui histórico de steps de Jobs nem expõe duração de execução. Progresso de execução real e causalidade entre eventos `blocked/retained/failed` dependem da integração futura do lifecycle multi-node (#1116/#1117).
+
 ## Matriz de permissão
 
 | Recurso | Observação | Logs | Mutação |
