@@ -43,7 +43,6 @@ O mesmo `ActivitySnapshotService` existente recebe um `activityJobReader` basead
 
 Referências: #1113, #1116, #1126–#1130.
 
-
 ## Durable systemd user recovery fence (#1117)
 
 When an internal Job includes systemd units, `begin()` accepts **only**
@@ -53,6 +52,10 @@ projects and environments** for a prior Job involving the same physical unit.
 A Job still `running` (including one from a crashed process) or terminal with
 `reconciliationRequired=true` blocks the new Job. A completed and verified
 Job does not. Rebinding a unit to another project cannot bypass this check.
+
+An operator must reconcile ambiguous systemd jobs outside this endpoint; a
+terminal partial result is not automatically upgraded to verified merely
+because the unit now appears active or stopped.
 
 This is a conservative **recovery fence**, not a transactional lease: concurrent
 processes can race between journal reads. A future executable owner still
