@@ -167,6 +167,7 @@ function setup(action: 'start' | 'stop' = 'start') {
     setFailEvents: () => {
       failEvents = true;
     },
+    reopenJournal: () => new ConfirmedLifecycleJobJournal(root, { now: () => NOW }),
     cleanup: () => rmSync(root, { recursive: true, force: true }),
   };
 }
@@ -330,6 +331,9 @@ test('an existing orphaned invoking Job blocks a new confirmation without replay
     const request = confirmation();
     const id = f.journal.begin(request, [REF]);
     f.journal.beforeStep(id, REF);
+    const reopened = f.reopenJournal();
+    assert.equal(reopened.get(id)?.reconciliationRequired, true);
+    assert.equal(reopened.get(id)?.stage, 'invoking');
     await assert.rejects(f.coordinator.run(request), /journal is unavailable/);
     assert.deepEqual(f.calls, []);
     assert.equal(f.journal.get(id)?.stage, 'invoking');
