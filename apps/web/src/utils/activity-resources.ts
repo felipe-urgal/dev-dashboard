@@ -75,6 +75,11 @@ const registry: Record<string, ResourceHandler> = {
     label: 'Abrir Compose',
     route: (item) => toolRoute('compose', item),
   },
+  // Confirmed lifecycle steps use the canonical compose-service resource kind.
+  'compose-service': {
+    label: 'Abrir Compose',
+    route: (item) => toolRoute('compose', item),
+  },
   // Systemd units have no mutable provider screen; route to the existing
   // project-scoped, read-only diagnostics (never to Process Manager).
   'systemd-user-unit': {
