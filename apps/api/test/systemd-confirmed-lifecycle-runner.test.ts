@@ -113,7 +113,7 @@ test('system scope, Dashboard, unknown and other nodes never enter owner', async
     node({ readiness: 'ready' }),
     node({ state: 'running' }),
     node({ disposition: 'alreadyReady' }),
-    node({ systemdCapability: undefined }),
+    (() => { const absent = node(); delete absent.systemdCapability; return absent; })(),
     node({ systemdCapability: { status: 'permission-required', reason: 'missing grant' } }),
     node({ systemdCapability: { status: 'unknown', reason: 'incomplete' } }),
     node({ systemdCapability: { status: 'unsupported', reason: 'scope policy' } }),
