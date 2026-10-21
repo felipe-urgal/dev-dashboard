@@ -275,8 +275,18 @@ test('multi-node Compose Job correlates only its latest persisted step and rejec
     const db = 'compose:loto:db';
     const api = 'compose:loto:api';
     const steps: ConfirmedLifecycleStep[] = [
-      { serviceRef: db, action: 'start', dispositionBefore: 'willStart', state: 'completed' },
-      { serviceRef: api, action: 'start', dispositionBefore: 'willStart', state: 'failed' },
+      {
+        serviceRef: db,
+        action: 'start',
+        dispositionBefore: 'willStart',
+        state: 'completed',
+      },
+      {
+        serviceRef: api,
+        action: 'start',
+        dispositionBefore: 'willStart',
+        state: 'failed',
+      },
     ];
     const journal = new ConfirmedLifecycleJobJournal(root, {
       now: () => new Date(request.acceptedObservedAt),
@@ -310,7 +320,11 @@ test('multi-node Compose Job correlates only its latest persisted step and rejec
       /identity could not be verified/,
     );
     await assert.rejects(
-      writer.append({ ...steps[1]!, serviceRef: 'compose:loto:forged' }, request, uuid),
+      writer.append(
+        { ...steps[1]!, serviceRef: 'compose:loto:forged' },
+        request,
+        uuid,
+      ),
       /identity could not be verified/,
     );
     await writer.append(steps[1]!, request, uuid);

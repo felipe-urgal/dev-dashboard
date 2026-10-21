@@ -378,7 +378,9 @@ test('coordinator persists completed steps and completed job without exposing ra
 });
 
 test('multi-node Compose outcomes retain Job identity across successful and failed steps', async () => {
-  const directory = mkdtempSync(path.join(os.tmpdir(), 'compose-correlated-jobs-'));
+  const directory = mkdtempSync(
+    path.join(os.tmpdir(), 'compose-correlated-jobs-'),
+  );
   try {
     const f = fixture();
     const ownerRun = f.runner.run;
@@ -386,7 +388,9 @@ test('multi-node Compose outcomes retain Job identity across successful and fail
       if (node.serviceRef === API) throw new Error('secret owner failure');
       return ownerRun(action, node);
     };
-    const journal = new ConfirmedLifecycleJobJournal(directory, { now: () => NOW });
+    const journal = new ConfirmedLifecycleJobJournal(directory, {
+      now: () => NOW,
+    });
     const entries: AppendActivityEventInput[] = [];
     const writer = new ConfirmedServiceLifecycleActivityWriter({
       jobs: journal,
@@ -409,22 +413,31 @@ test('multi-node Compose outcomes retain Job identity across successful and fail
     );
     const result = await coordinator.run(request());
     assert.equal(result.status, 'partial');
-    assert.deepEqual(result.steps.map((step) => step.state), ['completed', 'failed']);
+    assert.deepEqual(
+      result.steps.map((step) => step.state),
+      ['completed', 'failed'],
+    );
     const recorded = journal.list('loto');
     assert.equal(recorded.length, 1);
     const jobId = 'compose-confirmed:' + recorded[0]!.id;
     assert.deepEqual(
-      entries.map((entry) => [entry.jobId, entry.resourceRef?.id, entry.status]),
+      entries.map((entry) => [
+        entry.jobId,
+        entry.resourceRef?.id,
+        entry.status,
+      ]),
       [
         [jobId, DB, 'succeeded'],
         [jobId, API, 'failed'],
       ],
     );
-    const outstanding = new ConfirmedLifecycleJobJournal(directory, { now: () => NOW });
+    const outstanding = new ConfirmedLifecycleJobJournal(directory, {
+      now: () => NOW,
+    });
     assert.deepEqual(
-      outstanding.activityJobs('loto').map((job) => [
-        job.id, job.status, job.stage, job.cancelSupported,
-      ]),
+      outstanding
+        .activityJobs('loto')
+        .map((job) => [job.id, job.status, job.stage, job.cancelSupported]),
       [[jobId, 'failed', 'reconciliation-required', false]],
     );
     assert.doesNotMatch(JSON.stringify(entries), /secret owner failure/);

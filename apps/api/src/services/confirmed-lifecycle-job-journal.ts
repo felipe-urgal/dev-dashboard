@@ -295,10 +295,7 @@ export class ConfirmedLifecycleJobJournal {
   /** Reuses existing ActivitySnapshotService readers; no new public mutation route. */
   public activityJobs(projectId: string): ActivityJob[] {
     return this.list(projectId)
-      .filter(
-        (job) =>
-          job.status === 'running' || job.reconciliationRequired,
-      )
+      .filter((job) => job.status === 'running' || job.reconciliationRequired)
       .map((job) => ({
         id:
           (isSystemdUserJob(job.plannedRefs)

@@ -27,7 +27,7 @@ type Dependencies = {
  * repository. The coordinator calls this after an owner-owned mutation;
  * event failures must never automatically retry that mutation.
  *
- * Correlation uses the existing durable Job identity; no execution or replay. 
+ * Correlation uses the existing durable Job identity; no execution or replay.
  */
 export class ConfirmedServiceLifecycleActivityWriter implements ConfirmedLifecycleStepWriter {
   public constructor(private readonly dependencies: Dependencies) {}
