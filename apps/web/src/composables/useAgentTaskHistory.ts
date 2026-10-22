@@ -60,7 +60,10 @@ export function useAgentTaskHistory(
     const requestProject = projectId();
     historyLoading.value = true;
     try {
-      const page = await fetchPage(requestProject, { limit: PAGE_SIZE });
+      const page = await fetchPage(requestProject, {
+        limit: PAGE_SIZE,
+        order: 'priority',
+      });
       if (requestVersion !== version || projectId() !== requestProject) {
         return [];
       }
@@ -93,6 +96,7 @@ export function useAgentTaskHistory(
       const page = await fetchPage(requestProject, {
         limit: PAGE_SIZE,
         cursor,
+        order: 'priority',
       });
       if (requestVersion !== version || projectId() !== requestProject) {
         return;
