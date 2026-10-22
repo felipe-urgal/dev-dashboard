@@ -680,11 +680,12 @@ export async function fetchAgentTasks(
 
 export async function fetchAgentTaskPage(
   projectId: string,
-  options: { limit?: number; cursor?: string } = {},
+  options: { limit?: number; cursor?: string; order?: 'priority' } = {},
 ): Promise<AgentTaskPage> {
   const query = new URLSearchParams();
   query.set('limit', String(options.limit ?? 20));
   if (options.cursor) query.set('cursor', options.cursor);
+  if (options.order) query.set('order', options.order);
   return requestJson<AgentTaskPage>(taskPath(projectId) + '?' + query);
 }
 
