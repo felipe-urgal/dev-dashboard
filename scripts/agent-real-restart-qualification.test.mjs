@@ -201,13 +201,9 @@ test('restart gate refuses non-loopback API, unsafe scope and missing opt-in', a
   };
   assert.equal(
     await runRealRestartQualification(
-      [
-        ...args('capture', '/tmp/not-used.json').slice(0, -2),
-        '--snapshot',
-        '/tmp/not-used.json',
-        '--api',
-        'https://example.com',
-      ],
+      args('capture', '/tmp/not-used.json').map((value) =>
+        value === api ? 'https://example.com' : value,
+      ),
       opted,
     ),
     2,
