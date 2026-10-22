@@ -21,6 +21,7 @@ export function useAgentTaskHistory(
   const historyLoading = ref(false);
   const historyLoaded = ref(false);
   const historyError = ref('');
+  const showArchived = ref(false);
   let version = 0;
 
   const historyHasMore = computed(() => nextCursor.value !== null);
@@ -36,6 +37,10 @@ export function useAgentTaskHistory(
 
   function upsertTask(record: AgentTaskRecord): void {
     if (record.task.projectId !== projectId()) return;
+    if (record.task.archivedAt && !showArchived.value) {
+      tasks.value = tasks.value.filter((item) => item.task.id !== record.task.id);
+      return;
+    }
     const index = tasks.value.findIndex(
       (item) => item.task.id === record.task.id,
     );
@@ -63,6 +68,7 @@ export function useAgentTaskHistory(
       const page = await fetchPage(requestProject, {
         limit: PAGE_SIZE,
         order: 'priority',
+        includeArchived: showArchived.value,
       });
       if (requestVersion !== version || projectId() !== requestProject) {
         return [];
@@ -97,6 +103,7 @@ export function useAgentTaskHistory(
         limit: PAGE_SIZE,
         cursor,
         order: 'priority',
+        includeArchived: showArchived.value,
       });
       if (requestVersion !== version || projectId() !== requestProject) {
         return;
@@ -117,8 +124,16 @@ export function useAgentTaskHistory(
     }
   }
 
+  async function setShowArchived(next: boolean): Promise<void> {
+    if (showArchived.value === next) return;
+    showArchived.value = next;
+    await loadFirstPage();
+  }
+
   return {
     tasks,
+    showArchived,
+    setShowArchived,
     nextCursor,
     historyLoading,
     historyLoaded,
