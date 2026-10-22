@@ -66,6 +66,7 @@ test('primeira página limitada, cursor, dedupe e versão mais nova', async () =
   });
   await first;
   assert.equal(history.historyHasMore.value, true);
+  history.upsertTask(fakeTask('project-b', 'foreign'));
   assert.equal(history.tasks.value.length, 1);
 
   const next = history.loadNextPage();
