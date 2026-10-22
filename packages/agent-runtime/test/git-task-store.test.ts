@@ -542,7 +542,9 @@ test('durable priority index survives restart and updates with canonical Git HEA
     ['index-running', 'index-completed'],
   );
   const { stdout: headBefore } = await execFileAsync(
-    'git', ['rev-parse', 'HEAD'], { cwd: repositoryDirectory },
+    'git',
+    ['rev-parse', 'HEAD'],
+    { cwd: repositoryDirectory },
   );
   assert.equal(cached.revision, headBefore.trim());
 
@@ -574,24 +576,27 @@ test('durable priority index survives restart and updates with canonical Git HEA
   assert.equal(nextIndex.entries[0]?.version, 1);
 
   await assert.rejects(
-    () => reopened.listPage('project-1', {
-      limit: 1,
-      order: 'priority',
-      cursor: first.nextCursor!,
-    }),
+    () =>
+      reopened.listPage('project-1', {
+        limit: 1,
+        order: 'priority',
+        cursor: first.nextCursor!,
+      }),
     (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
   );
   assert.deepEqual(
-    (await reopened.listPage('project-1', {
-      limit: 2,
-      order: 'priority',
-    })).tasks.map((record) => record.task.id),
+    (
+      await reopened.listPage('project-1', {
+        limit: 2,
+        order: 'priority',
+      })
+    ).tasks.map((record) => record.task.id),
     ['index-running', 'index-completed'],
   );
 
-  const tracked = await execFileAsync(
-    'git', ['ls-files'], { cwd: repositoryDirectory },
-  );
+  const tracked = await execFileAsync('git', ['ls-files'], {
+    cwd: repositoryDirectory,
+  });
   assert.doesNotMatch(tracked.stdout, /task-priority-index/);
 });
 
@@ -611,7 +616,10 @@ test('corrupted or stale durable index rebuilds from Git without deleting tasks'
     limit: 5,
     order: 'priority',
   });
-  assert.deepEqual(result.tasks.map((record) => record.task.id), ['index-safe']);
+  assert.deepEqual(
+    result.tasks.map((record) => record.task.id),
+    ['index-safe'],
+  );
   assert.equal((await reopened.get('index-safe'))?.task.state, 'review');
 
   const rebuilt = JSON.parse(await fs.readFile(indexFile, 'utf8')) as {
