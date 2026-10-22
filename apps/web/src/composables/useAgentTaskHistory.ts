@@ -38,7 +38,9 @@ export function useAgentTaskHistory(
   function upsertTask(record: AgentTaskRecord): void {
     if (record.task.projectId !== projectId()) return;
     if (record.task.archivedAt && !showArchived.value) {
-      tasks.value = tasks.value.filter((item) => item.task.id !== record.task.id);
+      tasks.value = tasks.value.filter(
+        (item) => item.task.id !== record.task.id,
+      );
       return;
     }
     const index = tasks.value.findIndex(
