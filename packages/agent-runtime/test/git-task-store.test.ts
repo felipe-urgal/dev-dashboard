@@ -437,10 +437,7 @@ test('archive marker persists without deleting canonical task or evidence', asyn
     agentTask({ id: 'task-finished', state: 'completed' }),
     null,
   );
-  await store.save(
-    agentTask({ id: 'task-running', state: 'running' }),
-    null,
-  );
+  await store.save(agentTask({ id: 'task-running', state: 'running' }), null);
 
   const archivedAt = '2026-10-22T18:00:00.000Z';
   const archived = await store.save(
