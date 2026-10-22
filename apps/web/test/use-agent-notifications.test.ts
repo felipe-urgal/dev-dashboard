@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { beforeEach, test, vi } from 'vitest';
 
 import type { AgentRealtimeSnapshot } from '../src/api/agent-runtime';
-import { useAgentNotifications } from '../src/composables/useAgentNotifications';
+import {
+  useAgentNotifications,
+} from '../src/composables/useAgentNotifications';
 import {
   AGENT_NOTIFICATION_SEEN_KEY,
   readAgentNotificationPreferences,
@@ -71,10 +73,13 @@ test('preferências persistem; evento desativado não gera aviso', () => {
   notifications.publishAgentNotifications(completedSnapshot());
   assert.equal(publish.mock.calls.length, 1);
   assert.equal(publish.mock.calls[0]?.[0].label, 'Task concluída');
-  assert.equal(JSON.stringify(publish.mock.calls).includes('prompt sensível'), false);
+  assert.equal(
+    JSON.stringify(publish.mock.calls).includes('prompt sensível'),
+    false,
+  );
 });
 
-test('snapshot repetido não gera aviso duas vezes, mesmo após remontagem', () => {
+test('snapshot repetido não publica duas vezes após remount', () => {
   const publish = vi
     .spyOn(noticeCenterStore, 'publishTerminalNotice')
     .mockImplementation(() => undefined);
