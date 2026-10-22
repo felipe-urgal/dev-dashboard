@@ -49,7 +49,8 @@
     "predev:web": "npm run build:packages",
     "test:e2e:agent-qualification": "npm run build && npm run test:e2e --workspace=@dev-dashboard/web -- project-agent-qualification.spec.ts",
     "agent:qualification:preflight": "node scripts/agent-qualification-preflight.mjs",
-    "agent:qualification:multiturn": "node scripts/agent-multiturn-qualification.mjs"
+    "agent:qualification:multiturn": "node scripts/agent-multiturn-qualification.mjs",
+    "agent:qualification:restart-observe": "node scripts/agent-real-restart-qualification.mjs"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
