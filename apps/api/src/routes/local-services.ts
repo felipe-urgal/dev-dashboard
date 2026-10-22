@@ -40,12 +40,10 @@ export const localServiceRoutes: FastifyPluginAsync<Options> = async (
         return { plan: await options.manager.plan(request.query.action) };
       } catch (error) {
         if (error instanceof LocalServiceControlError) {
-          return reply
-            .code(error.statusCode)
-            .send({
-              error: error.statusCode === 403 ? 'FORBIDDEN' : 'CONFLICT',
-              message: error.message,
-            });
+          return reply.code(error.statusCode).send({
+            error: error.statusCode === 403 ? 'FORBIDDEN' : 'CONFLICT',
+            message: error.message,
+          });
         }
         throw error;
       }

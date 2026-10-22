@@ -218,13 +218,14 @@ export class LocalServiceManager {
       bootState: observed.bootState,
       readiness,
       controllable: allowed && (ignoreBusy || !this.busy),
-      reason: this.busy && !ignoreBusy
-        ? 'Uma operação de serviço está em andamento.'
-        : !observed.trusted
-          ? 'Instalação systemd não encontrada ou identidade não verificada.'
-          : !allowed
-            ? 'Helper não autorizado. Reinstale com npm run service:install no Home Music.'
-            : null,
+      reason:
+        this.busy && !ignoreBusy
+          ? 'Uma operação de serviço está em andamento.'
+          : !observed.trusted
+            ? 'Instalação systemd não encontrada ou identidade não verificada.'
+            : !allowed
+              ? 'Helper não autorizado. Reinstale com npm run service:install no Home Music.'
+              : null,
       observedAt: new Date(this.now()).toISOString(),
     };
   }

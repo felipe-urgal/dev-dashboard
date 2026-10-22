@@ -118,7 +118,10 @@ import { createAppContext, type AppContext } from './app-context.js';
 
 export interface BuildAppOptions extends AppCompositionOptions {
   hostServiceInventory?: Pick<SystemdServiceInventory, 'inspect'>;
-  localServiceManager?: Pick<LocalServiceManager, 'snapshot' | 'plan' | 'apply'>;
+  localServiceManager?: Pick<
+    LocalServiceManager,
+    'snapshot' | 'plan' | 'apply'
+  >;
   serviceCatalog?: Pick<ServiceCatalogService, 'inspect'>;
   systemdCapabilities?: Pick<SystemdLifecycleCapabilitiesService, 'inspect'>;
   /** Trusted server bootstrap only; never a browser-selected path. */
@@ -388,8 +391,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
   });
   app.register(localServiceRoutes, {
     prefix: '/api',
-    manager: options.localServiceManager ??
-      new LocalServiceManager({ stateDirectory: context.processManager.stateDirectory }),
+    manager:
+      options.localServiceManager ??
+      new LocalServiceManager({
+        stateDirectory: context.processManager.stateDirectory,
+      }),
     journal: new SystemdJournalReader(),
   });
 

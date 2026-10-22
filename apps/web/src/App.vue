@@ -203,7 +203,9 @@ onMounted(() => {
 
           <RouterLink
             class="navigation-item"
-            :class="{ 'navigation-item-active': route.name === 'local-services' }"
+            :class="{
+              'navigation-item-active': route.name === 'local-services',
+            }"
             :to="{ name: 'local-services' }"
           >
             <ServerStackIcon class="navigation-icon" aria-hidden="true" />

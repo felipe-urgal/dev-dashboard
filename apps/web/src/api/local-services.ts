@@ -35,27 +35,38 @@ export interface LocalServiceLogs {
   diagnostic?: string;
 }
 export async function fetchLocalServices(): Promise<LocalService[]> {
-  const response = await requestJson<{ services: LocalService[] }>('/api/local-services');
+  const response = await requestJson<{ services: LocalService[] }>(
+    '/api/local-services',
+  );
   return response.services;
 }
-export async function fetchLocalServicePlan(action: LocalServiceAction): Promise<LocalServicePlan> {
+export async function fetchLocalServicePlan(
+  action: LocalServiceAction,
+): Promise<LocalServicePlan> {
   const response = await requestJson<{ plan: LocalServicePlan }>(
     '/api/local-services/home-music/plan?action=' + encodeURIComponent(action),
   );
   return response.plan;
 }
-export async function applyLocalServiceAction(plan: LocalServicePlan): Promise<LocalServiceOutcome> {
+export async function applyLocalServiceAction(
+  plan: LocalServicePlan,
+): Promise<LocalServiceOutcome> {
   const response = await requestJson<{ outcome: LocalServiceOutcome }>(
     '/api/local-services/home-music/actions',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: plan.action, confirmation: plan.confirmation }),
+      body: JSON.stringify({
+        action: plan.action,
+        confirmation: plan.confirmation,
+      }),
     },
   );
   return response.outcome;
 }
 export async function fetchLocalServiceLogs(): Promise<LocalServiceLogs> {
-  const response = await requestJson<{ logs: LocalServiceLogs }>('/api/local-services/home-music/logs');
+  const response = await requestJson<{ logs: LocalServiceLogs }>(
+    '/api/local-services/home-music/logs',
+  );
   return response.logs;
 }
