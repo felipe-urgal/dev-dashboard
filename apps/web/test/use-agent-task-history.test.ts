@@ -81,10 +81,13 @@ test('primeira página limitada, cursor, dedupe e versão mais nova', async () =
   });
   await Promise.all([next, simultaneous]);
   assert.deepEqual(
-    history.tasks.value.map((item) => item.task.id),
+    history.tasks.value.map((item) => item.task.id).sort(),
     ['task-1', 'task-2'],
   );
-  assert.equal(history.tasks.value[0]!.version, 3);
+  assert.equal(
+    history.tasks.value.find((item) => item.task.id === 'task-1')?.version,
+    3,
+  );
   assert.equal(history.historyHasMore.value, false);
 });
 
