@@ -16,6 +16,14 @@ import {
 import { deserializeAgentTask, serializeAgentTask } from './serialization.js';
 import { canTransitionAgentTask } from './state-machine.js';
 import { AgentTaskLockManager } from './task-lock.js';
+import {
+  buildPriorityIndex,
+  indexEntry,
+  readPriorityIndex,
+  writePriorityIndex,
+  type PriorityTaskIndex,
+  type PriorityTaskIndexEntry,
+} from './priority-task-index.js';
 
 const STORE_MARKER = '.dev-dashboard-agent-store.json';
 const STORE_OWNER = 'dev-dashboard-agent-runtime';
@@ -201,11 +209,7 @@ export class GitAgentTaskStore implements AgentTaskStore {
   private readonly gitTimeoutMs: number;
   private readonly lockTimeoutMs: number;
   private readonly lockManager: AgentTaskLockManager;
-  private priorityCache: {
-    projectId: string;
-    revision: string;
-    records: AgentTaskRecord[];
-  } | null = null;
+  private priorityCache: PriorityTaskIndex | null = null;
 
   public constructor(options: GitAgentTaskStoreOptions) {
     if (
@@ -380,9 +384,9 @@ export class GitAgentTaskStore implements AgentTaskStore {
   }
 
   /**
-   * Revision-keyed in-memory index: on a cold Git HEAD, validate and sort the
-   * project's canonical records once. Subsequent cursor pages reuse that data.
-   * This does not add a second persistent source of truth.
+   * Priority pages use revision-scoped metadata. A persisted sidecar avoids
+   * rereading every canonical file after restart; each returned record is
+   * still read and checked against its canonical Git task JSON.
    */
   private async listPriorityPage(
     projectId: string,
@@ -405,59 +409,61 @@ export class GitAgentTaskStore implements AgentTaskStore {
         );
       }
 
-      let cached = this.priorityCache;
+      let index = this.priorityCache;
       if (
-        !cached ||
-        cached.projectId !== projectId ||
-        cached.revision !== revision
+        !index ||
+        index.projectId !== projectId ||
+        index.revision !== revision
       ) {
-        const records: AgentTaskRecord[] = [];
-        const directory = path.join(this.repositoryDirectory, 'tasks');
-        let names: string[] = [];
-        try {
-          const stat = await fs.lstat(directory);
-          if (!stat.isDirectory() || stat.isSymbolicLink()) {
-            throw new GitAgentTaskStoreError(
-              'AGENT_TASK_STORE_CORRUPT',
-              'Canonical agent task directory is invalid.',
-            );
+        index = await readPriorityIndex(
+          this.repositoryDirectory,
+          projectId,
+          revision,
+        );
+        if (!index) {
+          const entries: PriorityTaskIndexEntry[] = [];
+          const directory = path.join(this.repositoryDirectory, 'tasks');
+          let names: string[] = [];
+          try {
+            const stat = await fs.lstat(directory);
+            if (!stat.isDirectory() || stat.isSymbolicLink()) {
+              throw new GitAgentTaskStoreError(
+                'AGENT_TASK_STORE_CORRUPT',
+                'Canonical agent task directory is invalid.',
+              );
+            }
+            names = (await fs.readdir(directory))
+              .filter((name) => name.endsWith('.json'))
+              .sort();
+          } catch (error) {
+            if (!isEnoent(error)) throw error;
           }
-          names = (await fs.readdir(directory))
-            .filter((name) => name.endsWith('.json'))
-            .sort();
-        } catch (error) {
-          if (!isEnoent(error)) throw error;
-        }
-
-        for (const name of names) {
-          const record = await this.readTaskFile(
-            path.join(directory, name),
-            name,
+          for (const name of names) {
+            const record = await this.readTaskFile(
+              path.join(directory, name),
+              name,
+            );
+            if (record.task.projectId === projectId) {
+              entries.push(indexEntry(record));
+            }
+          }
+          index = buildPriorityIndex(projectId, revision, entries);
+          // The derivative cache must not turn a valid canonical read into
+          // a failure if the sidecar cannot be persisted.
+          await writePriorityIndex(this.repositoryDirectory, index).catch(
+            () => {},
           );
-          if (record.task.projectId === projectId) records.push(record);
         }
-
-        const actionable = (record: AgentTaskRecord): boolean =>
-          record.task.state !== 'completed' &&
-          record.task.state !== 'cancelled';
-        records.sort((left, right) => {
-          const priority = Number(actionable(right)) - Number(actionable(left));
-          if (priority !== 0) return priority;
-          const recent =
-            Date.parse(right.task.updatedAt) - Date.parse(left.task.updatedAt);
-          return recent || left.task.id.localeCompare(right.task.id);
-        });
-        cached = { projectId, revision, records };
-        this.priorityCache = cached;
+        this.priorityCache = index;
       }
 
-      const visibleRecords = options.includeArchived
-        ? cached.records
-        : cached.records.filter((item) => !item.task.archivedAt);
+      const visible = options.includeArchived
+        ? index.entries
+        : index.entries.filter((item) => !item.archivedAt);
       const lastHash = cursorMatch?.[2];
       const start = lastHash
-        ? visibleRecords.findIndex(
-            (item) => taskFileName(item.task.id).slice(0, -5) === lastHash,
+        ? visible.findIndex(
+            (item) => taskFileName(item.id).slice(0, -5) === lastHash,
           ) + 1
         : 0;
       if (lastHash && start === 0) {
@@ -467,13 +473,32 @@ export class GitAgentTaskStore implements AgentTaskStore {
         );
       }
 
-      const tasks = visibleRecords.slice(start, start + options.limit);
-      const last = tasks.at(-1);
+      const selected = visible.slice(start, start + options.limit);
+      const tasks: AgentTaskRecord[] = [];
+      for (const metadata of selected) {
+        const name = taskFileName(metadata.id);
+        const record = await this.readTaskFile(
+          path.join(this.repositoryDirectory, 'tasks', name),
+          name,
+        );
+        if (
+          record.task.projectId !== projectId ||
+          JSON.stringify(indexEntry(record)) !== JSON.stringify(metadata)
+        ) {
+          throw new GitAgentTaskStoreError(
+            'AGENT_TASK_STORE_CORRUPT',
+            'Cached task index disagrees with canonical task record.',
+          );
+        }
+        tasks.push(record);
+      }
+
+      const last = selected.at(-1);
       return {
         tasks,
         nextCursor:
-          last && start + tasks.length < visibleRecords.length
-            ? revision + '.' + taskFileName(last.task.id).slice(0, -5)
+          last && start + selected.length < visible.length
+            ? revision + '.' + taskFileName(last.id).slice(0, -5)
             : null,
       };
     });
@@ -497,6 +522,19 @@ export class GitAgentTaskStore implements AgentTaskStore {
     return this.withStoreLock(async () => {
       await this.ensureRepository();
       await this.assertClean();
+
+      const previousRevision = (
+        await this.runGit(['rev-parse', 'HEAD'], 'read index base revision')
+      ).stdout.trim();
+      const previousIndex =
+        this.priorityCache?.projectId === canonicalTask.projectId &&
+        this.priorityCache.revision === previousRevision
+          ? this.priorityCache
+          : await readPriorityIndex(
+              this.repositoryDirectory,
+              canonicalTask.projectId,
+              previousRevision,
+            );
 
       const previous = await this.readTask(canonicalTask.id);
       if (previous === null) {
@@ -556,6 +594,24 @@ export class GitAgentTaskStore implements AgentTaskStore {
 
       await this.assertClean();
       this.priorityCache = null;
+      if (previousIndex) {
+        const revision = (
+          await this.runGit(['rev-parse', 'HEAD'], 'read updated task revision')
+        ).stdout.trim();
+        const entries = previousIndex.entries.filter(
+          (item) => item.id !== next.task.id,
+        );
+        entries.push(indexEntry(next));
+        const updated = buildPriorityIndex(
+          canonicalTask.projectId,
+          revision,
+          entries,
+        );
+        await writePriorityIndex(this.repositoryDirectory, updated).catch(
+          () => {},
+        );
+        this.priorityCache = updated;
+      }
       return next;
     });
   }

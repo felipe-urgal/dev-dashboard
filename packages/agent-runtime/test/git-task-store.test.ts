@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -501,4 +502,130 @@ test('archive is forbidden for active task and marker cannot be erased', async (
     () => store.save({ ...stored.task, archivedAt: undefined }, stored.version),
     (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
   );
+});
+
+test('durable priority index survives restart and updates with canonical Git HEAD', async (t) => {
+  const { repositoryDirectory, store } = await fixture(t);
+  await store.save(
+    agentTask({ id: 'index-completed', state: 'completed' }),
+    null,
+  );
+  await store.save(
+    agentTask({
+      id: 'index-running',
+      state: 'running',
+      updatedAt: '2026-10-22T12:00:00.000Z',
+    }),
+    null,
+  );
+
+  const first = await store.listPage('project-1', {
+    limit: 1,
+    order: 'priority',
+  });
+  assert.equal(first.tasks[0]?.task.id, 'index-running');
+  assert.ok(first.nextCursor);
+
+  const indexFile = path.join(
+    repositoryDirectory + '.runtime',
+    'task-priority-index',
+    createHash('sha256').update('project-1').digest('hex') + '.json',
+  );
+  const cached = JSON.parse(await fs.readFile(indexFile, 'utf8')) as {
+    revision: string;
+    projectId: string;
+    entries: Array<{ id: string; version: number }>;
+  };
+  assert.equal(cached.projectId, 'project-1');
+  assert.deepEqual(
+    cached.entries.map((entry) => entry.id),
+    ['index-running', 'index-completed'],
+  );
+  const { stdout: headBefore } = await execFileAsync(
+    'git',
+    ['rev-parse', 'HEAD'],
+    { cwd: repositoryDirectory },
+  );
+  assert.equal(cached.revision, headBefore.trim());
+
+  const reopened = new GitAgentTaskStore({ repositoryDirectory });
+  const resumed = await reopened.listPage('project-1', {
+    limit: 1,
+    order: 'priority',
+    cursor: first.nextCursor!,
+  });
+  assert.deepEqual(
+    resumed.tasks.map((record) => record.task.id),
+    ['index-completed'],
+  );
+
+  const updated = await store.save(
+    agentTask({
+      id: 'index-running',
+      state: 'running',
+      updatedAt: '2026-10-22T13:00:00.000Z',
+    }),
+    0,
+  );
+  assert.equal(updated.version, 1);
+  const nextIndex = JSON.parse(await fs.readFile(indexFile, 'utf8')) as {
+    revision: string;
+    entries: Array<{ id: string; version: number }>;
+  };
+  assert.notEqual(nextIndex.revision, cached.revision);
+  assert.equal(nextIndex.entries[0]?.version, 1);
+
+  await assert.rejects(
+    () =>
+      reopened.listPage('project-1', {
+        limit: 1,
+        order: 'priority',
+        cursor: first.nextCursor!,
+      }),
+    (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
+  );
+  assert.deepEqual(
+    (
+      await reopened.listPage('project-1', {
+        limit: 2,
+        order: 'priority',
+      })
+    ).tasks.map((record) => record.task.id),
+    ['index-running', 'index-completed'],
+  );
+
+  const tracked = await execFileAsync('git', ['ls-files'], {
+    cwd: repositoryDirectory,
+  });
+  assert.doesNotMatch(tracked.stdout, /task-priority-index/);
+});
+
+test('corrupted or stale durable index rebuilds from Git without deleting tasks', async (t) => {
+  const { repositoryDirectory, store } = await fixture(t);
+  await store.save(agentTask({ id: 'index-safe', state: 'review' }), null);
+  await store.listPage('project-1', { limit: 5, order: 'priority' });
+
+  const indexFile = path.join(
+    repositoryDirectory + '.runtime',
+    'task-priority-index',
+    createHash('sha256').update('project-1').digest('hex') + '.json',
+  );
+  await fs.writeFile(indexFile, '{"schemaVersion":1,"entries":[]}', 'utf8');
+  const reopened = new GitAgentTaskStore({ repositoryDirectory });
+  const result = await reopened.listPage('project-1', {
+    limit: 5,
+    order: 'priority',
+  });
+  assert.deepEqual(
+    result.tasks.map((record) => record.task.id),
+    ['index-safe'],
+  );
+  assert.equal((await reopened.get('index-safe'))?.task.state, 'review');
+
+  const rebuilt = JSON.parse(await fs.readFile(indexFile, 'utf8')) as {
+    checksum: string;
+    entries: Array<{ id: string }>;
+  };
+  assert.match(rebuilt.checksum, /^[a-f0-9]{64}$/);
+  assert.equal(rebuilt.entries[0]?.id, 'index-safe');
 });
