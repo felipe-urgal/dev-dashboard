@@ -31,6 +31,7 @@ Este documento separa **provas automatizadas do control plane** de **qualificaç
 | Multi-turn real ChatGPT Browser | provider real | gate executável | mesmo gate contra Browser Bridge/extensão reais |
 | Multi-turn real Automatic | provider real | gate executável | registra provider concreto por turno; opção de troca Codex↔Claude quando ambos estiverem disponíveis |
 | Restart físico do processo Agent com provider controlado | sistema real parcial | gate automatizado | `Agent Physical Process Restart`: dois processos Node, Git/conversation/audit/runtime stores reais e `SIGKILL` |
+| Restart real, evidência antes/depois | provider real assistido | protocolo opt-in | `agent:qualification:restart-observe`; exige execução no host + intervenção do operador, sem prova real ainda |
 | Restart do Dashboard durante execução real | sistema real | pendente | matar/reiniciar processo e registrar recovery |
 | Duas tasks em repositórios diferentes | sistema real | pendente | duas execuções reais simultâneas |
 | Lock físico entre processos em targets independentes | sistema real parcial | gate automatizado | `Agent Physical Lock Qualification`: 2 repositórios Git e processos Node, sem providers |
@@ -166,6 +167,72 @@ Por isso, o gate `Restart do Dashboard durante execução real` continua
 pendente e só poderá ser fechado com evidência de provider real e da
 instalação local. A qualificação multi-turn de providers reais, PR/readiness
 remoto e falha de GitHub remoto permanecem separadas.
+
+## Protocolo opt-in de restart com provider real — #1073
+
+O protocolo `agent:qualification:restart-observe` **não inicia providers,
+não cria tasks, não mata processos e não modifica o estado do Agent**. Ele
+consulta somente `GET /status`, `GET /conversation` e o preflight
+existente da API local. É uma ferramenta para reunir evidência da
+instalação real, não uma prova automática que possa rodar no CI.
+
+**Preparação pelo operador:** selecione um projeto de qualificação isolado
+e uma task de teste com capabilities vazias. No Dev Dashboard local, inicie
+uma execução com um provider externo disponível e um turno de usuário.
+O provider precisa ainda estar executando quando a captura ocorrer.
+
+```bash
+export AGENT_REAL_RESTART_QUALIFY=1
+npm run agent:qualification:restart-observe -- \
+  --phase capture --provider codex --project PROJECT_ID --task TASK_ID \
+  --snapshot /tmp/agent-restart-observation.json
+```
+
+A captura falha se o provider doctor/preflight não estiver disponível,
+se a task não estiver canonicamente `running`, se o estado do runtime
+não tiver um `activeExecution` correspondente ou se o último turno
+do usuário já tiver resposta. O arquivo de evidência é **criado apenas
+se não existir**, com permissão 0600. Guarda somente hashes de
+identificadores/turnos, versão canônica, provider, API loopback e horário.
+Não guarda tokens, prompts ou respostas brutas.
+
+**Ação explícita do operador:** interrompa/reinicie o serviço Dev Dashboard
+pelo mecanismo de gerenciamento local já autorizado. Não encerre o
+provider externo de forma que sua execução continue consumindo recursos
+sem controle. Registre separadamente a forma de restart, o resultado do
+provider real e a nova identidade do processo. O comando não automatiza
+nenhuma dessas ações.
+
+```bash
+npm run agent:qualification:restart-observe -- \
+  --phase verify --provider codex --project PROJECT_ID --task TASK_ID \
+  --snapshot /tmp/agent-restart-observation.json
+```
+
+A verificação exige, em **duas leituras separadas por três segundos**:
+
+- task canônica ainda `running` na mesma versão;
+- runtime `interrupted` e `lastReason=process-interrupted`;
+- mesmo `executionId` anterior, sem `processId` vivo e sem
+  `activeExecution` no novo runtime;
+- mesmos IDs/roles de turnos, sem nova resposta nem replay observável.
+
+Não é chamado `POST /recover`, `POST /turns` nem `POST /executions`.
+O snapshot expira após duas horas e não pode ser sobrescrito. Falha do
+preflight, status inconsistente, API não-loopback, token inválido ou novos
+turnos fazem o gate falhar **sem relançar o provider**.
+
+**Limitações:** a ferramenta observa o status e o histórico do
+Dashboard, mas não inspeciona diretamente processos de CLI nem a
+contabilidade de chamadas no serviço do provider. O campo
+`providerReplayDirectlyObserved: false` significa ausência dessa
+observabilidade direta, e **não** certifica ausência absoluta de chamadas
+externas. A captura de `activeExecution` e preflight verde, isoladamente,
+não provam qual provider concreto está executando aquela task.
+O gate da issue só será marcado como concluído após evidência manual
+de identidade do provider, encerramento/restart do processo real e
+verificação da instalação. Claude segue `blocked external` enquanto
+autenticação/entitlement não estiver disponível.
 
 ## Preflight do gate real
 
