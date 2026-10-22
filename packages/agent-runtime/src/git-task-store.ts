@@ -328,9 +328,10 @@ export class GitAgentTaskStore implements AgentTaskStore {
         throw error;
       }
 
-      const start = options.cursor === undefined
-        ? 0
-        : names.indexOf(options.cursor + '.json') + 1;
+      const start =
+        options.cursor === undefined
+          ? 0
+          : names.indexOf(options.cursor + '.json') + 1;
       if (options.cursor !== undefined && start === 0) {
         throw new GitAgentTaskStoreError(
           'AGENT_TASK_STORE_INVALID',
