@@ -41,10 +41,18 @@ function fixture(initial: 'running' | 'stopped' = 'stopped') {
     },
   });
   return {
-    manager, events, commands,
-    setState: (next: 'running' | 'stopped') => { state = next; },
-    setHelper: (next: boolean) => { helperTrusted = next; },
-    setAudit: (next: boolean) => { auditWorks = next; },
+    manager,
+    events,
+    commands,
+    setState: (next: 'running' | 'stopped') => {
+      state = next;
+    },
+    setHelper: (next: boolean) => {
+      helperTrusted = next;
+    },
+    setAudit: (next: boolean) => {
+      auditWorks = next;
+    },
   };
 }
 
@@ -56,11 +64,21 @@ test('start/stop are isolated from deploy and require a one-use confirmation', a
   assert.equal(started.status, 'completed');
   assert.equal(started.service.state, 'running');
   assert.deepEqual(f.events, ['invoking', 'completed']);
-  assert(f.commands.includes('sudo -n /usr/local/sbin/home-music-service-control start'));
-  assert(!f.commands.some(c => /npm|git|deploy|migrate|build/u.test(c)));
-  await assert.rejects(f.manager.apply('start', start.confirmation), /Confirmação/);
+  assert(
+    f.commands.includes(
+      'sudo -n /usr/local/sbin/home-music-service-control start',
+    ),
+  );
+  assert(!f.commands.some((c) => /npm|git|deploy|migrate|build/u.test(c)));
+  await assert.rejects(
+    f.manager.apply('start', start.confirmation),
+    /Confirmação/,
+  );
   const stop = await f.manager.plan('stop');
-  assert.equal((await f.manager.apply('stop', stop.confirmation)).service.state, 'stopped');
+  assert.equal(
+    (await f.manager.apply('stop', stop.confirmation)).service.state,
+    'stopped',
+  );
 });
 
 test('invalid transitions, stale state and missing trusted helper fail closed', async () => {
@@ -69,7 +87,11 @@ test('invalid transitions, stale state and missing trusted helper fail closed', 
   const plan = await f.manager.plan('start');
   f.setState('running');
   await assert.rejects(f.manager.apply('start', plan.confirmation), /mudou/);
-  assert(!f.commands.includes('sudo -n /usr/local/sbin/home-music-service-control start'));
+  assert(
+    !f.commands.includes(
+      'sudo -n /usr/local/sbin/home-music-service-control start',
+    ),
+  );
   f.setHelper(false);
   assert.equal((await f.manager.snapshot()).controllable, false);
   await assert.rejects(f.manager.plan('restart'), /Helper/);
@@ -79,33 +101,67 @@ test('audit failure blocks mutation before privileged dispatch', async () => {
   const f = fixture();
   const plan = await f.manager.plan('start');
   f.setAudit(false);
-  await assert.rejects(f.manager.apply('start', plan.confirmation), /Auditoria indisponível/);
-  assert(!f.commands.includes('sudo -n /usr/local/sbin/home-music-service-control start'));
+  await assert.rejects(
+    f.manager.apply('start', plan.confirmation),
+    /Auditoria indisponível/,
+  );
+  assert(
+    !f.commands.includes(
+      'sudo -n /usr/local/sbin/home-music-service-control start',
+    ),
+  );
 });
 
-test('lifecycle HTTP routes are authenticated and reject arbitrary units/replays', async t => {
+test('lifecycle HTTP routes are authenticated and reject arbitrary units/replays', async (t) => {
   const f = fixture();
   const token = 'q'.repeat(64);
-  const app = await buildApp({ localToken: token, localServiceManager: f.manager });
+  const app = await buildApp({
+    localToken: token,
+    localServiceManager: f.manager,
+  });
   t.after(async () => app.close());
-  assert.equal((await app.inject({method:'GET',url:'/api/local-services'})).statusCode, 401);
+  assert.equal(
+    (await app.inject({ method: 'GET', url: '/api/local-services' }))
+      .statusCode,
+    401,
+  );
   const headers = { 'x-dev-dashboard-token': token };
-  const list = await app.inject({ method:'GET',url:'/api/local-services',headers });
+  const list = await app.inject({
+    method: 'GET',
+    url: '/api/local-services',
+    headers,
+  });
   assert.equal(list.statusCode, 200);
-  assert.equal(list.json<{ services: Array<{unit:string}> }>().services[0]?.unit, 'home-music.service');
+  assert.equal(
+    list.json<{ services: Array<{ unit: string }> }>().services[0]?.unit,
+    'home-music.service',
+  );
   const invalid = await app.inject({
-    method:'POST',url:'/api/local-services/home-music/actions',headers,
-    payload: {action:'start', confirmation:'invalid',unit:'ssh.service'},
+    method: 'POST',
+    url: '/api/local-services/home-music/actions',
+    headers,
+    payload: { action: 'start', confirmation: 'invalid', unit: 'ssh.service' },
   });
   assert.equal(invalid.statusCode, 400);
   const preflight = await app.inject({
-    method:'GET',url:'/api/local-services/home-music/plan?action=start',headers,
+    method: 'GET',
+    url: '/api/local-services/home-music/plan?action=start',
+    headers,
   });
   assert.equal(preflight.statusCode, 200);
-  const confirmation = preflight.json<{plan:{confirmation:string}}>().plan.confirmation;
-  const request = { method:'POST' as const, url:'/api/local-services/home-music/actions', headers, payload:{action:'start',confirmation} };
+  const confirmation = preflight.json<{ plan: { confirmation: string } }>().plan
+    .confirmation;
+  const request = {
+    method: 'POST' as const,
+    url: '/api/local-services/home-music/actions',
+    headers,
+    payload: { action: 'start', confirmation },
+  };
   const executed = await app.inject(request);
   assert.equal(executed.statusCode, 200);
-  assert.equal(executed.json<{outcome:{status:string}}>().outcome.status,'completed');
-  assert.equal((await app.inject(request)).statusCode,409);
+  assert.equal(
+    executed.json<{ outcome: { status: string } }>().outcome.status,
+    'completed',
+  );
+  assert.equal((await app.inject(request)).statusCode, 409);
 });
