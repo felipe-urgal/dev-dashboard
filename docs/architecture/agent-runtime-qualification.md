@@ -32,6 +32,7 @@ Este documento separa **provas automatizadas do control plane** de **qualificaç
 | Multi-turn real Automatic | provider real | gate executável | registra provider concreto por turno; opção de troca Codex↔Claude quando ambos estiverem disponíveis |
 | Restart do Dashboard durante execução real | sistema real | pendente | matar/reiniciar processo e registrar recovery |
 | Duas tasks em repositórios diferentes | sistema real | pendente | duas execuções reais simultâneas |
+| Lock físico entre processos em targets independentes | sistema real parcial | gate automatizado | `Agent Physical Lock Qualification`: 2 repositórios Git e processos Node, sem providers |
 | Mesmo target com exclusão | sistema real | pendente | comprovar lock/serialização no target real |
 | PR/readiness real | integração externa | pendente | criar PR real e registrar readiness |
 | GitHub remoto indisponível | integração externa | pendente | degradar vínculo remoto sem derrubar runtime |
@@ -87,6 +88,35 @@ npm run test:e2e --workspace=@dev-dashboard/web -- project-agent-qualification.s
 ```
 
 Esse teste usa providers simulados de forma deliberada. Ele prova o fluxo da UI/API client e as transições esperadas, mas **não** prova disponibilidade/autenticação/comportamento real de Codex, Claude ou ChatGPT Browser.
+
+## Gate físico de ownership (sem provider externo) — #1073
+
+O CI executa o job `Agent Physical Lock Qualification` com Node e Git reais,
+em diretórios descartáveis e sem credenciais de providers/GitHub:
+
+```bash
+npm run build:packages
+AGENT_LOCK_QUALIFY=1 node scripts/qualify-agent-lock-ownership.mjs
+```
+
+O gate exige opt-in explícito e **não aceita caminhos/targets arbitrários**
+na linha de comando. Cria dois repositórios Git temporários, inicia processos
+independentes do SO usando `AgentTaskLockManager` compilado do runtime e
+comprova: (1) um concorrente no mesmo target recebe `AGENT_TASK_LOCKED`;
+(2) targets separados mantêm locks ao mesmo tempo; (3) a espera pelo mesmo
+target não avança antes da liberação; (4) após encerrar um owner com
+`SIGKILL`, outra instância reconhece o PID morto e recupera o lock.
+Os recursos são apagados no `finally`, e a evidência é somente JSON
+sanitizado de categorias e resultados, sem tokens, prompts ou saídas de providers.
+
+**Limite da evidência:** isso qualifica a implementação do lock físico
+**entre processos** e o isolamento de diretórios Git, não o orquestrador
+com dois providers reais, a escolha de target por Task Context, uma execução
+em andamento durante restart do Dashboard, a idempotência do turno, ou PR/
+readiness remoto. Os gates de `Duas tasks em repositórios diferentes`,
+`Mesmo target com exclusão` ponta a ponta e `Restart durante execução real`
+permanecem pendentes até provas com o runtime e os providers apropriados.
+CI verde não altera o estado de `blocked external` de Claude.
 
 ## Preflight do gate real
 
