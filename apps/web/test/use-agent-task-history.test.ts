@@ -58,13 +58,12 @@ test('primeira página limitada, cursor, dedupe e versão mais nova', async () =
   const first = history.loadFirstPage();
 
   assert.deepEqual(
-    { projectId: requests[0]!.projectId, limit: requests[0]!.limit },
-    { projectId: 'project-a', limit: 20 },
-  );
-  assert.equal(requests[0]!.order, 'priority');
-  assert.deepEqual(
-    { projectId: requests[0]!.projectId, limit: requests[0]!.limit },
-    { projectId: 'project-a', limit: 20 },
+    {
+      projectId: requests[0]!.projectId,
+      limit: requests[0]!.limit,
+      order: requests[0]!.order,
+    },
+    { projectId: 'project-a', limit: 20, order: 'priority' },
   );
   requests[0]!.resolve({
     tasks: [fakeTask('project-a', 'task-1', 3)],
