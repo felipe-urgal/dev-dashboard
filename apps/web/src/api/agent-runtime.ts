@@ -472,6 +472,11 @@ interface TasksResponse {
   tasks: AgentTaskRecord[];
 }
 
+export interface AgentTaskPage {
+  tasks: AgentTaskRecord[];
+  nextCursor: string | null;
+}
+
 interface TaskResponse {
   task: AgentTaskRecord;
 }
@@ -671,6 +676,16 @@ export async function fetchAgentTasks(
   projectId: string,
 ): Promise<AgentTaskRecord[]> {
   return (await requestJson<TasksResponse>(taskPath(projectId))).tasks;
+}
+
+export async function fetchAgentTaskPage(
+  projectId: string,
+  options: { limit?: number; cursor?: string } = {},
+): Promise<AgentTaskPage> {
+  const query = new URLSearchParams();
+  query.set('limit', String(options.limit ?? 20));
+  if (options.cursor) query.set('cursor', options.cursor);
+  return requestJson<AgentTaskPage>(taskPath(projectId) + '?' + query);
 }
 
 export async function createAgentTask(
