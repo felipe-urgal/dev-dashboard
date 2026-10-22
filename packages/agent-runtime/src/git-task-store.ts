@@ -443,9 +443,7 @@ export class GitAgentTaskStore implements AgentTaskStore {
         records.sort((left, right) => {
           const priority = Number(actionable(right)) - Number(actionable(left));
           if (priority !== 0) return priority;
-          const recent = right.task.updatedAt.localeCompare(
-            left.task.updatedAt,
-          );
+          const recent = Date.parse(right.task.updatedAt) - Date.parse(left.task.updatedAt);
           return recent || left.task.id.localeCompare(right.task.id);
         });
         cached = { projectId, revision, records };
