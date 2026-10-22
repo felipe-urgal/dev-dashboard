@@ -28,6 +28,7 @@ import { fetchTaskContexts } from '../api/task-contexts';
 import { useAgentNotifications } from '../composables/useAgentNotifications';
 import { useAgentTaskRealtime } from '../composables/useAgentTaskRealtime';
 import { useAgentTaskUsage } from '../composables/useAgentTaskUsage';
+import { useAgentTaskBudget } from '../composables/useAgentTaskBudget';
 import {
   providerDiagnosticAction,
   providerDiagnosticSummary,
@@ -37,14 +38,12 @@ import {
 import {
   adoptAgentBacklog,
   cancelAgentTask,
-  clearAgentBudget,
   createAgentAttachment,
   createAgentTask,
   executeAgentConversationTurn,
   executeAgentTask,
   fetchAgentActivity,
   fetchAgentAttachments,
-  fetchAgentBudget,
   fetchAgentConversation,
   fetchAgentExecutionProfiles,
   fetchAgentProviders,
@@ -53,7 +52,6 @@ import {
   recoverAgentTask,
   resolveAgentCheckpoint,
   retryAgentTask,
-  setAgentBudget,
   setAgentAuthorization,
   setAgentExecutionProfiles,
   type AgentActivity,
@@ -61,7 +59,6 @@ import {
   type AgentAuthorization,
   type AgentAuthorizationScope,
   type AgentBacklogIssue,
-  type AgentBudgetOverview,
   type AgentCapability,
   type AgentConversationTurn,
   type AgentExecutionProfile,
@@ -167,10 +164,6 @@ const checkpointInstruction = ref('');
 const status = ref<AgentTaskStatus | null>(null);
 const activity = ref<AgentActivity | null>(null);
 const latestExecution = ref<AgentExecutionResult | null>(null);
-const budget = ref<AgentBudgetOverview | null>(null);
-const budgetTokens = ref('');
-const budgetCost = ref('');
-const budgetMode = ref<'soft' | 'hard'>('soft');
 const loading = ref(false);
 const providerRefreshing = ref(false);
 const mutating = ref(false);
@@ -201,6 +194,24 @@ const { usage, usagePeriod, usageHasMetrics, clearUsage, reloadUsage } =
       ? { projectId: props.project.id, taskId: selectedTaskId.value }
       : null,
   );
+const {
+  budget,
+  budgetTokens,
+  budgetCost,
+  budgetMode,
+  budgetAlertMessage,
+  resetBudget,
+  reloadBudget,
+  saveBudgetChanges,
+  clearBudgetChanges,
+} = useAgentTaskBudget(
+  () =>
+    selectedTaskId.value
+      ? { projectId: props.project.id, taskId: selectedTaskId.value }
+      : null,
+  formatTokens,
+  formatCost,
+);
 let generation = 0;
 let taskLoadVersion = 0;
 
@@ -498,31 +509,6 @@ const recentEvidence = computed(() =>
   [...(activity.value?.evidence ?? [])].reverse().slice(0, 8),
 );
 
-const budgetAlertMessage = computed(() => {
-  const alerts = budget.value?.alerts ?? [];
-  if (!alerts.length) return '';
-  return alerts
-    .map((alert) =>
-      alert.kind === 'total-tokens'
-        ? `Limite de tokens atingido: ${formatTokens(alert.observed)} / ${formatTokens(alert.threshold)}`
-        : `Limite de custo estimado atingido: ${formatCost(alert.observed)} / ${formatCost(alert.threshold)}`,
-    )
-    .join(' · ');
-});
-
-function syncBudgetInputs(next: AgentBudgetOverview): void {
-  budget.value = next;
-  budgetTokens.value =
-    next.budget?.maxTotalTokens !== undefined
-      ? String(next.budget.maxTotalTokens)
-      : '';
-  budgetCost.value =
-    next.budget?.maxEstimatedCostUsd !== undefined
-      ? String(next.budget.maxEstimatedCostUsd)
-      : '';
-  budgetMode.value = next.budget?.mode ?? 'soft';
-}
-
 function formatTokens(value: number | undefined): string {
   if (value === undefined) return '—';
   if (value >= 1_000_000) return (value / 1_000_000).toFixed(1) + 'M';
@@ -573,30 +559,22 @@ async function loadTask(
     attachments.value = [];
     selectedAttachmentIds.value = [];
     conversationInstruction.value = '';
-    budget.value = null;
-    budgetTokens.value = '';
-    budgetCost.value = '';
-    budgetMode.value = 'soft';
+    resetBudget();
     closeSocket();
     clearUsage();
     return;
   }
 
   try {
-    const [
-      nextStatus,
-      nextActivity,
-      nextConversation,
-      nextAttachments,
-      nextBudget,
-    ] = await Promise.all([
-      fetchAgentTaskStatus(props.project.id, taskId),
-      fetchAgentActivity(props.project.id, taskId),
-      fetchAgentConversation(props.project.id, taskId),
-      fetchAgentAttachments(props.project.id, taskId),
-      fetchAgentBudget(props.project.id, taskId),
-      reloadUsage(),
-    ]);
+    const [nextStatus, nextActivity, nextConversation, nextAttachments] =
+      await Promise.all([
+        fetchAgentTaskStatus(props.project.id, taskId),
+        fetchAgentActivity(props.project.id, taskId),
+        fetchAgentConversation(props.project.id, taskId),
+        fetchAgentAttachments(props.project.id, taskId),
+        reloadBudget(),
+        reloadUsage(),
+      ]);
     if (
       requestGeneration !== generation ||
       loadVersion !== taskLoadVersion ||
@@ -610,7 +588,6 @@ async function loadTask(
     selectedAttachmentIds.value = selectedAttachmentIds.value.filter((id) =>
       nextAttachments.some((attachment) => attachment.id === id),
     );
-    syncBudgetInputs(nextBudget);
     connectTaskSocket(props.project.id, taskId);
   } catch (error) {
     if (
@@ -649,6 +626,7 @@ async function load(): Promise<void> {
   errorMessage.value = '';
   closeSocket();
   clearUsage();
+  resetBudget();
 
   try {
     const [nextProviders, nextTasks, nextTaskContexts, nextExecutionProfiles] =
@@ -729,16 +707,13 @@ async function selectTask(taskId: string): Promise<void> {
   selectedTaskId.value = taskId;
   closeSocket();
   clearUsage();
+  resetBudget();
   status.value = null;
   activity.value = null;
   conversationTurns.value = [];
   attachments.value = [];
   selectedAttachmentIds.value = [];
   conversationInstruction.value = '';
-  budget.value = null;
-  budgetTokens.value = '';
-  budgetCost.value = '';
-  budgetMode.value = 'soft';
   latestExecution.value = null;
   errorMessage.value = '';
   await loadTask(taskId);
@@ -1086,31 +1061,11 @@ async function changeUsagePeriod(): Promise<void> {
 }
 
 async function saveBudget(): Promise<void> {
-  const record = currentTask.value;
-  if (!record || mutating.value) return;
-
-  const maxTotalTokens = budgetTokens.value.trim()
-    ? Number(budgetTokens.value)
-    : undefined;
-  const maxEstimatedCostUsd = budgetCost.value.trim()
-    ? Number(budgetCost.value)
-    : undefined;
-
-  if (maxTotalTokens === undefined && maxEstimatedCostUsd === undefined) {
-    errorMessage.value = 'Informe pelo menos um limite de budget.';
-    return;
-  }
-
+  if (!currentTask.value || mutating.value) return;
   mutating.value = true;
   errorMessage.value = '';
   try {
-    syncBudgetInputs(
-      await setAgentBudget(props.project.id, record.task.id, {
-        ...(maxTotalTokens !== undefined ? { maxTotalTokens } : {}),
-        ...(maxEstimatedCostUsd !== undefined ? { maxEstimatedCostUsd } : {}),
-        mode: budgetMode.value,
-      }),
-    );
+    await saveBudgetChanges();
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -1122,12 +1077,11 @@ async function saveBudget(): Promise<void> {
 }
 
 async function clearBudget(): Promise<void> {
-  const record = currentTask.value;
-  if (!record || mutating.value) return;
+  if (!currentTask.value || mutating.value) return;
   mutating.value = true;
   errorMessage.value = '';
   try {
-    syncBudgetInputs(await clearAgentBudget(props.project.id, record.task.id));
+    await clearBudgetChanges();
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -1279,6 +1233,7 @@ onBeforeUnmount(() => {
   generation += 1;
   closeSocket();
   clearUsage();
+  resetBudget();
 });
 </script>
 
