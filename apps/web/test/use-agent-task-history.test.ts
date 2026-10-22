@@ -15,6 +15,7 @@ interface Request {
   limit?: number;
   cursor?: string;
   order?: 'priority';
+  includeArchived?: boolean;
   resolve: (value: AgentTaskPage) => void;
   reject: (error: Error) => void;
 }
@@ -184,5 +185,42 @@ test('cockpit não faz GET legado do histórico inteiro', () => {
   assert.match(panel, /Carregar mais/);
   assert.match(panel, /compareTaskPriority/);
   assert.match(panel, /Atualizar histórico/);
+  assert.match(panel, /archiveAgentTask/);
+  assert.match(panel, /Mostrar arquivadas/);
+  assert.match(panel, /Arquivar task/);
   assert.doesNotMatch(panel, /fetchAgentTasks/);
+});
+
+test('archive removes hidden task and toggling archived view uses paged query', async () => {
+  const { requests, fetchPage } = client();
+  const history = useAgentTaskHistory(() => 'project-a', fetchPage);
+  const first = history.loadFirstPage();
+  assert.equal(requests[0]!.includeArchived, false);
+  requests[0]!.resolve({
+    tasks: [fakeTask('project-a', 'task-done')],
+    nextCursor: null,
+  });
+  await first;
+  const archived: AgentTaskRecord = {
+    ...fakeTask('project-a', 'task-done', 1),
+    task: {
+      ...fakeTask('project-a', 'task-done').task,
+      state: 'completed',
+      archivedAt: '2026-10-22T18:00:00.000Z',
+    },
+  };
+  history.upsertTask(archived);
+  assert.equal(history.tasks.value.length, 0);
+
+  const show = history.setShowArchived(true);
+  assert.equal(requests[1]!.includeArchived, true);
+  requests[1]!.resolve({ tasks: [archived], nextCursor: null });
+  await show;
+  assert.equal(history.tasks.value[0]?.task.archivedAt, archived.task.archivedAt);
+
+  const hide = history.setShowArchived(false);
+  assert.equal(requests[2]!.includeArchived, false);
+  requests[2]!.resolve({ tasks: [], nextCursor: null });
+  await hide;
+  assert.equal(history.tasks.value.length, 0);
 });
