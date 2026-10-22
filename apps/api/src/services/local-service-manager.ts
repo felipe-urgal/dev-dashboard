@@ -241,7 +241,7 @@ export class LocalServiceManager {
         service.reason ?? 'Controle indisponível.',
       );
     if (
-      (action === 'start' && service.state !== 'stopped') ||
+      (action === 'start' && !['stopped', 'failed'].includes(service.state)) ||
       (action !== 'start' && service.state !== 'running')
     ) {
       throw new LocalServiceControlError(
@@ -317,11 +317,13 @@ export class LocalServiceManager {
         commandFailed = true;
       }
       const after = await this.snapshotForExecution();
+      // Lifecycle success means systemd accepted the state transition.
+      // HTTP readiness is reported separately: startup may legitimately be slower.
       const complete =
         !commandFailed &&
         (action === 'stop'
           ? after.state === 'stopped'
-          : after.state === 'running' && after.readiness === 'ready');
+          : after.state === 'running');
       const status = complete ? 'completed' : 'unverified';
       try {
         await this.audit({
@@ -346,9 +348,11 @@ export class LocalServiceManager {
         action,
         status,
         service: after,
-        message: complete
-          ? 'Estado confirmado.'
-          : 'Estado final não comprovado. Verifique status e logs antes de repetir.',
+        message: !complete
+          ? 'Estado final não comprovado. Verifique status e logs antes de repetir.'
+          : action !== 'stop' && after.readiness !== 'ready'
+            ? 'Comando systemd concluído: processo ativo. /ready ainda não responde; acompanhe a saúde HTTP e os logs.'
+            : 'Estado confirmado.',
       };
     } finally {
       this.busy = false;

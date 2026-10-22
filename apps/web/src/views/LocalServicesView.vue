@@ -15,6 +15,8 @@ const services = ref<LocalService[]>([]);
 const loading = ref(false);
 const pending = ref(false);
 const error = ref('');
+// Errors from start/stop/restart must survive automatic status refreshes.
+const actionError = ref('');
 const notice = ref('');
 const logs = ref<LocalServiceLogs | null>(null);
 const showingLogs = ref(false);
@@ -66,7 +68,7 @@ async function operate(action: LocalServiceAction): Promise<void> {
   if (pending.value || !service.value?.controllable) return;
   pending.value = true;
   notice.value = '';
-  error.value = '';
+  actionError.value = '';
   try {
     const plan = await fetchLocalServicePlan(action);
     const verbs = { start: 'Iniciar', stop: 'Parar', restart: 'Reiniciar' };
@@ -82,9 +84,9 @@ async function operate(action: LocalServiceAction): Promise<void> {
     if (!confirmed) return;
     const outcome = await applyLocalServiceAction(plan);
     notice.value = outcome.message;
-    if (outcome.status === 'unverified') error.value = outcome.message;
+    if (outcome.status === 'unverified') actionError.value = outcome.message;
   } catch (cause) {
-    error.value =
+    actionError.value =
       cause instanceof Error
         ? cause.message
         : 'Não foi possível controlar o serviço.';
@@ -95,10 +97,11 @@ async function operate(action: LocalServiceAction): Promise<void> {
 }
 async function loadLogs(): Promise<void> {
   showingLogs.value = true;
+  actionError.value = '';
   try {
     logs.value = await fetchLocalServiceLogs();
   } catch (cause) {
-    error.value =
+    actionError.value =
       cause instanceof Error ? cause.message : 'Logs indisponíveis.';
   }
 }
@@ -131,8 +134,14 @@ onBeforeUnmount(() => {
       </button>
     </header>
 
-    <div v-if="error" role="alert" class="local-service-alert">{{ error }}</div>
-    <div v-if="notice && !error" role="status" class="local-service-notice">
+    <div v-if="actionError || error" role="alert" class="local-service-alert">
+      {{ actionError || error }}
+    </div>
+    <div
+      v-if="notice && !actionError && !error"
+      role="status"
+      class="local-service-notice"
+    >
       {{ notice }}
     </div>
     <article v-if="service" class="local-service-card" :aria-busy="pending">
@@ -170,7 +179,9 @@ onBeforeUnmount(() => {
           class="primary-button"
           type="button"
           :disabled="
-            pending || !service.controllable || service.state !== 'stopped'
+            pending ||
+            !service.controllable ||
+            !['stopped', 'failed'].includes(service.state)
           "
           @click="operate('start')"
         >
