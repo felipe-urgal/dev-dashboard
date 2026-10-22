@@ -2101,7 +2101,9 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
             limit: { type: 'integer', minimum: 1, maximum: 50 },
             cursor: {
               type: 'string',
-              pattern: '^(?:[a-f0-9]{64}|[a-f0-9]{40}[.][a-f0-9]{64})
+              pattern: '^(?:[a-f0-9]{64}|[a-f0-9]{40}[.][a-f0-9]{64})$',
+            },
+            order: { type: 'string', enum: ['priority'] },
           },
         },
         response: {
@@ -2139,50 +2141,6 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
             limit: limit ?? 20,
             ...(cursor ? { cursor } : {}),
             ...(order ? { order } : {}),
-          },
-        );
-      }),
-  );
-
-,
-            },
-            order: { type: 'string', enum: ['priority'] },
-          },
-        },
-        response: {
-          200: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['tasks'],
-            properties: {
-              tasks: { type: 'array', items: taskRecordSchema },
-              nextCursor: {
-                anyOf: [{ type: 'string' }, { type: 'null' }],
-              },
-            },
-          },
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request) =>
-      withAgentErrors(async () => {
-        const { limit, cursor } = request.query;
-        if (limit === undefined && cursor === undefined) {
-          return {
-            tasks: await options.agentRuntimeApiService.listTasks(
-              request.params.projectId,
-            ),
-          };
-        }
-        if (!options.agentRuntimeApiService.listTasksPage) {
-          throw new Error('Agent task pagination is not supported.');
-        }
-        return options.agentRuntimeApiService.listTasksPage(
-          request.params.projectId,
-          {
-            limit: limit ?? 20,
-            ...(cursor ? { cursor } : {}),
           },
         );
       }),
