@@ -28,7 +28,7 @@ function hash(value) {
 }
 
 function optionsFromArgs(argv) {
-  const options = { api: DEFAULT_API };
+  const options = {};
   for (let i = 0; i < argv.length; i += 2) {
     const key = argv[i];
     const value = argv[i + 1];
@@ -52,6 +52,7 @@ function optionsFromArgs(argv) {
     }
     options[name] = value;
   }
+  options.api ??= DEFAULT_API;
   if (
     !['capture', 'verify'].includes(options.phase) ||
     !PROVIDERS.has(options.provider) ||
