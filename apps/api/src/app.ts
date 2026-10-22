@@ -58,7 +58,6 @@ import type { StackOperationJournal } from './services/stack-operation-journal.j
 import { StackStopService } from './services/stack-stop-service.js';
 import { SystemdServiceInventory } from './services/systemd-service-inventory.js';
 import { LocalServiceManager } from './services/local-service-manager.js';
-import { SystemdJournalReader } from './services/systemd-journal-reader.js';
 import { SystemdLifecycleCapabilitiesService } from './services/systemd-lifecycle-capabilities-service.js';
 import { SystemdUserLifecycleGrantPolicy } from './services/systemd-user-lifecycle-authorization.js';
 import { ServiceCatalogService } from './services/service-catalog-service.js';
