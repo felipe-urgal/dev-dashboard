@@ -33,7 +33,10 @@ async function initRepository(root, name) {
   git(directory, 'init', '-q', '-b', 'main');
   git(directory, 'config', 'user.name', 'Agent Lock Qualification');
   git(directory, 'config', 'user.email', 'qualification@example.invalid');
-  await fs.writeFile(path.join(directory, 'README.md'), 'Disposable qualification repository.\n');
+  await fs.writeFile(
+    path.join(directory, 'README.md'),
+    'Disposable qualification repository.\n',
+  );
   git(directory, 'add', '--', 'README.md');
   git(directory, 'commit', '-q', '-m', 'init disposable fixture');
   assert.equal(git(directory, 'rev-parse', '--show-toplevel'), directory);
@@ -41,9 +44,11 @@ async function initRepository(root, name) {
 }
 
 async function childMain(stateDirectory, key, waitFlag) {
-  if (![TARGET_A, TARGET_B].includes(key) ||
-      !['wait', 'reject'].includes(waitFlag) ||
-      !path.isAbsolute(stateDirectory)) {
+  if (
+    ![TARGET_A, TARGET_B].includes(key) ||
+    !['wait', 'reject'].includes(waitFlag) ||
+    !path.isAbsolute(stateDirectory)
+  ) {
     return 2;
   }
 
@@ -91,7 +96,11 @@ function launchWorker(cwd, stateDirectory, key, waitFlag) {
     });
     child.once('exit', (code) => {
       clear();
-      reject(new Error('Agent lock worker exited before reporting (code ' + code + ').'));
+      reject(
+        new Error(
+          'Agent lock worker exited before reporting (code ' + code + ').',
+        ),
+      );
     });
     lineReader.once('line', (line) => {
       clear();
@@ -118,7 +127,8 @@ async function stopWorker(worker) {
 }
 
 async function releaseWorker(worker) {
-  if (!worker.child.stdin.writable) throw new Error('Lock owner is unavailable.');
+  if (!worker.child.stdin.writable)
+    throw new Error('Lock owner is unavailable.');
   const exited = new Promise((resolve) => worker.child.once('exit', resolve));
   worker.child.stdin.write('release\n');
   const code = await exited;
@@ -194,7 +204,9 @@ async function qualify() {
 }
 
 if (process.env[OPT_IN] !== '1') {
-  process.stderr.write('Physical qualification requires AGENT_LOCK_QUALIFY=1.\n');
+  process.stderr.write(
+    'Physical qualification requires AGENT_LOCK_QUALIFY=1.\n',
+  );
   process.exitCode = 2;
 } else if (process.argv[2] === '--worker') {
   const [, , , stateDirectory, key, waitFlag] = process.argv;
