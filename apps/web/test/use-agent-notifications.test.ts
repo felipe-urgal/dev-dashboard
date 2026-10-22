@@ -2,9 +2,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, test, vi } from 'vitest';
 
 import type { AgentRealtimeSnapshot } from '../src/api/agent-runtime';
-import {
-  useAgentNotifications,
-} from '../src/composables/useAgentNotifications';
+import { useAgentNotifications } from '../src/composables/useAgentNotifications';
 import {
   AGENT_NOTIFICATION_SEEN_KEY,
   readAgentNotificationPreferences,
@@ -57,19 +55,17 @@ test('preferências persistem; evento desativado não gera aviso', () => {
     name: 'Projeto 1',
   }));
 
-  notifications.toggleAgentNotificationGroup(
-    ['completed', 'failed'],
-    { target: { checked: false } } as unknown as Event,
-  );
+  notifications.toggleAgentNotificationGroup(['completed', 'failed'], {
+    target: { checked: false },
+  } as unknown as Event);
   assert.equal(readAgentNotificationPreferences().completed, false);
   assert.equal(readAgentNotificationPreferences().failed, false);
   notifications.publishAgentNotifications(completedSnapshot());
   assert.equal(publish.mock.calls.length, 0);
 
-  notifications.toggleAgentNotificationGroup(
-    ['completed'],
-    { target: { checked: true } } as unknown as Event,
-  );
+  notifications.toggleAgentNotificationGroup(['completed'], {
+    target: { checked: true },
+  } as unknown as Event);
   notifications.publishAgentNotifications(completedSnapshot());
   assert.equal(publish.mock.calls.length, 1);
   assert.equal(publish.mock.calls[0]?.[0].label, 'Task concluída');
