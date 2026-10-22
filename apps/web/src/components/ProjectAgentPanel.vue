@@ -745,7 +745,8 @@ async function archiveCurrent(): Promise<void> {
     !['completed', 'cancelled'].includes(record.task.state) ||
     status.value?.activeExecution ||
     mutating.value
-  ) return;
+  )
+    return;
 
   const requestProject = props.project.id;
   const taskId = record.task.id;
@@ -758,7 +759,8 @@ async function archiveCurrent(): Promise<void> {
       requestGeneration !== generation ||
       requestProject !== props.project.id ||
       selectedTaskId.value !== taskId
-    ) return;
+    )
+      return;
     replaceTask(archived);
     if (status.value?.task.task.id === taskId) {
       status.value = { ...status.value, task: archived };
@@ -772,7 +774,9 @@ async function archiveCurrent(): Promise<void> {
       selectedTaskId.value === taskId
     ) {
       errorMessage.value =
-        error instanceof Error ? error.message : 'Não foi possível arquivar a task.';
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível arquivar a task.';
     }
   } finally {
     mutating.value = false;
