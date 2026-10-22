@@ -2277,7 +2277,11 @@ test('archive route returns canonical metadata and guards conflicts', async (t) 
         }
         return {
           ...task,
-          task: { ...task.task, state: 'completed', archivedAt: '2026-10-22T12:00:00.000Z' },
+          task: {
+            ...task.task,
+            state: 'completed',
+            archivedAt: '2026-10-22T12:00:00.000Z',
+          },
         };
       },
     }),
@@ -2289,7 +2293,10 @@ test('archive route returns canonical metadata and guards conflicts', async (t) 
     url: '/api/projects/project-1/agent/tasks/task-1/archive',
   });
   assert.equal(archived.statusCode, 200);
-  assert.equal(archived.json().task.task.archivedAt, '2026-10-22T12:00:00.000Z');
+  assert.equal(
+    archived.json().task.task.archivedAt,
+    '2026-10-22T12:00:00.000Z',
+  );
 
   const active = await app.inject({
     method: 'POST',
@@ -2317,7 +2324,9 @@ test('priority list forwards archived visibility query', async (t) => {
   for (const enabled of ['false', 'true']) {
     const response = await app.inject({
       method: 'GET',
-      url: '/api/projects/project-1/agent/tasks?order=priority&includeArchived=' + enabled,
+      url:
+        '/api/projects/project-1/agent/tasks?order=priority&includeArchived=' +
+        enabled,
     });
     assert.equal(response.statusCode, 200);
   }

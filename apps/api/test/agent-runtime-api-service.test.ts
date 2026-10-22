@@ -2471,7 +2471,7 @@ test('archive of Agent task checks runtime ownership, terminal state and project
   const service = new AgentRuntimeApiService({
     taskStore,
     projectStore: {
-      findProject: (id: string) => id === 'project-1' ? { id } : null,
+      findProject: (id: string) => (id === 'project-1' ? { id } : null),
     },
     workflowRuntime: {
       status: async () => ({
@@ -2491,8 +2491,14 @@ test('archive of Agent task checks runtime ownership, terminal state and project
   activeExecution = false;
   const archived = await service.archiveTask('project-1', 'task-archive');
   assert.equal(archived.task.archivedAt, '2026-10-22T12:00:00.000Z');
-  assert.equal((await service.archiveTask('project-1', 'task-archive')).version, archived.version);
-  assert.equal((await service.getTask('project-1', task.id)).task.archivedAt, archived.task.archivedAt);
+  assert.equal(
+    (await service.archiveTask('project-1', 'task-archive')).version,
+    archived.version,
+  );
+  assert.equal(
+    (await service.getTask('project-1', task.id)).task.archivedAt,
+    archived.task.archivedAt,
+  );
   await assert.rejects(
     () => service.archiveTask('another-project', task.id),
     (error: unknown) =>
