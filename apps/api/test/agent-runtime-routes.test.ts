@@ -2156,7 +2156,8 @@ test('Agent Runtime HTTP persiste perfis e encaminha somente profileId na execuÃ
 });
 
 test('opt-in task cursor route preserves legacy response and bounds inputs', async (t) => {
-  const calls: Array<{ projectId: string; limit: number; cursor?: string }> = [];
+  const calls: Array<{ projectId: string; limit: number; cursor?: string }> =
+    [];
   const cursor = 'a'.repeat(64);
   const app = Fastify();
   registerApiErrorHandling(app);

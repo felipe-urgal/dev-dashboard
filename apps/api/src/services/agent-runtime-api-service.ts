@@ -991,7 +991,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
   ): Promise<AgentTaskPage> {
     this.requireProject(projectId);
     if (!this.options.taskStore.listPage) {
-      throw new Error('Canonical agent task store does not support pagination.');
+      throw new Error(
+        'Canonical agent task store does not support pagination.',
+      );
     }
     return this.options.taskStore.listPage(projectId, options);
   }
