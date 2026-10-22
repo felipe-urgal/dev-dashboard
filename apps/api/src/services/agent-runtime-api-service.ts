@@ -11,6 +11,7 @@ import type {
 
 import {
   AgentIntegrationDiscoveryError,
+  GitAgentTaskStoreError,
   sameAgentAuthorizationScope,
 } from '@dev-dashboard/agent-runtime';
 import type {
@@ -995,7 +996,20 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
         'Canonical agent task store does not support pagination.',
       );
     }
-    return this.options.taskStore.listPage(projectId, options);
+    try {
+      return await this.options.taskStore.listPage(projectId, options);
+    } catch (error) {
+      if (
+        error instanceof GitAgentTaskStoreError &&
+        error.code === 'AGENT_TASK_STORE_INVALID'
+      ) {
+        throw new AgentRuntimeApiServiceError(
+          'AGENT_API_INVALID_REQUEST',
+          'Agent task page cursor or limit is invalid.',
+        );
+      }
+      throw error;
+    }
   }
 
   public async adoptBacklog(
