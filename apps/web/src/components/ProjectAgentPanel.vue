@@ -195,17 +195,12 @@ const {
     errorMessage.value = message;
   },
 );
-const {
-  usage,
-  usagePeriod,
-  usageHasMetrics,
-  clearUsage,
-  reloadUsage,
-} = useAgentTaskUsage(() =>
-  selectedTaskId.value
-    ? { projectId: props.project.id, taskId: selectedTaskId.value }
-    : null,
-);
+const { usage, usagePeriod, usageHasMetrics, clearUsage, reloadUsage } =
+  useAgentTaskUsage(() =>
+    selectedTaskId.value
+      ? { projectId: props.project.id, taskId: selectedTaskId.value }
+      : null,
+  );
 let generation = 0;
 let taskLoadVersion = 0;
 

@@ -1,9 +1,6 @@
 import { computed, ref } from 'vue';
 
-import {
-  fetchAgentUsage,
-  type AgentUsageOverview,
-} from '../api/agent-runtime';
+import { fetchAgentUsage, type AgentUsageOverview } from '../api/agent-runtime';
 
 export type AgentUsagePeriod = 'all' | '24h' | '7d' | '30d';
 
