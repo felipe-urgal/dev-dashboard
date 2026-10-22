@@ -130,7 +130,9 @@ async function runOwner(root) {
       JSON.stringify({ taskId, executionId }) + '\n',
     );
     if (taskId === INTERRUPTED_TASK) {
-      process.stdout.write(JSON.stringify({ event: 'execution-started' }) + '\n');
+      process.stdout.write(
+        JSON.stringify({ event: 'execution-started' }) + '\n',
+      );
       // Keep the provider fixture alive until the supervisor kills the OS
       // process. It deliberately does not use a real external provider.
       setInterval(() => {}, 1_000);
@@ -189,20 +191,14 @@ async function runVerifier(root) {
     hasWorkflowCode('AGENT_WORKFLOW_TASK_NOT_RUNNABLE'),
   );
 
-  const manuallyRecovered = await runtime.recover(
-    PROJECT,
-    INTERRUPTED_TASK,
-  );
+  const manuallyRecovered = await runtime.recover(PROJECT, INTERRUPTED_TASK);
   assert.equal(manuallyRecovered.state, 'idle');
   assert.equal(manuallyRecovered.lastReason, 'operator-recovered');
   await assert.rejects(
     runtime.execute(request(INTERRUPTED_TASK, 'turn-interrupted')),
     hasWorkflowCode('AGENT_WORKFLOW_TASK_NOT_RUNNABLE'),
   );
-  assert.equal(
-    (await taskStore.get(INTERRUPTED_TASK)).task.state,
-    'running',
-  );
+  assert.equal((await taskStore.get(INTERRUPTED_TASK)).task.state, 'running');
 
   const finishedTurns = await runtime.conversation(PROJECT, COMPLETE_TASK);
   assert.deepEqual(
@@ -346,12 +342,12 @@ async function qualify() {
 if (process.env.AGENT_RESTART_QUALIFY !== '1') {
   process.stderr.write('Restart gate requires AGENT_RESTART_QUALIFY=1.\n');
   process.exitCode = 2;
-} else if (process.argv.length === 3 &&
-  (process.argv[2] === '--owner' || process.argv[2] === '--verify')) {
+} else if (
+  process.argv.length === 3 &&
+  (process.argv[2] === '--owner' || process.argv[2] === '--verify')
+) {
   try {
-    const root = await assertDisposableRoot(
-      process.env.AGENT_RESTART_FIXTURE,
-    );
+    const root = await assertDisposableRoot(process.env.AGENT_RESTART_FIXTURE);
     if (process.argv[2] === '--owner') await runOwner(root);
     else await runVerifier(root);
   } catch {
