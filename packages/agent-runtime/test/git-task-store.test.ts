@@ -269,3 +269,53 @@ test('fails closed when the managed repository becomes dirty', async (t) => {
     (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_CORRUPT'),
   );
 });
+
+test('cursor pages read bounded batches without losing project isolation', async (t) => {
+  const { store } = await fixture(t);
+  for (let index = 0; index < 6; index += 1) {
+    await store.save(
+      agentTask({
+        id: 'page-' + index,
+        projectId: index % 2 === 0 ? 'project-1' : 'project-2',
+      }),
+      null,
+    );
+  }
+
+  const observed: string[] = [];
+  let cursor: string | undefined;
+  for (let index = 0; index < 8; index += 1) {
+    const page = await store.listPage('project-1', {
+      limit: 1,
+      ...(cursor ? { cursor } : {}),
+    });
+    assert.ok(page.tasks.length <= 1);
+    observed.push(...page.tasks.map((record) => record.task.id));
+    if (!page.nextCursor) break;
+    assert.match(page.nextCursor, /^[a-f0-9]{64}$/);
+    assert.notEqual(page.nextCursor, cursor);
+    cursor = page.nextCursor;
+  }
+  assert.deepEqual(observed.sort(), ['page-0', 'page-2', 'page-4']);
+
+  const empty = await store.listPage('project-1', { limit: 5 });
+  assert.ok(empty.tasks.length <= 5);
+});
+
+test('cursor pagination rejects malformed or stale cursors and limits', async (t) => {
+  const { store } = await fixture(t);
+  await store.save(agentTask(), null);
+
+  for (const options of [
+    { limit: 0 },
+    { limit: 51 },
+    { limit: 1.5 },
+    { limit: 1, cursor: '../tasks' },
+    { limit: 1, cursor: 'a'.repeat(64) },
+  ]) {
+    await assert.rejects(
+      () => store.listPage('project-1', options),
+      (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
+    );
+  }
+});

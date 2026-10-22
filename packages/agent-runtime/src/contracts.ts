@@ -305,9 +305,24 @@ export interface AgentTaskRecord {
   version: number;
 }
 
+export interface AgentTaskPage {
+  tasks: AgentTaskRecord[];
+  nextCursor: string | null;
+}
+
+export interface AgentTaskPageOptions {
+  limit: number;
+  cursor?: string;
+}
+
 export interface AgentTaskStore {
   get(taskId: string): Promise<AgentTaskRecord | null>;
   list(projectId: string): Promise<AgentTaskRecord[]>;
+  /** Optional for third-party stores; the canonical Git store supports it. */
+  listPage?(
+    projectId: string,
+    options: AgentTaskPageOptions,
+  ): Promise<AgentTaskPage>;
   save(
     task: AgentTask,
     expectedVersion: number | null,

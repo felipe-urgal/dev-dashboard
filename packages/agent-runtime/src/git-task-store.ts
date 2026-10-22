@@ -6,6 +6,8 @@ import type {
   AgentTask,
   AgentTaskRecord,
   AgentTaskStore,
+  AgentTaskPage,
+  AgentTaskPageOptions,
 } from './contracts.js';
 import {
   runAgentCliProcess,
@@ -270,6 +272,97 @@ export class GitAgentTaskStore implements AgentTaskStore {
       return records.sort((left, right) =>
         left.task.id.localeCompare(right.task.id),
       );
+    });
+  }
+
+  /**
+   * A cursor is the SHA-256 file stem of the last examined task file.
+   * The scan may return an empty page for a project with sparse records.
+   * Each request reads at most 200 canonical records, even when the
+   * repository contains tasks for many other projects.
+   */
+  public async listPage(
+    projectId: string,
+    options: AgentTaskPageOptions,
+  ): Promise<AgentTaskPage> {
+    assertBoundedIdentity(projectId, 'Agent project id');
+    if (
+      !Number.isSafeInteger(options.limit) ||
+      options.limit < 1 ||
+      options.limit > 50 ||
+      (options.cursor !== undefined && !/^[a-f0-9]{64}$/.test(options.cursor))
+    ) {
+      throw new GitAgentTaskStoreError(
+        'AGENT_TASK_STORE_INVALID',
+        'Agent task page parameters are invalid.',
+      );
+    }
+
+    return this.withStoreLock(async () => {
+      await this.ensureRepository();
+      await this.assertClean();
+
+      const tasksDirectory = path.join(this.repositoryDirectory, 'tasks');
+      let names: string[];
+      try {
+        const stat = await fs.lstat(tasksDirectory);
+        if (!stat.isDirectory() || stat.isSymbolicLink()) {
+          throw new GitAgentTaskStoreError(
+            'AGENT_TASK_STORE_CORRUPT',
+            'Canonical agent task directory is invalid.',
+          );
+        }
+        names = (await fs.readdir(tasksDirectory))
+          .filter((entry) => entry.endsWith('.json'))
+          .sort();
+      } catch (error) {
+        if (isEnoent(error)) {
+          if (options.cursor !== undefined) {
+            throw new GitAgentTaskStoreError(
+              'AGENT_TASK_STORE_INVALID',
+              'Agent task page cursor is no longer valid.',
+            );
+          }
+          return { tasks: [], nextCursor: null };
+        }
+        throw error;
+      }
+
+      const start =
+        options.cursor === undefined
+          ? 0
+          : names.indexOf(options.cursor + '.json') + 1;
+      if (options.cursor !== undefined && start === 0) {
+        throw new GitAgentTaskStoreError(
+          'AGENT_TASK_STORE_INVALID',
+          'Agent task page cursor is no longer valid.',
+        );
+      }
+
+      const tasks: AgentTaskRecord[] = [];
+      let nextIndex = start;
+      for (
+        ;
+        nextIndex < names.length &&
+        nextIndex - start < 200 &&
+        tasks.length < options.limit;
+        nextIndex += 1
+      ) {
+        const name = names[nextIndex]!;
+        const record = await this.readTaskFile(
+          path.join(tasksDirectory, name),
+          name,
+        );
+        if (record.task.projectId === projectId) tasks.push(record);
+      }
+
+      return {
+        tasks,
+        nextCursor:
+          nextIndex < names.length
+            ? names[nextIndex - 1]!.slice(0, -'.json'.length)
+            : null,
+      };
     });
   }
 

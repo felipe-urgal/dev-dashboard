@@ -98,6 +98,11 @@ interface UsageQuery {
   observedTo?: string;
 }
 
+interface TaskListQuery {
+  limit?: number;
+  cursor?: string;
+}
+
 interface ProviderPreferenceBody {
   preferredProviderId: 'codex' | 'claude-code';
   fallbackOrder?: Array<'codex' | 'claude-code'>;
@@ -2083,11 +2088,19 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       })),
   );
 
-  app.get<{ Params: ProjectParams }>(
+  app.get<{ Params: ProjectParams; Querystring: TaskListQuery }>(
     '/projects/:projectId/agent/tasks',
     {
       schema: {
         params: projectParamsSchema,
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            limit: { type: 'integer', minimum: 1, maximum: 50 },
+            cursor: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+          },
+        },
         response: {
           200: {
             type: 'object',
@@ -2095,6 +2108,9 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
             required: ['tasks'],
             properties: {
               tasks: { type: 'array', items: taskRecordSchema },
+              nextCursor: {
+                anyOf: [{ type: 'string' }, { type: 'null' }],
+              },
             },
           },
           ...commonErrorResponseSchemas,
@@ -2102,11 +2118,26 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) =>
-      withAgentErrors(async () => ({
-        tasks: await options.agentRuntimeApiService.listTasks(
+      withAgentErrors(async () => {
+        const { limit, cursor } = request.query;
+        if (limit === undefined && cursor === undefined) {
+          return {
+            tasks: await options.agentRuntimeApiService.listTasks(
+              request.params.projectId,
+            ),
+          };
+        }
+        if (!options.agentRuntimeApiService.listTasksPage) {
+          throw new Error('Agent task pagination is not supported.');
+        }
+        return options.agentRuntimeApiService.listTasksPage(
           request.params.projectId,
-        ),
-      })),
+          {
+            limit: limit ?? 20,
+            ...(cursor ? { cursor } : {}),
+          },
+        );
+      }),
   );
 
   app.post<{ Params: ProjectParams; Body: AdoptBacklogBody }>(

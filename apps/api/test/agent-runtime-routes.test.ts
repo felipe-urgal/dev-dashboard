@@ -2154,3 +2154,62 @@ test('Agent Runtime HTTP persiste perfis e encaminha somente profileId na execuÃ
     'normal',
   ]);
 });
+
+test('opt-in task cursor route preserves legacy response and bounds inputs', async (t) => {
+  const calls: Array<{ projectId: string; limit: number; cursor?: string }> =
+    [];
+  const cursor = 'a'.repeat(64);
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      listTasksPage: async (projectId, options) => {
+        calls.push({ projectId, ...options });
+        return { tasks: [task], nextCursor: options.cursor ? null : cursor };
+      },
+    }),
+  });
+  t.after(() => app.close());
+
+  const legacy = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/agent/tasks',
+  });
+  assert.equal(legacy.statusCode, 200);
+  assert.deepEqual(legacy.json(), { tasks: [task] });
+  assert.equal(calls.length, 0);
+
+  const first = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/agent/tasks?limit=2',
+  });
+  assert.equal(first.statusCode, 200);
+  assert.deepEqual(first.json(), { tasks: [task], nextCursor: cursor });
+
+  const second = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/agent/tasks?limit=1&cursor=' + cursor,
+  });
+  assert.equal(second.statusCode, 200);
+  assert.deepEqual(second.json(), { tasks: [task], nextCursor: null });
+  assert.deepEqual(calls, [
+    { projectId: 'project-1', limit: 2 },
+    { projectId: 'project-1', limit: 1, cursor },
+  ]);
+
+  for (const suffix of [
+    '?limit=0',
+    '?limit=51',
+    '?limit=invalid',
+    '?limit=1&cursor=bad',
+  ]) {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/projects/project-1/agent/tasks' + suffix,
+    });
+    assert.equal(response.statusCode, 400);
+  }
+  assert.equal(calls.length, 2);
+});
