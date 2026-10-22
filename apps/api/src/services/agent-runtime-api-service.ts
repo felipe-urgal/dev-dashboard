@@ -2580,11 +2580,13 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       },
     ];
 
-    const unavailable =
-      remoteStatus !== undefined && remoteStatus !== 'available';
+    // Readiness is affirmative evidence, not absence of known failures.
+    // Missing remote observation must never be interpreted as an available
+    // GitHub connection. Pending/unknown CI or review remains actionable.
+    const unavailable = remoteStatus !== 'available';
     const attention =
-      ciStatus === 'failure' ||
-      reviewState === 'changes-requested' ||
+      ciStatus !== 'success' ||
+      reviewState !== 'approved' ||
       unresolvedConversationsCount > 0;
 
     return {
