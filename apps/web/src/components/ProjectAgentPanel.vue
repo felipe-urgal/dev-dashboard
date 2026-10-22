@@ -26,6 +26,7 @@ import type { Project, TaskContext } from '@dev-dashboard/contracts';
 
 import { fetchTaskContexts } from '../api/task-contexts';
 import { useAgentNotifications } from '../composables/useAgentNotifications';
+import { useAgentTaskRealtime } from '../composables/useAgentTaskRealtime';
 import {
   providerDiagnosticAction,
   providerDiagnosticSummary,
@@ -34,7 +35,6 @@ import {
 } from '../agent-provider-doctor';
 import {
   adoptAgentBacklog,
-  agentRuntimeWebSocketUrl,
   cancelAgentTask,
   clearAgentBudget,
   createAgentAttachment,
@@ -187,11 +187,16 @@ const {
   publishAgentNotifications,
   toggleAgentNotificationGroup,
 } = useAgentNotifications(() => props.project);
-const socketState = ref<'idle' | 'connecting' | 'connected' | 'disconnected'>(
-  'idle',
-);
+const { socketState, connect: connectTaskSocket, closeSocket } =
+  useAgentTaskRealtime(
+    () => ({ projectId: props.project.id, taskId: selectedTaskId.value }),
+    applySnapshot,
+    (message) => {
+      errorMessage.value = message;
+    },
+  );
 let generation = 0;
-let socket: WebSocket | undefined;
+let taskLoadVersion = 0;
 
 const sortedTasks = computed(() =>
   [...tasks.value].sort((left, right) =>
@@ -563,19 +568,6 @@ async function reloadUsage(taskId: string): Promise<void> {
   );
 }
 
-function closeSocket(): void {
-  const current = socket;
-  socket = undefined;
-  if (
-    current &&
-    current.readyState !== WebSocket.CLOSING &&
-    current.readyState !== WebSocket.CLOSED
-  ) {
-    current.close();
-  }
-  socketState.value = 'idle';
-}
-
 function replaceTask(record: AgentTaskRecord): void {
   const index = tasks.value.findIndex(
     (item) => item.task.id === record.task.id,
@@ -596,74 +588,11 @@ function applySnapshot(snapshot: AgentRealtimeSnapshot): void {
   publishAgentNotifications(snapshot);
 }
 
-function parseSocketMessage(
-  data: unknown,
-):
-  | { type: 'ready' | 'update'; snapshot: AgentRealtimeSnapshot }
-  | { type: 'error'; message: string }
-  | null {
-  if (typeof data !== 'string') return null;
-  try {
-    const parsed = JSON.parse(data) as Record<string, unknown>;
-    if (
-      (parsed.type === 'ready' || parsed.type === 'update') &&
-      parsed.snapshot &&
-      typeof parsed.snapshot === 'object'
-    ) {
-      return {
-        type: parsed.type,
-        snapshot: parsed.snapshot as AgentRealtimeSnapshot,
-      };
-    }
-    if (parsed.type === 'error' && typeof parsed.message === 'string') {
-      return { type: 'error', message: parsed.message };
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-function connect(taskId: string): void {
-  closeSocket();
-  if (!taskId) return;
-
-  socketState.value = 'connecting';
-  const next = new WebSocket(
-    agentRuntimeWebSocketUrl(props.project.id, taskId),
-  );
-  socket = next;
-
-  next.onopen = () => {
-    if (socket === next) socketState.value = 'connected';
-  };
-  next.onmessage = (event) => {
-    if (socket !== next) return;
-    const message = parseSocketMessage(
-      typeof event.data === 'string' ? event.data : null,
-    );
-    if (!message) return;
-    if (message.type === 'error') {
-      errorMessage.value = message.message;
-      return;
-    }
-    applySnapshot(message.snapshot);
-  };
-  next.onerror = () => {
-    if (socket !== next) return;
-    socketState.value = 'disconnected';
-  };
-  next.onclose = () => {
-    if (socket !== next) return;
-    socket = undefined;
-    socketState.value = 'disconnected';
-  };
-}
-
 async function loadTask(
   taskId: string,
   requestGeneration = generation,
 ): Promise<void> {
+  const loadVersion = ++taskLoadVersion;
   if (!taskId) {
     status.value = null;
     activity.value = null;
@@ -696,7 +625,11 @@ async function loadTask(
       fetchAgentUsage(props.project.id, taskId, usagePeriodRange()),
       fetchAgentBudget(props.project.id, taskId),
     ]);
-    if (requestGeneration !== generation || selectedTaskId.value !== taskId) {
+    if (
+      requestGeneration !== generation ||
+      loadVersion !== taskLoadVersion ||
+      selectedTaskId.value !== taskId
+    ) {
       return;
     }
     applySnapshot({ status: nextStatus, activity: nextActivity });
@@ -707,9 +640,13 @@ async function loadTask(
     );
     usage.value = nextUsage;
     syncBudgetInputs(nextBudget);
-    connect(taskId);
+    connectTaskSocket(props.project.id, taskId);
   } catch (error) {
-    if (requestGeneration !== generation) return;
+    if (
+      requestGeneration !== generation ||
+      loadVersion !== taskLoadVersion ||
+      selectedTaskId.value !== taskId
+    ) return;
     errorMessage.value =
       error instanceof Error
         ? error.message
@@ -817,9 +754,12 @@ async function load(): Promise<void> {
 
 async function selectTask(taskId: string): Promise<void> {
   selectedTaskId.value = taskId;
+  closeSocket();
   status.value = null;
   activity.value = null;
   conversationTurns.value = [];
+  attachments.value = [];
+  selectedAttachmentIds.value = [];
   conversationInstruction.value = '';
   usage.value = null;
   budget.value = null;
