@@ -63,6 +63,8 @@ async function childMain(stateDirectory, key, waitFlag) {
     });
     process.stdout.write(JSON.stringify({ event: 'acquired' }) + '\n');
     await new Promise((resolve) => process.stdin.once('data', resolve));
+    process.stdin.pause();
+    process.stdin.destroy();
     await release();
     return 0;
   } catch (error) {
@@ -130,7 +132,12 @@ async function releaseWorker(worker) {
     throw new Error('Lock owner is unavailable.');
   const exited = new Promise((resolve) => worker.child.once('exit', resolve));
   worker.child.stdin.write('release\n');
-  const code = await exited;
+  const code = await Promise.race([
+    exited,
+    delay(5_000).then(() => {
+      throw new Error('Lock owner did not terminate after release.');
+    }),
+  ]);
   assert.equal(code, 0, 'Lock owner release must exit successfully.');
 }
 
