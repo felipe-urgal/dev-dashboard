@@ -94,6 +94,32 @@ jobs:
         run: node scripts/qualify-runtime-profile-isolation.mjs
 
 
+  agent-physical-lock-qualification:
+    name: Agent Physical Lock Qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build canonical Agent runtime
+        run: npm run build:packages
+
+      - name: Qualify real process locks and crash recovery
+        env:
+          AGENT_LOCK_QUALIFY: '1'
+        run: node scripts/qualify-agent-lock-ownership.mjs
+
   disposable-systemd-user-fixture:
     name: Disposable Systemd User Fixture
     # Opt-in by PR title; never run systemd mutations on ordinary CI/main.
