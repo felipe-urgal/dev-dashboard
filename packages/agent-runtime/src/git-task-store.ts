@@ -451,9 +451,12 @@ export class GitAgentTaskStore implements AgentTaskStore {
         this.priorityCache = cached;
       }
 
+      const visibleRecords = options.includeArchived
+        ? cached.records
+        : cached.records.filter((item) => !item.task.archivedAt);
       const lastHash = cursorMatch?.[2];
       const start = lastHash
-        ? cached.records.findIndex(
+        ? visibleRecords.findIndex(
             (item) => taskFileName(item.task.id).slice(0, -5) === lastHash,
           ) + 1
         : 0;
@@ -464,12 +467,12 @@ export class GitAgentTaskStore implements AgentTaskStore {
         );
       }
 
-      const tasks = cached.records.slice(start, start + options.limit);
+      const tasks = visibleRecords.slice(start, start + options.limit);
       const last = tasks.at(-1);
       return {
         tasks,
         nextCursor:
-          last && start + tasks.length < cached.records.length
+          last && start + tasks.length < visibleRecords.length
             ? revision + '.' + taskFileName(last.task.id).slice(0, -5)
             : null,
       };
@@ -586,6 +589,12 @@ export class GitAgentTaskStore implements AgentTaskStore {
   }
 
   private validateUpdate(previous: AgentTask, next: AgentTask): void {
+    if (previous.archivedAt && previous.archivedAt !== next.archivedAt) {
+      throw new GitAgentTaskStoreError(
+        'AGENT_TASK_STORE_INVALID',
+        'Archived agent task metadata is immutable.',
+      );
+    }
     if (
       previous.id !== next.id ||
       previous.projectId !== next.projectId ||
