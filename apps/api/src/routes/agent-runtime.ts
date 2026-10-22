@@ -2867,11 +2867,10 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
             ),
           };
         }
-        const page = options.agentRuntimeApiService.listTasksPage;
-        if (!page) {
+        if (!options.agentRuntimeApiService.listTasksPage) {
           throw new Error('Agent task pagination is not supported.');
         }
-        return page(request.params.projectId, {
+        return options.agentRuntimeApiService.listTasksPage(request.params.projectId, {
           limit: limit ?? 20,
           ...(cursor ? { cursor } : {}),
         });
