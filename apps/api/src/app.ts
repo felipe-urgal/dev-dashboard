@@ -10,6 +10,7 @@ import { activityRoutes } from './routes/activity.js';
 import { agentRuntimeRoutes } from './routes/agent-runtime.js';
 import { stackRoutes } from './routes/stacks.js';
 import { hostServiceRoutes } from './routes/host-services.js';
+import { localServiceRoutes } from './routes/local-services.js';
 import { serviceCatalogRoutes } from './routes/service-catalog.js';
 import { serviceDiagnosticsRoutes } from './routes/service-diagnostics.js';
 import { projectServiceBindingRoutes } from './routes/project-service-bindings.js';
@@ -56,6 +57,8 @@ import { StackStartService } from './services/stack-start-service.js';
 import type { StackOperationJournal } from './services/stack-operation-journal.js';
 import { StackStopService } from './services/stack-stop-service.js';
 import { SystemdServiceInventory } from './services/systemd-service-inventory.js';
+import { LocalServiceManager } from './services/local-service-manager.js';
+import { SystemdJournalReader } from './services/systemd-journal-reader.js';
 import { SystemdLifecycleCapabilitiesService } from './services/systemd-lifecycle-capabilities-service.js';
 import { SystemdUserLifecycleGrantPolicy } from './services/systemd-user-lifecycle-authorization.js';
 import { ServiceCatalogService } from './services/service-catalog-service.js';
@@ -115,6 +118,7 @@ import { createAppContext, type AppContext } from './app-context.js';
 
 export interface BuildAppOptions extends AppCompositionOptions {
   hostServiceInventory?: Pick<SystemdServiceInventory, 'inspect'>;
+  localServiceManager?: Pick<LocalServiceManager, 'snapshot' | 'plan' | 'apply'>;
   serviceCatalog?: Pick<ServiceCatalogService, 'inspect'>;
   systemdCapabilities?: Pick<SystemdLifecycleCapabilitiesService, 'inspect'>;
   /** Trusted server bootstrap only; never a browser-selected path. */
@@ -381,6 +385,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(hostServiceRoutes, {
     prefix: '/api',
     inventory: systemdInventory,
+  });
+  app.register(localServiceRoutes, {
+    prefix: '/api',
+    manager: options.localServiceManager ??
+      new LocalServiceManager({ stateDirectory: context.processManager.stateDirectory }),
+    journal: new SystemdJournalReader(),
   });
 
   const catalog =

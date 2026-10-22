@@ -188,7 +188,7 @@ export class LocalServiceManager {
     return { state, bootState: values.UnitFileState ?? 'unknown', trusted };
   }
 
-  public async snapshot(): Promise<LocalServiceSnapshot> {
+  public async snapshot(ignoreBusy = false): Promise<LocalServiceSnapshot> {
     const observed = await this.observe();
     let allowed = false;
     if (
@@ -217,8 +217,8 @@ export class LocalServiceManager {
       state: observed.state,
       bootState: observed.bootState,
       readiness,
-      controllable: allowed && !this.busy,
-      reason: this.busy
+      controllable: allowed && (ignoreBusy || !this.busy),
+      reason: this.busy && !ignoreBusy
         ? 'Uma operação de serviço está em andamento.'
         : !observed.trusted
           ? 'Instalação systemd não encontrada ou identidade não verificada.'
@@ -355,13 +355,6 @@ export class LocalServiceManager {
   }
 
   private async snapshotForExecution(): Promise<LocalServiceSnapshot> {
-    // Bypass the busy flag only for the internal, already serialized operation.
-    const busy = this.busy;
-    this.busy = false;
-    try {
-      return await this.snapshot();
-    } finally {
-      this.busy = busy;
-    }
+    return this.snapshot(true);
   }
 }

@@ -5,6 +5,7 @@ import {
   CommandLineIcon,
   ComputerDesktopIcon,
   HomeIcon,
+  ServerStackIcon,
   PlusIcon,
   QueueListIcon,
   RectangleGroupIcon,
@@ -198,6 +199,15 @@ onMounted(() => {
           >
             <QueueListIcon class="navigation-icon" aria-hidden="true" />
             <span class="navigation-text">Atividade</span>
+          </RouterLink>
+
+          <RouterLink
+            class="navigation-item"
+            :class="{ 'navigation-item-active': route.name === 'local-services' }"
+            :to="{ name: 'local-services' }"
+          >
+            <ServerStackIcon class="navigation-icon" aria-hidden="true" />
+            <span class="navigation-text">Serviços locais</span>
           </RouterLink>
 
           <RouterLink
