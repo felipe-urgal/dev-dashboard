@@ -4,17 +4,18 @@ import test from 'node:test';
 import { buildApp } from '../src/app.js';
 import { LocalServiceManager } from '../src/services/local-service-manager.js';
 
-function fixture(initial: 'running' | 'stopped' = 'stopped') {
+function fixture(initial: 'running' | 'stopped' | 'failed' = 'stopped') {
   let state = initial;
   let helperTrusted = true;
   let auditWorks = true;
+  let healthy = true;
   const events: string[] = [];
   const commands: string[] = [];
   const manager = new LocalServiceManager({
     platform: 'linux',
     now: () => Date.parse('2026-10-22T12:00:00.000Z'),
     helperTrusted: async () => helperTrusted,
-    probeReady: async () => true,
+    probeReady: async () => healthy,
     audit: async (entry) => {
       if (!auditWorks) throw Error('audit unavailable');
       events.push(String(entry.stage));
@@ -25,8 +26,8 @@ function fixture(initial: 'running' | 'stopped' = 'stopped') {
         return [
           'Id=home-music.service',
           'LoadState=loaded',
-          'ActiveState=' + (state === 'running' ? 'active' : 'inactive'),
-          'SubState=' + (state === 'running' ? 'running' : 'dead'),
+          'ActiveState=' + (state === 'running' ? 'active' : state === 'failed' ? 'failed' : 'inactive'),
+          'SubState=' + (state === 'running' ? 'running' : state === 'failed' ? 'failed' : 'dead'),
           'UnitFileState=enabled',
           'FragmentPath=/etc/systemd/system/home-music.service',
           'Transient=no',
@@ -52,6 +53,9 @@ function fixture(initial: 'running' | 'stopped' = 'stopped') {
     },
     setAudit: (next: boolean) => {
       auditWorks = next;
+    },
+    setHealth: (next: boolean) => {
+      healthy = next;
     },
   };
 }
@@ -95,6 +99,25 @@ test('invalid transitions, stale state and missing trusted helper fail closed', 
   f.setHelper(false);
   assert.equal((await f.manager.snapshot()).controllable, false);
   await assert.rejects(f.manager.plan('restart'), /Helper/);
+});
+
+test('reports systemd start as completed even if HTTP readiness is still pending', async () => {
+  const f = fixture();
+  f.setHealth(false);
+  const plan = await f.manager.plan('start');
+  const result = await f.manager.apply('start', plan.confirmation);
+  assert.equal(result.status, 'completed');
+  assert.equal(result.service.state, 'running');
+  assert.equal(result.service.readiness, 'unhealthy');
+  assert.match(result.message, /processo ativo/);
+});
+
+test('allows recovery start from a failed systemd unit', async () => {
+  const f = fixture('failed');
+  const plan = await f.manager.plan('start');
+  const result = await f.manager.apply('start', plan.confirmation);
+  assert.equal(result.status, 'completed');
+  assert.equal(result.service.state, 'running');
 });
 
 test('audit failure blocks mutation before privileged dispatch', async () => {

@@ -35,7 +35,7 @@ gera confirmação efêmera de 30 segundos; após confirmação visível do usu�
 `POST /api/local-services/home-music/actions` recebe
 `{ "action": "start", "confirmation": "<token>" }`.
 O token é de uso único e o backend revalida estado e autorização. Só é
-permitido iniciar quando parado, parar/reiniciar quando executando.
+permitido iniciar quando parado ou em estado `failed`, parar/reiniciar quando executando.
 
 A verificação de saúde consulta **somente**
 `http://127.0.0.1:8787/ready`, com timeout; ausência de resposta não
@@ -58,3 +58,26 @@ indisponibilidade, sem elevar privilégios. Não expor dados crus do journal.
   não recebem permissão de mutação por semelhança de nome, porta ou checkout.
 - Pare/Start não mudam `systemctl enable` nem têm efeito de deploy.
 - Não execute testes de lifecycle no serviço real; testes devem usar fake runner.
+
+## Diagnóstico quando Iniciar/Parar não funciona
+
+No mesmo usuário Linux que executa o Dev Dashboard, rode **somente leituras**:
+
+```bash
+systemctl show home-music.service -p Id -p LoadState -p ActiveState -p SubState -p FragmentPath -p Transient
+stat -c '%U:%G %a %n' /usr/local/sbin/home-music-service-control
+sudo -n /usr/local/sbin/home-music-service-control check
+systemctl --user status dev-dashboard.service --no-pager
+journalctl --user -u dev-dashboard.service -n 50 --no-pager
+```
+
+O helper deve pertencer a root:root, modo 755, e `check` deve sair com
+código zero **sem pedir senha**. Se a regra NOPASSWD não estiver instalada,
+reexecute `npm run service:install` no checkout atualizado do Home Music,
+com o mesmo usuário. Atenção: o instalador faz build e reinicia o serviço.
+
+Se a ação retornar `unverified`, verifique o estado do `systemd` antes de
+clicar novamente: o comando pode ter sido executado. Um processo ativo com
+`/ready` indisponível é apresentado como ciclo de vida concluído, mas saúde
+HTTP não saudável. Erros das ações permanecem visíveis apesar do polling de
+status de 10 em 10 segundos.
