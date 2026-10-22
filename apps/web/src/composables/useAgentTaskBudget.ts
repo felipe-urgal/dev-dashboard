@@ -114,10 +114,7 @@ export function useAgentTaskBudget(
   async function reloadBudget(): Promise<void> {
     const request = captureRequest();
     if (!request) return;
-    await runCurrent(
-      request,
-      client.load(request.projectId, request.taskId),
-    );
+    await runCurrent(request, client.load(request.projectId, request.taskId));
   }
 
   async function saveBudgetChanges(): Promise<void> {
@@ -147,10 +144,7 @@ export function useAgentTaskBudget(
   async function clearBudgetChanges(): Promise<void> {
     const request = captureRequest();
     if (!request) return;
-    await runCurrent(
-      request,
-      client.remove(request.projectId, request.taskId),
-    );
+    await runCurrent(request, client.remove(request.projectId, request.taskId));
   }
 
   return {

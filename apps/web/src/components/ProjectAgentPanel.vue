@@ -566,19 +566,15 @@ async function loadTask(
   }
 
   try {
-    const [
-      nextStatus,
-      nextActivity,
-      nextConversation,
-      nextAttachments,
-    ] = await Promise.all([
-      fetchAgentTaskStatus(props.project.id, taskId),
-      fetchAgentActivity(props.project.id, taskId),
-      fetchAgentConversation(props.project.id, taskId),
-      fetchAgentAttachments(props.project.id, taskId),
-      reloadBudget(),
-      reloadUsage(),
-    ]);
+    const [nextStatus, nextActivity, nextConversation, nextAttachments] =
+      await Promise.all([
+        fetchAgentTaskStatus(props.project.id, taskId),
+        fetchAgentActivity(props.project.id, taskId),
+        fetchAgentConversation(props.project.id, taskId),
+        fetchAgentAttachments(props.project.id, taskId),
+        reloadBudget(),
+        reloadUsage(),
+      ]);
     if (
       requestGeneration !== generation ||
       loadVersion !== taskLoadVersion ||
