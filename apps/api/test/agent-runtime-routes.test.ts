@@ -2213,3 +2213,45 @@ test('opt-in task cursor route preserves legacy response and bounds inputs', asy
   }
   assert.equal(calls.length, 2);
 });
+
+test('priority task cursor is opt-in and forwards revision-scoped cursor', async (t) => {
+  const calls: Array<{ limit: number; cursor?: string; order?: 'priority' }> = [];
+  const cursor = 'a'.repeat(40) + '.' + 'b'.repeat(64);
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      listTasksPage: async (_projectId, options) => {
+        calls.push(options);
+        return { tasks: [task], nextCursor: options.cursor ? null : cursor };
+      },
+    }),
+  });
+  t.after(() => app.close());
+
+  const initial = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/agent/tasks?order=priority&limit=1',
+  });
+  assert.equal(initial.statusCode, 200);
+  assert.equal(initial.json().nextCursor, cursor);
+
+  const next = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/agent/tasks?limit=1&order=priority&cursor=' + cursor,
+  });
+  assert.equal(next.statusCode, 200);
+  assert.equal(next.json().nextCursor, null);
+  assert.deepEqual(calls, [
+    { limit: 1, order: 'priority' },
+    { limit: 1, cursor, order: 'priority' },
+  ]);
+
+  const badOrder = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/agent/tasks?order=unknown',
+  });
+  assert.equal(badOrder.statusCode, 400);
+});
