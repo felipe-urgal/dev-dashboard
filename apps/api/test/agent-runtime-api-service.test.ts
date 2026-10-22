@@ -2535,9 +2535,11 @@ test('AgentRuntimeApiService requires positive remote CI and review evidence for
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
   };
-  type Remote = 'available' | 'unauthenticated' | 'rate-limited' | 'unavailable';
+  type Remote =
+    'available' | 'unauthenticated' | 'rate-limited' | 'unavailable';
   type CI = 'success' | 'pending' | 'failure' | 'unknown';
-  type Review = 'approved' | 'changes-requested' | 'review-required' | 'unknown';
+  type Review =
+    'approved' | 'changes-requested' | 'review-required' | 'unknown';
   let remote: Remote | undefined = 'available';
   let ci: CI = 'success';
   let review: Review = 'approved';
@@ -2592,7 +2594,11 @@ test('AgentRuntimeApiService requires positive remote CI and review evidence for
     assert.equal(await getStatus(), 'attention', `CI ${value}`);
   }
   ci = 'success';
-  for (const value of ['review-required', 'unknown', 'changes-requested'] as Review[]) {
+  for (const value of [
+    'review-required',
+    'unknown',
+    'changes-requested',
+  ] as Review[]) {
     review = value;
     assert.equal(await getStatus(), 'attention', `review ${value}`);
   }
@@ -2600,10 +2606,22 @@ test('AgentRuntimeApiService requires positive remote CI and review evidence for
   unresolved = 1;
   assert.equal(await getStatus(), 'attention');
   unresolved = 0;
-  for (const value of [undefined, 'unauthenticated', 'rate-limited', 'unavailable'] as Array<Remote | undefined>) {
+  for (const value of [
+    undefined,
+    'unauthenticated',
+    'rate-limited',
+    'unavailable',
+  ] as Array<Remote | undefined>) {
     remote = value;
-    const feedback = await service.refreshPullRequestFeedback('project-1', task.id);
-    assert.equal(feedback.status, 'unavailable', `remote ${value ?? 'missing'}`);
+    const feedback = await service.refreshPullRequestFeedback(
+      'project-1',
+      task.id,
+    );
+    assert.equal(
+      feedback.status,
+      'unavailable',
+      `remote ${value ?? 'missing'}`,
+    );
     assert.equal(feedback.automaticContinuation, false);
     assert.equal(feedback.evidence.length, 1);
     assert.doesNotMatch(JSON.stringify(feedback), /Untrusted remote input/);
@@ -2672,7 +2690,8 @@ test('AgentRuntimeApiService keeps local execution operational when GitHub feedb
       },
     } as never,
     projectStore: {
-      findProject: () => ({ id: 'project-1', path: '/workspace/project-1' }) as never,
+      findProject: () =>
+        ({ id: 'project-1', path: '/workspace/project-1' }) as never,
     },
     developmentEnvironmentInstanceStore: {
       resolveForProject: () => ({
@@ -2694,7 +2713,10 @@ test('AgentRuntimeApiService keeps local execution operational when GitHub feedb
     now: () => '2026-10-22T14:03:00.000Z',
   } as never);
 
-  const feedback = await service.refreshPullRequestFeedback('project-1', task.id);
+  const feedback = await service.refreshPullRequestFeedback(
+    'project-1',
+    task.id,
+  );
   assert.equal(feedback.status, 'unavailable');
   assert.equal(feedback.automaticContinuation, false);
   assert.doesNotMatch(JSON.stringify(feedback), /sensitive-github-token/);
