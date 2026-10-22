@@ -25,21 +25,13 @@ import {
 import type { Project, TaskContext } from '@dev-dashboard/contracts';
 
 import { fetchTaskContexts } from '../api/task-contexts';
+import { useAgentNotifications } from '../composables/useAgentNotifications';
 import {
   providerDiagnosticAction,
   providerDiagnosticSummary,
   providerFallbackDiagnostic,
   providerObservedAtLabel,
 } from '../agent-provider-doctor';
-import {
-  agentNotificationCandidates,
-  hasSeenAgentNotification,
-  markAgentNotificationSeen,
-  readAgentNotificationPreferences,
-  writeAgentNotificationPreferences,
-  type AgentNotificationKind,
-} from '../stores/agent-notifications';
-import { noticeCenterStore } from '../stores/notice-center';
 import {
   adoptAgentBacklog,
   agentRuntimeWebSocketUrl,
@@ -190,7 +182,11 @@ const errorMessage = ref('');
 const showAllHistory = ref(false);
 const providerConfig = ref<HTMLDetailsElement | null>(null);
 const integrationsSummary = ref<HTMLDetailsElement | null>(null);
-const agentNotificationPreferences = ref(readAgentNotificationPreferences());
+const {
+  agentNotificationPreferences,
+  publishAgentNotifications,
+  toggleAgentNotificationGroup,
+} = useAgentNotifications(() => props.project);
 const socketState = ref<'idle' | 'connecting' | 'connected' | 'disconnected'>(
   'idle',
 );
@@ -593,60 +589,11 @@ function replaceTask(record: AgentTaskRecord): void {
   }
 }
 
-function publishAgentNotifications(snapshot: AgentRealtimeSnapshot): void {
-  for (const candidate of agentNotificationCandidates(snapshot)) {
-    if (
-      !agentNotificationPreferences.value[candidate.kind] ||
-      hasSeenAgentNotification(candidate.key)
-    ) {
-      continue;
-    }
-
-    noticeCenterStore.publishTerminalNotice({
-      dedupeKey: candidate.key,
-      origin: 'agent',
-      outcome: candidate.outcome,
-      projectId: props.project.id,
-      projectName: props.project.name,
-      label: candidate.label,
-      routeTo: {
-        name: 'project-agent',
-        params: { projectId: props.project.id },
-        query: { taskId: snapshot.status.task.task.id },
-      },
-    });
-    markAgentNotificationSeen(candidate.key);
-  }
-}
-
 function applySnapshot(snapshot: AgentRealtimeSnapshot): void {
   status.value = snapshot.status;
   activity.value = snapshot.activity;
   replaceTask(snapshot.status.task);
   publishAgentNotifications(snapshot);
-}
-
-function toggleAgentNotificationPreference(
-  kind: AgentNotificationKind,
-  enabled: boolean,
-): void {
-  agentNotificationPreferences.value = {
-    ...agentNotificationPreferences.value,
-    [kind]: enabled,
-  };
-  writeAgentNotificationPreferences(agentNotificationPreferences.value);
-}
-
-function toggleAgentNotificationGroup(
-  kinds: AgentNotificationKind[],
-  event: Event,
-): void {
-  const checked = (event.target as HTMLInputElement).checked;
-  agentNotificationPreferences.value = {
-    ...agentNotificationPreferences.value,
-    ...Object.fromEntries(kinds.map((kind) => [kind, checked])),
-  };
-  writeAgentNotificationPreferences(agentNotificationPreferences.value);
 }
 
 function parseSocketMessage(
