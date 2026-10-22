@@ -600,8 +600,8 @@ async function loadTask(
       fetchAgentActivity(props.project.id, taskId),
       fetchAgentConversation(props.project.id, taskId),
       fetchAgentAttachments(props.project.id, taskId),
-      reloadUsage(),
       fetchAgentBudget(props.project.id, taskId),
+      reloadUsage(),
     ]);
     if (
       requestGeneration !== generation ||
