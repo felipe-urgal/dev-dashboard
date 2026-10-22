@@ -187,14 +187,17 @@ const {
   publishAgentNotifications,
   toggleAgentNotificationGroup,
 } = useAgentNotifications(() => props.project);
-const { socketState, connect: connectTaskSocket, closeSocket } =
-  useAgentTaskRealtime(
-    () => ({ projectId: props.project.id, taskId: selectedTaskId.value }),
-    applySnapshot,
-    (message) => {
-      errorMessage.value = message;
-    },
-  );
+const {
+  socketState,
+  connect: connectTaskSocket,
+  closeSocket,
+} = useAgentTaskRealtime(
+  () => ({ projectId: props.project.id, taskId: selectedTaskId.value }),
+  applySnapshot,
+  (message) => {
+    errorMessage.value = message;
+  },
+);
 let generation = 0;
 let taskLoadVersion = 0;
 
@@ -646,7 +649,8 @@ async function loadTask(
       requestGeneration !== generation ||
       loadVersion !== taskLoadVersion ||
       selectedTaskId.value !== taskId
-    ) return;
+    )
+      return;
     errorMessage.value =
       error instanceof Error
         ? error.message
