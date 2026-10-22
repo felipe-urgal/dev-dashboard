@@ -31,7 +31,13 @@ function controlledLoader() {
   const requests: PendingUsage[] = [];
   const loader: typeof fetchAgentUsage = (projectId, taskId, period) =>
     new Promise((resolve, reject) => {
-      requests.push({ projectId, taskId, period, resolve, reject });
+      requests.push({
+        projectId,
+        ...(taskId ? { taskId } : {}),
+        period: period ?? {},
+        resolve,
+        reject,
+      });
     });
   return { loader, requests };
 }
