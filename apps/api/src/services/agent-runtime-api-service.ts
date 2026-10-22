@@ -51,6 +51,8 @@ import type {
   AgentTask,
   AgentTaskRecord,
   AgentTaskStore,
+  AgentTaskPage,
+  AgentTaskPageOptions,
   AgentUsageRecord,
   AgentUsageSummary,
   AgentWorkflowCheckpointResolution,
@@ -271,6 +273,10 @@ export interface AgentRuntimeApiServicePort {
     environmentInstanceId?: string,
   ): Promise<AgentIntegrationUninstallResult>;
   listTasks(projectId: string): Promise<AgentTaskRecord[]>;
+  listTasksPage?(
+    projectId: string,
+    options: AgentTaskPageOptions,
+  ): Promise<AgentTaskPage>;
   adoptBacklog?(
     projectId: string,
     input: AgentBacklogAdoptInput,
@@ -977,6 +983,17 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
   public async listTasks(projectId: string): Promise<AgentTaskRecord[]> {
     this.requireProject(projectId);
     return this.options.taskStore.list(projectId);
+  }
+
+  public async listTasksPage(
+    projectId: string,
+    options: AgentTaskPageOptions,
+  ): Promise<AgentTaskPage> {
+    this.requireProject(projectId);
+    if (!this.options.taskStore.listPage) {
+      throw new Error('Canonical agent task store does not support pagination.');
+    }
+    return this.options.taskStore.listPage(projectId, options);
   }
 
   public async adoptBacklog(
