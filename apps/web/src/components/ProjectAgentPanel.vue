@@ -38,6 +38,7 @@ import {
 } from '../agent-provider-doctor';
 import {
   adoptAgentBacklog,
+  archiveAgentTask,
   cancelAgentTask,
   createAgentAttachment,
   createAgentTask,
@@ -217,6 +218,8 @@ const {
   historyLoaded,
   historyError,
   historyHasMore,
+  showArchived,
+  setShowArchived,
   resetHistory,
   upsertTask,
   loadFirstPage,
@@ -720,6 +723,59 @@ async function refreshHistory(): Promise<void> {
     if (pinned) replaceTask(pinned);
   } catch {
     // The history composable presents a retryable error independently.
+  }
+}
+
+async function toggleArchivedHistory(): Promise<void> {
+  const pinned = currentTask.value;
+  const requestProject = props.project.id;
+  try {
+    await setShowArchived(!showArchived.value);
+    if (requestProject === props.project.id && pinned) replaceTask(pinned);
+  } catch {
+    // The paginated history exposes its own error and retry control.
+  }
+}
+
+async function archiveCurrent(): Promise<void> {
+  const record = currentTask.value;
+  if (
+    !record ||
+    record.task.archivedAt ||
+    !['completed', 'cancelled'].includes(record.task.state) ||
+    status.value?.activeExecution ||
+    mutating.value
+  ) return;
+
+  const requestProject = props.project.id;
+  const taskId = record.task.id;
+  const requestGeneration = generation;
+  mutating.value = true;
+  errorMessage.value = '';
+  try {
+    const archived = await archiveAgentTask(requestProject, taskId);
+    if (
+      requestGeneration !== generation ||
+      requestProject !== props.project.id ||
+      selectedTaskId.value !== taskId
+    ) return;
+    replaceTask(archived);
+    if (status.value?.task.task.id === taskId) {
+      status.value = { ...status.value, task: archived };
+    }
+    closeSocket();
+    await refreshHistory();
+  } catch (error) {
+    if (
+      requestGeneration === generation &&
+      requestProject === props.project.id &&
+      selectedTaskId.value === taskId
+    ) {
+      errorMessage.value =
+        error instanceof Error ? error.message : 'Não foi possível arquivar a task.';
+    }
+  } finally {
+    mutating.value = false;
   }
 }
 
@@ -1762,6 +1818,22 @@ onBeforeUnmount(() => {
             <StopIcon aria-hidden="true" />
             Parar
           </button>
+          <button
+            v-if="
+              ['completed', 'cancelled'].includes(currentTask.task.state) &&
+              !currentTask.task.archivedAt &&
+              !status?.activeExecution
+            "
+            class="secondary-button"
+            type="button"
+            :disabled="mutating"
+            @click="archiveCurrent"
+          >
+            Arquivar task
+          </button>
+          <span v-if="currentTask.task.archivedAt" class="agent-hint">
+            Task arquivada · auditoria e conversa preservadas.
+          </span>
         </div>
       </section>
 
@@ -1771,6 +1843,14 @@ onBeforeUnmount(() => {
             <ClockIcon class="agent-section-icon" aria-hidden="true" />
             <strong>Histórico recente</strong>
           </div>
+          <button
+            class="agent-history-show-all"
+            type="button"
+            :disabled="historyLoading"
+            @click="toggleArchivedHistory"
+          >
+            {{ showArchived ? 'Ocultar arquivadas' : 'Mostrar arquivadas' }}
+          </button>
           <button
             v-if="!showAllHistory && (sortedTasks.length > 5 || historyHasMore)"
             class="agent-history-show-all"
@@ -1841,6 +1921,7 @@ onBeforeUnmount(() => {
               <small>
                 {{ taskStateSummary(record.task.state) }} ·
                 {{ new Date(record.task.updatedAt).toLocaleString() }}
+                <template v-if="record.task.archivedAt"> · Arquivada </template>
               </small>
             </div>
           </button>
