@@ -114,7 +114,7 @@ test('troca de task fecha socket anterior e descarta eventos antigos', () => {
   assert.notEqual(first, second);
 });
 
-test('snapshot incorreto e seleção alterada são ignorados mesmo com socket aberto', () => {
+test('snapshots de outra task ou projeto são ignorados', () => {
   const selected: AgentRealtimeTask = {
     projectId: 'project-1',
     taskId: 'task-a',
@@ -147,7 +147,7 @@ test('snapshot incorreto e seleção alterada são ignorados mesmo com socket ab
   assert.deepEqual(errors, ['erro atual']);
 });
 
-test('reconexão usa um único owner; fechamento tardio não desconecta o atual', () => {
+test('reconexão mantém um owner e ignora close tardio', () => {
   const target = { projectId: 'project-1', taskId: 'task-a' };
   const realtime = useAgentTaskRealtime(
     () => target,
