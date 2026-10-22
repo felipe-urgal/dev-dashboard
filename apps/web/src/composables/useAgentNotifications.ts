@@ -23,7 +23,7 @@ export function useAgentNotifications(
   function publishAgentNotifications(snapshot: AgentRealtimeSnapshot): void {
     const currentProject = project();
     if (snapshot.status.task.task.projectId !== currentProject.id) return;
-  
+
     for (const candidate of agentNotificationCandidates(snapshot)) {
       if (
         !agentNotificationPreferences.value[candidate.kind] ||
@@ -31,7 +31,7 @@ export function useAgentNotifications(
       ) {
         continue;
       }
-  
+
       noticeCenterStore.publishTerminalNotice({
         dedupeKey: candidate.key,
         origin: 'agent',
