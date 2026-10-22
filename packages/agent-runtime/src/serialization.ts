@@ -37,6 +37,7 @@ const TASK_KEYS = new Set([
   'requestedCapabilities',
   'createdAt',
   'updatedAt',
+  'archivedAt',
 ]);
 
 export class AgentSerializationError extends Error {
@@ -169,6 +170,16 @@ export function deserializeAgentTask(serialized: string): AgentTask {
     );
   }
 
+  const archivedAt = parsed.archivedAt;
+  if (
+    archivedAt !== undefined &&
+    (typeof archivedAt !== 'string' ||
+      !Number.isFinite(Date.parse(archivedAt)) ||
+      (state !== 'completed' && state !== 'cancelled'))
+  ) {
+    throw new AgentSerializationError('Invalid AgentTask.archivedAt');
+  }
+
   const task: AgentTask = {
     id: requiredString(parsed, 'id'),
     projectId: requiredString(parsed, 'projectId'),
@@ -189,6 +200,7 @@ export function deserializeAgentTask(serialized: string): AgentTask {
     requestedCapabilities: capabilities,
     createdAt: requiredString(parsed, 'createdAt'),
     updatedAt: requiredString(parsed, 'updatedAt'),
+    ...(archivedAt !== undefined ? { archivedAt } : {}),
   };
 
   if (environmentInstanceId !== undefined) {

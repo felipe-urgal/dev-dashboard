@@ -430,3 +430,75 @@ test('priority cursors fail closed when canonical Git revision changes', async (
     (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
   );
 });
+
+test('archive marker persists without deleting canonical task or evidence', async (t) => {
+  const { repositoryDirectory, store } = await fixture(t);
+  const first = await store.save(
+    agentTask({ id: 'task-finished', state: 'completed' }),
+    null,
+  );
+  await store.save(agentTask({ id: 'task-running', state: 'running' }), null);
+
+  const archivedAt = '2026-10-22T18:00:00.000Z';
+  const archived = await store.save(
+    { ...first.task, archivedAt, updatedAt: archivedAt },
+    first.version,
+  );
+  assert.equal(archived.task.archivedAt, archivedAt);
+  assert.equal(archived.version, first.version + 1);
+  assert.equal((await store.get('task-finished'))?.task.archivedAt, archivedAt);
+  assert.equal((await store.list('project-1')).length, 2);
+
+  const operational = await store.listPage('project-1', {
+    limit: 10,
+    order: 'priority',
+  });
+  assert.deepEqual(
+    operational.tasks.map((record) => record.task.id),
+    ['task-running'],
+  );
+  const all = await store.listPage('project-1', {
+    limit: 10,
+    order: 'priority',
+    includeArchived: true,
+  });
+  assert.deepEqual(
+    all.tasks.map((record) => record.task.id),
+    ['task-running', 'task-finished'],
+  );
+
+  const reopened = new GitAgentTaskStore({ repositoryDirectory });
+  assert.equal(
+    (await reopened.get('task-finished'))?.task.archivedAt,
+    archivedAt,
+  );
+});
+
+test('archive is forbidden for active task and marker cannot be erased', async (t) => {
+  const { store } = await fixture(t);
+  const running = await store.save(agentTask({ state: 'running' }), null);
+  await assert.rejects(
+    () =>
+      store.save(
+        { ...running.task, archivedAt: '2026-10-22T18:00:00.000Z' },
+        running.version,
+      ),
+    (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
+  );
+
+  const finished = await store.save(
+    agentTask({ id: 'task-done', state: 'completed' }),
+    null,
+  );
+  const stored = await store.save(
+    {
+      ...finished.task,
+      archivedAt: '2026-10-22T18:00:00.000Z',
+    },
+    finished.version,
+  );
+  await assert.rejects(
+    () => store.save({ ...stored.task, archivedAt: undefined }, stored.version),
+    (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
+  );
+});

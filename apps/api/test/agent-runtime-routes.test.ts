@@ -2258,3 +2258,82 @@ test('priority task cursor is opt-in and forwards revision-scoped cursor', async
   });
   assert.equal(badOrder.statusCode, 400);
 });
+
+test('archive route returns canonical metadata and guards conflicts', async (t) => {
+  const calls: string[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      archiveTask: async (projectId, taskId) => {
+        calls.push(projectId + ':' + taskId);
+        if (taskId === 'running') {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_EXECUTION_CONFLICT',
+            'Agent task is still active.',
+          );
+        }
+        return {
+          ...task,
+          task: {
+            ...task.task,
+            state: 'completed',
+            archivedAt: '2026-10-22T12:00:00.000Z',
+          },
+        };
+      },
+    }),
+  });
+  t.after(() => app.close());
+
+  const archived = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/tasks/task-1/archive',
+  });
+  assert.equal(archived.statusCode, 200);
+  assert.equal(
+    archived.json().task.task.archivedAt,
+    '2026-10-22T12:00:00.000Z',
+  );
+
+  const active = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/tasks/running/archive',
+  });
+  assert.equal(active.statusCode, 409);
+  assert.deepEqual(calls, ['project-1:task-1', 'project-1:running']);
+});
+
+test('priority list forwards archived visibility query', async (t) => {
+  const observed: boolean[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      listTasksPage: async (_projectId, options) => {
+        observed.push(options.includeArchived ?? false);
+        return { tasks: [], nextCursor: null };
+      },
+    }),
+  });
+  t.after(() => app.close());
+  for (const enabled of ['false', 'true']) {
+    const response = await app.inject({
+      method: 'GET',
+      url:
+        '/api/projects/project-1/agent/tasks?order=priority&includeArchived=' +
+        enabled,
+    });
+    assert.equal(response.statusCode, 200);
+  }
+  assert.deepEqual(observed, [false, true]);
+  const invalid = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/agent/tasks?includeArchived=true',
+  });
+  assert.equal(invalid.statusCode, 400);
+});

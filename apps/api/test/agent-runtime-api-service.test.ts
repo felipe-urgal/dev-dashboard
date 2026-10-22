@@ -2454,3 +2454,55 @@ test('AgentRuntimeApiService não cria contexto quando o backlog é ambíguo', a
   );
   assert.equal(contextCreations, 0);
 });
+
+test('archive of Agent task checks runtime ownership, terminal state and project', async () => {
+  const taskStore = new MemoryTaskStore();
+  const task: AgentTask = {
+    id: 'task-archive',
+    projectId: 'project-1',
+    state: 'completed',
+    summary: 'Finished task with preserved evidence',
+    requestedCapabilities: [],
+    createdAt: '2026-10-22T10:00:00.000Z',
+    updatedAt: '2026-10-22T11:00:00.000Z',
+  };
+  await taskStore.save(task, null);
+  let activeExecution = true;
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    projectStore: {
+      findProject: (id: string) => (id === 'project-1' ? { id } : null),
+    },
+    workflowRuntime: {
+      status: async () => ({
+        activeExecution: activeExecution ? { taskId: task.id } : undefined,
+      }),
+    },
+    now: () => '2026-10-22T12:00:00.000Z',
+  } as never);
+
+  await assert.rejects(
+    () => service.archiveTask('project-1', 'task-archive'),
+    (error: unknown) =>
+      error instanceof AgentRuntimeApiServiceError &&
+      error.code === 'AGENT_API_EXECUTION_CONFLICT',
+  );
+  assert.equal((await taskStore.get(task.id))?.task.archivedAt, undefined);
+  activeExecution = false;
+  const archived = await service.archiveTask('project-1', 'task-archive');
+  assert.equal(archived.task.archivedAt, '2026-10-22T12:00:00.000Z');
+  assert.equal(
+    (await service.archiveTask('project-1', 'task-archive')).version,
+    archived.version,
+  );
+  assert.equal(
+    (await service.getTask('project-1', task.id)).task.archivedAt,
+    archived.task.archivedAt,
+  );
+  await assert.rejects(
+    () => service.archiveTask('another-project', task.id),
+    (error: unknown) =>
+      error instanceof AgentRuntimeApiServiceError &&
+      error.code === 'AGENT_API_PROJECT_NOT_FOUND',
+  );
+});

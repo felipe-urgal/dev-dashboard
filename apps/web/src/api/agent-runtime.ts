@@ -128,6 +128,7 @@ export interface AgentTask {
   requestedCapabilities: AgentCapability[];
   createdAt: string;
   updatedAt: string;
+  archivedAt?: string;
 }
 
 export interface AgentTaskRecord {
@@ -680,13 +681,32 @@ export async function fetchAgentTasks(
 
 export async function fetchAgentTaskPage(
   projectId: string,
-  options: { limit?: number; cursor?: string; order?: 'priority' } = {},
+  options: {
+    limit?: number;
+    cursor?: string;
+    order?: 'priority';
+    includeArchived?: boolean;
+  } = {},
 ): Promise<AgentTaskPage> {
   const query = new URLSearchParams();
   query.set('limit', String(options.limit ?? 20));
   if (options.cursor) query.set('cursor', options.cursor);
   if (options.order) query.set('order', options.order);
+  if (options.includeArchived !== undefined) {
+    query.set('includeArchived', String(options.includeArchived));
+  }
   return requestJson<AgentTaskPage>(taskPath(projectId) + '?' + query);
+}
+
+export async function archiveAgentTask(
+  projectId: string,
+  taskId: string,
+): Promise<AgentTaskRecord> {
+  return (
+    await requestJson<TaskResponse>(taskPath(projectId, taskId) + '/archive', {
+      method: 'POST',
+    })
+  ).task;
 }
 
 export async function createAgentTask(

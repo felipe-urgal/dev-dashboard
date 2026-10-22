@@ -287,6 +287,7 @@ export interface AgentRuntimeApiServicePort {
     input: AgentTaskCreateInput,
   ): Promise<AgentTaskRecord>;
   getTask(projectId: string, taskId: string): Promise<AgentTaskRecord>;
+  archiveTask?(projectId: string, taskId: string): Promise<AgentTaskRecord>;
   adoptGitRef(
     projectId: string,
     taskId: string,
@@ -1298,6 +1299,67 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       );
     }
     return record;
+  }
+
+  public async archiveTask(
+    projectId: string,
+    taskId: string,
+  ): Promise<AgentTaskRecord> {
+    const record = await this.getTask(projectId, taskId);
+    if (record.task.archivedAt) return record;
+
+    // Terminal state alone is not sufficient: fail closed if the runtime
+    // still owns an active execution or status cannot be retrieved.
+    const runtimeStatus = await this.status(projectId, taskId);
+    if (
+      (record.task.state !== 'completed' &&
+        record.task.state !== 'cancelled') ||
+      runtimeStatus.activeExecution
+    ) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_EXECUTION_CONFLICT',
+        'Only terminal agent tasks without an active execution can be archived.',
+      );
+    }
+
+    const archivedAt = this.now();
+    const updatedAt =
+      Date.parse(archivedAt) > Date.parse(record.task.updatedAt)
+        ? archivedAt
+        : record.task.updatedAt;
+    let archived: AgentTaskRecord;
+    try {
+      archived = await this.options.taskStore.save(
+        { ...record.task, updatedAt, archivedAt },
+        record.version,
+      );
+    } catch (error) {
+      if (
+        error instanceof GitAgentTaskStoreError &&
+        error.code === 'AGENT_TASK_STORE_CONFLICT'
+      ) {
+        throw new AgentRuntimeApiServiceError(
+          'AGENT_API_EXECUTION_CONFLICT',
+          'Agent task changed during archive; reload before retrying.',
+        );
+      }
+      throw error;
+    }
+
+    await this.recordActivity({
+      projectId,
+      ...(record.task.environmentInstanceId
+        ? { environmentInstanceId: record.task.environmentInstanceId }
+        : {}),
+      type: 'agent.task.archived',
+      status: 'succeeded',
+      summary:
+        'Agent task archived without deleting canonical records or evidence.',
+      occurredAt: archivedAt,
+      resourceRef: { kind: 'agent-task', id: taskId },
+      jobId: taskId,
+    });
+    return archived;
   }
 
   public async adoptGitRef(

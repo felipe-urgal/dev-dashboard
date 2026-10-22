@@ -49,6 +49,8 @@ export interface AgentTask {
   requestedCapabilities: AgentCapability[];
   createdAt: string;
   updatedAt: string;
+  /** Non-destructive archive marker; canonical record and audit remain accessible. */
+  archivedAt?: string;
 }
 
 export interface AgentExecutionFailure {
@@ -315,6 +317,7 @@ export interface AgentTaskPageOptions {
   cursor?: string;
   /** Active/actionable tasks first, followed by recently updated terminal tasks. */
   order?: 'priority';
+  includeArchived?: boolean;
 }
 
 export interface AgentTaskStore {
