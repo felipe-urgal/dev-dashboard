@@ -406,7 +406,11 @@ export class GitAgentTaskStore implements AgentTaskStore {
       }
 
       let cached = this.priorityCache;
-      if (!cached || cached.projectId !== projectId || cached.revision !== revision) {
+      if (
+        !cached ||
+        cached.projectId !== projectId ||
+        cached.revision !== revision
+      ) {
         const records: AgentTaskRecord[] = [];
         const directory = path.join(this.repositoryDirectory, 'tasks');
         let names: string[] = [];
@@ -434,11 +438,14 @@ export class GitAgentTaskStore implements AgentTaskStore {
         }
 
         const actionable = (record: AgentTaskRecord): boolean =>
-          record.task.state !== 'completed' && record.task.state !== 'cancelled';
+          record.task.state !== 'completed' &&
+          record.task.state !== 'cancelled';
         records.sort((left, right) => {
           const priority = Number(actionable(right)) - Number(actionable(left));
           if (priority !== 0) return priority;
-          const recent = right.task.updatedAt.localeCompare(left.task.updatedAt);
+          const recent = right.task.updatedAt.localeCompare(
+            left.task.updatedAt,
+          );
           return recent || left.task.id.localeCompare(right.task.id);
         });
         cached = { projectId, revision, records };

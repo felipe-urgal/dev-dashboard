@@ -2215,7 +2215,8 @@ test('opt-in task cursor route preserves legacy response and bounds inputs', asy
 });
 
 test('priority task cursor is opt-in and forwards revision-scoped cursor', async (t) => {
-  const calls: Array<{ limit: number; cursor?: string; order?: 'priority' }> = [];
+  const calls: Array<{ limit: number; cursor?: string; order?: 'priority' }> =
+    [];
   const cursor = 'a'.repeat(40) + '.' + 'b'.repeat(64);
   const app = Fastify();
   registerApiErrorHandling(app);
@@ -2240,7 +2241,9 @@ test('priority task cursor is opt-in and forwards revision-scoped cursor', async
 
   const next = await app.inject({
     method: 'GET',
-    url: '/api/projects/project-1/agent/tasks?limit=1&order=priority&cursor=' + cursor,
+    url:
+      '/api/projects/project-1/agent/tasks?limit=1&order=priority&cursor=' +
+      cursor,
   });
   assert.equal(next.statusCode, 200);
   assert.equal(next.json().nextCursor, null);
