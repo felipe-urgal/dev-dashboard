@@ -71,7 +71,9 @@ export function useAgentTaskHistory(
         return [];
       }
       historyError.value =
-        error instanceof Error ? error.message : 'Não foi possível carregar o histórico.';
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar o histórico.';
       throw error;
     } finally {
       if (requestVersion === version && projectId() === requestProject) {
@@ -101,7 +103,9 @@ export function useAgentTaskHistory(
         return;
       }
       historyError.value =
-        error instanceof Error ? error.message : 'Não foi possível carregar mais tasks.';
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar mais tasks.';
     } finally {
       if (requestVersion === version && projectId() === requestProject) {
         historyLoading.value = false;
