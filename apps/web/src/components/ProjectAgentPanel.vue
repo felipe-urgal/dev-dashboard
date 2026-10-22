@@ -29,6 +29,7 @@ import { useAgentNotifications } from '../composables/useAgentNotifications';
 import { useAgentTaskRealtime } from '../composables/useAgentTaskRealtime';
 import { useAgentTaskUsage } from '../composables/useAgentTaskUsage';
 import { useAgentTaskBudget } from '../composables/useAgentTaskBudget';
+import { useAgentTaskHistory } from '../composables/useAgentTaskHistory';
 import {
   providerDiagnosticAction,
   providerDiagnosticSummary,
@@ -47,7 +48,6 @@ import {
   fetchAgentConversation,
   fetchAgentExecutionProfiles,
   fetchAgentProviders,
-  fetchAgentTasks,
   fetchAgentTaskStatus,
   recoverAgentTask,
   resolveAgentCheckpoint,
@@ -132,7 +132,6 @@ const providerIds: AgentProviderId[] = [
   'claude-code',
   'chatgpt-browser',
 ];
-const tasks = ref<AgentTaskRecord[]>([]);
 const taskContexts = ref<TaskContext[]>([]);
 const selectedTaskContextId = ref('');
 const selectedTaskId = ref('');
@@ -212,6 +211,17 @@ const {
   formatTokens,
   formatCost,
 );
+const {
+  tasks,
+  historyLoading,
+  historyLoaded,
+  historyError,
+  historyHasMore,
+  resetHistory,
+  upsertTask,
+  loadFirstPage,
+  loadNextPage,
+} = useAgentTaskHistory(() => props.project.id);
 let generation = 0;
 let taskLoadVersion = 0;
 
@@ -528,16 +538,7 @@ function formatCost(value: number | undefined): string {
 }
 
 function replaceTask(record: AgentTaskRecord): void {
-  const index = tasks.value.findIndex(
-    (item) => item.task.id === record.task.id,
-  );
-  if (index >= 0) {
-    tasks.value = tasks.value.map((item, itemIndex) =>
-      itemIndex === index ? record : item,
-    );
-  } else {
-    tasks.value = [record, ...tasks.value];
-  }
+  upsertTask(record);
 }
 
 function applySnapshot(snapshot: AgentRealtimeSnapshot): void {
@@ -627,18 +628,23 @@ async function load(): Promise<void> {
   closeSocket();
   clearUsage();
   resetBudget();
+  resetHistory();
+  showAllHistory.value = false;
+  taskLoadVersion += 1;
+  selectedTaskId.value = '';
+  status.value = null;
+  activity.value = null;
 
   try {
     const [nextProviders, nextTasks, nextTaskContexts, nextExecutionProfiles] =
       await Promise.all([
         fetchAgentProviders(),
-        fetchAgentTasks(props.project.id),
+        loadFirstPage(),
         fetchTaskContexts(props.project.id),
         fetchAgentExecutionProfiles(props.project.id),
       ]);
     if (requestGeneration !== generation) return;
     providers.value = nextProviders;
-    tasks.value = nextTasks;
     taskContexts.value = nextTaskContexts;
     executionProfiles.value = nextExecutionProfiles;
     if (!selectedProfileId.value) {
@@ -673,11 +679,7 @@ async function load(): Promise<void> {
     const sorted = [...nextTasks].sort((left, right) =>
       right.task.updatedAt.localeCompare(left.task.updatedAt),
     );
-    const requested = props.initialTaskId
-      ? sorted.find((record) => record.task.id === props.initialTaskId)
-      : undefined;
     const active =
-      requested ??
       sorted.find((record) =>
         [
           'queued',
@@ -687,11 +689,12 @@ async function load(): Promise<void> {
           'blocked',
           'failed',
         ].includes(record.task.state),
-      ) ??
-      sorted[0];
+      ) ?? sorted[0];
 
-    selectedTaskId.value = active?.task.id ?? '';
-    if (active) await loadTask(active.task.id, requestGeneration);
+    // A deep link must remain accessible even outside the first cursor page.
+    const taskId = props.initialTaskId || active?.task.id || '';
+    selectedTaskId.value = taskId;
+    if (taskId) await loadTask(taskId, requestGeneration);
   } catch (error) {
     if (requestGeneration !== generation) return;
     errorMessage.value =
@@ -700,6 +703,13 @@ async function load(): Promise<void> {
         : 'Não foi possível carregar o Agent Runtime.';
   } finally {
     if (requestGeneration === generation) loading.value = false;
+  }
+}
+
+function expandHistory(): void {
+  showAllHistory.value = true;
+  if (sortedTasks.value.length <= 5 && historyHasMore.value) {
+    void loadNextPage();
   }
 }
 
@@ -1234,6 +1244,7 @@ onBeforeUnmount(() => {
   closeSocket();
   clearUsage();
   resetBudget();
+  resetHistory();
 });
 </script>
 
@@ -1744,16 +1755,44 @@ onBeforeUnmount(() => {
             <strong>Histórico recente</strong>
           </div>
           <button
+            v-if="!showAllHistory && (sortedTasks.length > 5 || historyHasMore)"
             class="agent-history-show-all"
             type="button"
-            @click="showAllHistory = !showAllHistory"
+            @click="expandHistory"
           >
-            {{ showAllHistory ? 'Ver menos' : 'Ver todos' }}
+            Ver mais
+          </button>
+          <button
+            v-if="showAllHistory && historyHasMore"
+            class="agent-history-show-all"
+            type="button"
+            :disabled="historyLoading"
+            @click="loadNextPage"
+          >
+            {{ historyLoading ? 'Carregando...' : 'Carregar mais' }}
+          </button>
+          <button
+            v-if="showAllHistory"
+            class="agent-history-show-all"
+            type="button"
+            @click="showAllHistory = false"
+          >
+            Ver menos
           </button>
         </div>
 
-        <p v-if="!sortedTasks.length" class="agent-hint">
-          Nenhuma task criada neste projeto.
+        <p v-if="historyLoading && !historyLoaded" class="agent-hint">
+          Carregando histórico de tasks...
+        </p>
+        <p v-else-if="!sortedTasks.length" class="agent-hint">
+          {{
+            historyHasMore
+              ? 'Nenhuma task encontrada nesta página. Carregue a próxima.'
+              : 'Nenhuma task criada neste projeto.'
+          }}
+        </p>
+        <p v-if="historyError" class="agent-hint" role="alert">
+          {{ historyError }}
         </p>
         <template v-else>
           <button
