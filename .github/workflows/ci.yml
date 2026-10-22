@@ -120,6 +120,32 @@ jobs:
           AGENT_LOCK_QUALIFY: '1'
         run: node scripts/qualify-agent-lock-ownership.mjs
 
+  agent-physical-process-restart:
+    name: Agent Physical Process Restart
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build canonical Agent runtime
+        run: npm run build:packages
+
+      - name: Qualify real process restart with persisted canonical stores
+        env:
+          AGENT_RESTART_QUALIFY: '1'
+        run: node scripts/qualify-agent-process-restart.mjs
+
   disposable-systemd-user-fixture:
     name: Disposable Systemd User Fixture
     # Opt-in by PR title; never run systemd mutations on ordinary CI/main.
