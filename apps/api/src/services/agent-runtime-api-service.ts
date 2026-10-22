@@ -287,10 +287,7 @@ export interface AgentRuntimeApiServicePort {
     input: AgentTaskCreateInput,
   ): Promise<AgentTaskRecord>;
   getTask(projectId: string, taskId: string): Promise<AgentTaskRecord>;
-  archiveTask?(
-    projectId: string,
-    taskId: string,
-  ): Promise<AgentTaskRecord>;
+  archiveTask?(projectId: string, taskId: string): Promise<AgentTaskRecord>;
   adoptGitRef(
     projectId: string,
     taskId: string,
@@ -1356,7 +1353,8 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
         : {}),
       type: 'agent.task.archived',
       status: 'succeeded',
-      summary: 'Agent task archived without deleting canonical records or evidence.',
+      summary:
+        'Agent task archived without deleting canonical records or evidence.',
       occurredAt: archivedAt,
       resourceRef: { kind: 'agent-task', id: taskId },
       jobId: taskId,
