@@ -27,6 +27,12 @@ function usage(totalTokens?: number): AgentUsageOverview {
   };
 }
 
+function currentTokens(
+  state: ReturnType<typeof useAgentTaskUsage>,
+): number | undefined {
+  return state.usage.value?.total.totalTokens;
+}
+
 function controlledLoader() {
   const requests: PendingUsage[] = [];
   const loader: typeof fetchAgentUsage = (projectId, taskId, period) =>
@@ -62,7 +68,7 @@ test('troca A → B → A não reutiliza response antigo nem métricas', async (
 
   requests[2]!.resolve(usage(30));
   await latest;
-  assert.equal(state.usage.value?.total.totalTokens, 30);
+  assert.equal(currentTokens(state), 30);
   assert.equal(state.usageHasMetrics.value, true);
 });
 
@@ -86,7 +92,7 @@ test('respostas fora de ordem respeitam o período mais recente', async () => {
   await next;
   requests[0]!.resolve(usage(5));
   await first;
-  assert.equal(state.usage.value?.total.totalTokens, 42);
+  assert.equal(currentTokens(state), 42);
 });
 
 test('erro de request stale é ignorado; erro atual continua observável', async () => {
