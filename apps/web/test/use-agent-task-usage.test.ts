@@ -138,7 +138,7 @@ test('cockpit usa um owner de usage e limpa ao trocar task/projeto', () => {
   assert.match(panel, /await reloadUsage\(\)/);
   assert.match(
     panel,
-    /fetchAgentBudget\(props.project.id, taskId\),\s*reloadUsage\(\)/,
+    /reloadBudget\(\),\s*reloadUsage\(\)/,
   );
   assert.doesNotMatch(panel, /usage\.value\s*=/);
 });
