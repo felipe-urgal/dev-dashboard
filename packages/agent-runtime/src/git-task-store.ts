@@ -410,7 +410,11 @@ export class GitAgentTaskStore implements AgentTaskStore {
       }
 
       let index = this.priorityCache;
-      if (!index || index.projectId !== projectId || index.revision !== revision) {
+      if (
+        !index ||
+        index.projectId !== projectId ||
+        index.revision !== revision
+      ) {
         index = await readPriorityIndex(
           this.repositoryDirectory,
           projectId,
@@ -446,7 +450,9 @@ export class GitAgentTaskStore implements AgentTaskStore {
           index = buildPriorityIndex(projectId, revision, entries);
           // The derivative cache must not turn a valid canonical read into
           // a failure if the sidecar cannot be persisted.
-          await writePriorityIndex(this.repositoryDirectory, index).catch(() => {});
+          await writePriorityIndex(this.repositoryDirectory, index).catch(
+            () => {},
+          );
         }
         this.priorityCache = index;
       }
@@ -601,7 +607,9 @@ export class GitAgentTaskStore implements AgentTaskStore {
           revision,
           entries,
         );
-        await writePriorityIndex(this.repositoryDirectory, updated).catch(() => {});
+        await writePriorityIndex(this.repositoryDirectory, updated).catch(
+          () => {},
+        );
         this.priorityCache = updated;
       }
       return next;
