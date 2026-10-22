@@ -578,7 +578,6 @@ async function loadTask(
     attachments.value = [];
     selectedAttachmentIds.value = [];
     conversationInstruction.value = '';
-    usage.value = null;
     budget.value = null;
     budgetTokens.value = '';
     budgetCost.value = '';
@@ -741,7 +740,6 @@ async function selectTask(taskId: string): Promise<void> {
   attachments.value = [];
   selectedAttachmentIds.value = [];
   conversationInstruction.value = '';
-  usage.value = null;
   budget.value = null;
   budgetTokens.value = '';
   budgetCost.value = '';
