@@ -30,6 +30,7 @@ Este documento separa **provas automatizadas do control plane** de **qualificaç
 | Multi-turn real Claude Code | provider real | bloqueado externo | mesmo gate, mas preflight continua bloqueado por autenticação/entitlement local |
 | Multi-turn real ChatGPT Browser | provider real | gate executável | mesmo gate contra Browser Bridge/extensão reais |
 | Multi-turn real Automatic | provider real | gate executável | registra provider concreto por turno; opção de troca Codex↔Claude quando ambos estiverem disponíveis |
+| Restart físico do processo Agent com provider controlado | sistema real parcial | gate automatizado | `Agent Physical Process Restart`: dois processos Node, Git/conversation/audit/runtime stores reais e `SIGKILL` |
 | Restart do Dashboard durante execução real | sistema real | pendente | matar/reiniciar processo e registrar recovery |
 | Duas tasks em repositórios diferentes | sistema real | pendente | duas execuções reais simultâneas |
 | Lock físico entre processos em targets independentes | sistema real parcial | gate automatizado | `Agent Physical Lock Qualification`: 2 repositórios Git e processos Node, sem providers |
@@ -117,6 +118,54 @@ readiness remoto. Os gates de `Duas tasks em repositórios diferentes`,
 `Mesmo target com exclusão` ponta a ponta e `Restart durante execução real`
 permanecem pendentes até provas com o runtime e os providers apropriados.
 CI verde não altera o estado de `blocked external` de Claude.
+
+## Gate físico de interrupção e recovery entre processos — #1073
+
+O job `Agent Physical Process Restart` executa o runtime compilado com
+`GitAgentTaskStore`, `AgentRuntimeStateStore`, `AgentConversationStore`,
+`AgentAuditStore` e `AgentTaskLockManager` reais em disco. Ele inicia
+um processo Node que salva um turno concluído e outro turno em andamento
+com um **provider controlado sem conexão externa**, mata o processo
+durante a segunda execução com `SIGKILL` e inicia **outro processo**
+sobre os mesmos stores.
+
+```bash
+npm run build:packages
+AGENT_RESTART_QUALIFY=1 node scripts/qualify-agent-process-restart.mjs
+```
+
+O gate cria apenas diretórios temporários sob `os.tmpdir()`, exige opt-in,
+rejeita caminhos fornecidos pelo operador e apaga os dados em `finally`.
+Não reinicia serviços instalados, não consome credenciais externas e
+não toca em repositórios/projetos do usuário.
+
+A verificação comprova:
+
+1. execução não concluída detectada como `interrupted` após morte física
+   do processo anterior, preservando o `executionId` e o state `running`
+   canônico;
+2. ausência de execução ativa no runtime novo e ausência de dispatch
+   automático do provider ao chamar `recoverInterrupted`;
+3. necessidade de recovery explícito, que altera somente bookkeeping para
+   `idle` e **não** reabre task canônica ambígua para replay;
+4. turno do usuário pendente permanece único, e reexecução é recusada
+   mesmo após recovery explícito;
+5. turno previamente concluído mantém usuário + resposta no store,
+   e enviar o mesmo `turnId` novamente retorna
+   `AGENT_WORKFLOW_TURN_ALREADY_SUBMITTED`;
+6. quantidade de chamadas ao provider controlado não aumenta ao reiniciar,
+   consultar status ou tentar um turno já persistido.
+
+A evidência JSON contém apenas flags, contagens e tipo de fixture;
+não imprime conteúdo da conversa, tokens, cookies nem saída de providers.
+
+**Limitação:** esse gate comprova a semântica física de recovery entre
+processos usando stores canônicos, mas **não** mata o processo da API
+do Dashboard com uma execução de **provider externo real** em andamento.
+Por isso, o gate `Restart do Dashboard durante execução real` continua
+pendente e só poderá ser fechado com evidência de provider real e da
+instalação local. A qualificação multi-turn de providers reais, PR/readiness
+remoto e falha de GitHub remoto permanecem separadas.
 
 ## Preflight do gate real
 
