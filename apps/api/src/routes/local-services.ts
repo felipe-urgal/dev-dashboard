@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
+import type { SystemdJournalReader } from '../services/systemd-journal-reader.js';
 import {
   LocalServiceControlError,
   type LocalServiceAction,
@@ -8,6 +9,7 @@ import {
 
 interface Options extends FastifyPluginOptions {
   manager: Pick<LocalServiceManager, 'snapshot' | 'plan' | 'apply'>;
+  journal: Pick<SystemdJournalReader, 'read'>;
 }
 const actionSchema = {
   type: 'string',
@@ -20,6 +22,10 @@ export const localServiceRoutes: FastifyPluginAsync<Options> = async (
 ) => {
   app.get('/local-services', async () => ({
     services: [await options.manager.snapshot()],
+  }));
+
+  app.get('/local-services/home-music/logs', async () => ({
+    logs: await options.journal.read('system', 'home-music.service'),
   }));
 
   app.get<{ Querystring: { action: LocalServiceAction } }>(
