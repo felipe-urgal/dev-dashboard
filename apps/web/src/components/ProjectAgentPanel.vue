@@ -27,6 +27,7 @@ import type { Project, TaskContext } from '@dev-dashboard/contracts';
 import { fetchTaskContexts } from '../api/task-contexts';
 import { useAgentNotifications } from '../composables/useAgentNotifications';
 import { useAgentTaskRealtime } from '../composables/useAgentTaskRealtime';
+import { useAgentTaskUsage } from '../composables/useAgentTaskUsage';
 import {
   providerDiagnosticAction,
   providerDiagnosticSummary,
@@ -49,7 +50,6 @@ import {
   fetchAgentProviders,
   fetchAgentTasks,
   fetchAgentTaskStatus,
-  fetchAgentUsage,
   recoverAgentTask,
   resolveAgentCheckpoint,
   retryAgentTask,
@@ -72,7 +72,6 @@ import {
   type AgentRealtimeSnapshot,
   type AgentTaskRecord,
   type AgentTaskStatus,
-  type AgentUsageOverview,
 } from '../api/agent-runtime';
 import EmptyState from './EmptyState.vue';
 import ProjectAgentIntegrationsCard from './ProjectAgentIntegrationsCard.vue';
@@ -168,8 +167,6 @@ const checkpointInstruction = ref('');
 const status = ref<AgentTaskStatus | null>(null);
 const activity = ref<AgentActivity | null>(null);
 const latestExecution = ref<AgentExecutionResult | null>(null);
-const usage = ref<AgentUsageOverview | null>(null);
-const usagePeriod = ref<'all' | '24h' | '7d' | '30d'>('all');
 const budget = ref<AgentBudgetOverview | null>(null);
 const budgetTokens = ref('');
 const budgetCost = ref('');
@@ -197,6 +194,17 @@ const {
   (message) => {
     errorMessage.value = message;
   },
+);
+const {
+  usage,
+  usagePeriod,
+  usageHasMetrics,
+  clearUsage,
+  reloadUsage,
+} = useAgentTaskUsage(() =>
+  selectedTaskId.value
+    ? { projectId: props.project.id, taskId: selectedTaskId.value }
+    : null,
 );
 let generation = 0;
 let taskLoadVersion = 0;
@@ -520,22 +528,6 @@ function syncBudgetInputs(next: AgentBudgetOverview): void {
   budgetMode.value = next.budget?.mode ?? 'soft';
 }
 
-const usageHasMetrics = computed(() => {
-  const summary = usage.value?.total;
-  if (!summary) return false;
-  return (
-    summary.inputTokens !== undefined ||
-    summary.cachedInputTokens !== undefined ||
-    summary.cacheWriteInputTokens !== undefined ||
-    summary.outputTokens !== undefined ||
-    summary.reasoningTokens !== undefined ||
-    summary.totalTokens !== undefined ||
-    summary.reportedCostUsd !== undefined ||
-    summary.estimatedCostUsd !== undefined ||
-    summary.durationMs !== undefined
-  );
-});
-
 function formatTokens(value: number | undefined): string {
   if (value === undefined) return '—';
   if (value >= 1_000_000) return (value / 1_000_000).toFixed(1) + 'M';
@@ -552,23 +544,6 @@ function formatDuration(value: number | undefined): string {
 function formatCost(value: number | undefined): string {
   if (value === undefined) return 'Indisponível';
   return 'US$ ' + value.toFixed(value < 0.01 ? 4 : 2);
-}
-
-function usagePeriodRange(): { observedFrom?: string } {
-  if (usagePeriod.value === 'all') return {};
-  const hours =
-    usagePeriod.value === '24h' ? 24 : usagePeriod.value === '7d' ? 168 : 720;
-  return {
-    observedFrom: new Date(Date.now() - hours * 60 * 60 * 1000).toISOString(),
-  };
-}
-
-async function reloadUsage(taskId: string): Promise<void> {
-  usage.value = await fetchAgentUsage(
-    props.project.id,
-    taskId,
-    usagePeriodRange(),
-  );
 }
 
 function replaceTask(record: AgentTaskRecord): void {
@@ -609,6 +584,7 @@ async function loadTask(
     budgetCost.value = '';
     budgetMode.value = 'soft';
     closeSocket();
+    clearUsage();
     return;
   }
 
@@ -618,14 +594,13 @@ async function loadTask(
       nextActivity,
       nextConversation,
       nextAttachments,
-      nextUsage,
       nextBudget,
     ] = await Promise.all([
       fetchAgentTaskStatus(props.project.id, taskId),
       fetchAgentActivity(props.project.id, taskId),
       fetchAgentConversation(props.project.id, taskId),
       fetchAgentAttachments(props.project.id, taskId),
-      fetchAgentUsage(props.project.id, taskId, usagePeriodRange()),
+      reloadUsage(),
       fetchAgentBudget(props.project.id, taskId),
     ]);
     if (
@@ -641,7 +616,6 @@ async function loadTask(
     selectedAttachmentIds.value = selectedAttachmentIds.value.filter((id) =>
       nextAttachments.some((attachment) => attachment.id === id),
     );
-    usage.value = nextUsage;
     syncBudgetInputs(nextBudget);
     connectTaskSocket(props.project.id, taskId);
   } catch (error) {
@@ -680,6 +654,7 @@ async function load(): Promise<void> {
   loading.value = true;
   errorMessage.value = '';
   closeSocket();
+  clearUsage();
 
   try {
     const [nextProviders, nextTasks, nextTaskContexts, nextExecutionProfiles] =
@@ -759,6 +734,7 @@ async function load(): Promise<void> {
 async function selectTask(taskId: string): Promise<void> {
   selectedTaskId.value = taskId;
   closeSocket();
+  clearUsage();
   status.value = null;
   activity.value = null;
   conversationTurns.value = [];
@@ -1107,7 +1083,7 @@ async function changeUsagePeriod(): Promise<void> {
   const taskId = currentTask.value?.task.id;
   if (!taskId) return;
   try {
-    await reloadUsage(taskId);
+    await reloadUsage();
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -1309,6 +1285,7 @@ watch(
 onBeforeUnmount(() => {
   generation += 1;
   closeSocket();
+  clearUsage();
 });
 </script>
 
