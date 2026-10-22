@@ -216,7 +216,10 @@ test('archive removes hidden task and toggling archived view uses paged query', 
   assert.equal(requests[1]!.includeArchived, true);
   requests[1]!.resolve({ tasks: [archived], nextCursor: null });
   await show;
-  assert.equal(history.tasks.value[0]?.task.archivedAt, archived.task.archivedAt);
+  assert.equal(
+    history.tasks.value[0]?.task.archivedAt,
+    archived.task.archivedAt,
+  );
 
   const hide = history.setShowArchived(false);
   assert.equal(requests[2]!.includeArchived, false);
