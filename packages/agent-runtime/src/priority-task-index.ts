@@ -62,8 +62,11 @@ function digest(input: Omit<PriorityTaskIndex, 'checksum'>): string {
   return createHash('sha256').update(JSON.stringify(input)).digest('hex');
 }
 
-function validatedIndex(value: unknown, projectId: string, revision: string):
-  PriorityTaskIndex | null {
+function validatedIndex(
+  value: unknown,
+  projectId: string,
+  revision: string,
+): PriorityTaskIndex | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const item = value as Record<string, unknown>;
   if (
@@ -72,7 +75,8 @@ function validatedIndex(value: unknown, projectId: string, revision: string):
     item.revision !== revision ||
     typeof item.checksum !== 'string' ||
     !Array.isArray(item.entries)
-  ) return null;
+  )
+    return null;
 
   const seen = new Set<string>();
   for (const raw of item.entries) {
@@ -85,15 +89,24 @@ function validatedIndex(value: unknown, projectId: string, revision: string):
       seen.has(entry.id) ||
       !Number.isSafeInteger(entry.version) ||
       (entry.version as number) < 0 ||
-      !['queued', 'running', 'checkpoint', 'review', 'blocked', 'failed',
-        'completed', 'cancelled'].includes(String(entry.state)) ||
+      ![
+        'queued',
+        'running',
+        'checkpoint',
+        'review',
+        'blocked',
+        'failed',
+        'completed',
+        'cancelled',
+      ].includes(String(entry.state)) ||
       typeof entry.updatedAt !== 'string' ||
       !Number.isFinite(Date.parse(entry.updatedAt)) ||
       (entry.archivedAt !== undefined &&
         (typeof entry.archivedAt !== 'string' ||
           !Number.isFinite(Date.parse(entry.archivedAt)) ||
           (entry.state !== 'completed' && entry.state !== 'cancelled')))
-    ) return null;
+    )
+      return null;
     seen.add(entry.id);
   }
 
@@ -127,8 +140,9 @@ export function buildPriorityIndex(
   return { ...content, checksum: digest(content) };
 }
 
-async function safeIndexDirectory(repositoryDirectory: string):
-  Promise<string | null> {
+async function safeIndexDirectory(
+  repositoryDirectory: string,
+): Promise<string | null> {
   const directory = indexDirectory(repositoryDirectory);
   try {
     const stat = await fs.lstat(directory);
@@ -183,8 +197,13 @@ export async function writePriorityIndex(
   }
   const serialized = JSON.stringify(index);
   if (Buffer.byteLength(serialized, 'utf8') > MAX_INDEX_BYTES) return;
-  const temporary = destination + '.' + process.pid + '.' +
-    randomBytes(6).toString('hex') + '.tmp';
+  const temporary =
+    destination +
+    '.' +
+    process.pid +
+    '.' +
+    randomBytes(6).toString('hex') +
+    '.tmp';
   try {
     await fs.writeFile(temporary, serialized, {
       mode: 0o600,
