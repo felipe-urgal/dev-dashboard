@@ -30,6 +30,8 @@ export type {
   AgentProviderStatus,
   AgentTask,
   AgentTaskRecord,
+  AgentTaskPage,
+  AgentTaskPageOptions,
   AgentTaskState,
   AgentTaskStore,
   AgentUsage,
