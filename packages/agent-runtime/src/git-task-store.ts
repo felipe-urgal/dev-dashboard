@@ -21,6 +21,7 @@ const STORE_MARKER = '.dev-dashboard-agent-store.json';
 const STORE_OWNER = 'dev-dashboard-agent-runtime';
 const STORE_SCHEMA_VERSION = 1;
 const MAX_TASK_FILE_BYTES = 64 * 1024;
+const PRIORITY_CURSOR_PATTERN = /^([a-f0-9]{40})[.]([a-f0-9]{64})$/;
 const MAX_ID_LENGTH = 256;
 const DEFAULT_GIT_TIMEOUT_MS = 30_000;
 const DEFAULT_LOCK_TIMEOUT_MS = 30_000;
@@ -200,6 +201,11 @@ export class GitAgentTaskStore implements AgentTaskStore {
   private readonly gitTimeoutMs: number;
   private readonly lockTimeoutMs: number;
   private readonly lockManager: AgentTaskLockManager;
+  private priorityCache: {
+    projectId: string;
+    revision: string;
+    records: AgentTaskRecord[];
+  } | null = null;
 
   public constructor(options: GitAgentTaskStoreOptions) {
     if (
@@ -290,12 +296,19 @@ export class GitAgentTaskStore implements AgentTaskStore {
       !Number.isSafeInteger(options.limit) ||
       options.limit < 1 ||
       options.limit > 50 ||
-      (options.cursor !== undefined && !/^[a-f0-9]{64}$/.test(options.cursor))
+      (options.cursor !== undefined &&
+        !(options.order === 'priority'
+          ? PRIORITY_CURSOR_PATTERN.test(options.cursor)
+          : /^[a-f0-9]{64}$/.test(options.cursor)))
     ) {
       throw new GitAgentTaskStoreError(
         'AGENT_TASK_STORE_INVALID',
         'Agent task page parameters are invalid.',
       );
+    }
+
+    if (options.order === 'priority') {
+      return this.listPriorityPage(projectId, options);
     }
 
     return this.withStoreLock(async () => {
@@ -361,6 +374,103 @@ export class GitAgentTaskStore implements AgentTaskStore {
         nextCursor:
           nextIndex < names.length
             ? names[nextIndex - 1]!.slice(0, -'.json'.length)
+            : null,
+      };
+    });
+  }
+
+  /**
+   * Revision-keyed in-memory index: on a cold Git HEAD, validate and sort the
+   * project's canonical records once. Subsequent cursor pages reuse that data.
+   * This does not add a second persistent source of truth.
+   */
+  private async listPriorityPage(
+    projectId: string,
+    options: AgentTaskPageOptions,
+  ): Promise<AgentTaskPage> {
+    return this.withStoreLock(async () => {
+      await this.ensureRepository();
+      await this.assertClean();
+      const revision = (
+        await this.runGit(['rev-parse', 'HEAD'], 'read canonical task revision')
+      ).stdout.trim();
+
+      const cursorMatch = options.cursor
+        ? PRIORITY_CURSOR_PATTERN.exec(options.cursor)
+        : null;
+      if (options.cursor && cursorMatch?.[1] !== revision) {
+        throw new GitAgentTaskStoreError(
+          'AGENT_TASK_STORE_INVALID',
+          'Agent priority cursor expired; reload the first page.',
+        );
+      }
+
+      let cached = this.priorityCache;
+      if (
+        !cached ||
+        cached.projectId !== projectId ||
+        cached.revision !== revision
+      ) {
+        const records: AgentTaskRecord[] = [];
+        const directory = path.join(this.repositoryDirectory, 'tasks');
+        let names: string[] = [];
+        try {
+          const stat = await fs.lstat(directory);
+          if (!stat.isDirectory() || stat.isSymbolicLink()) {
+            throw new GitAgentTaskStoreError(
+              'AGENT_TASK_STORE_CORRUPT',
+              'Canonical agent task directory is invalid.',
+            );
+          }
+          names = (await fs.readdir(directory))
+            .filter((name) => name.endsWith('.json'))
+            .sort();
+        } catch (error) {
+          if (!isEnoent(error)) throw error;
+        }
+
+        for (const name of names) {
+          const record = await this.readTaskFile(
+            path.join(directory, name),
+            name,
+          );
+          if (record.task.projectId === projectId) records.push(record);
+        }
+
+        const actionable = (record: AgentTaskRecord): boolean =>
+          record.task.state !== 'completed' &&
+          record.task.state !== 'cancelled';
+        records.sort((left, right) => {
+          const priority = Number(actionable(right)) - Number(actionable(left));
+          if (priority !== 0) return priority;
+          const recent =
+            Date.parse(right.task.updatedAt) - Date.parse(left.task.updatedAt);
+          return recent || left.task.id.localeCompare(right.task.id);
+        });
+        cached = { projectId, revision, records };
+        this.priorityCache = cached;
+      }
+
+      const lastHash = cursorMatch?.[2];
+      const start = lastHash
+        ? cached.records.findIndex(
+            (item) => taskFileName(item.task.id).slice(0, -5) === lastHash,
+          ) + 1
+        : 0;
+      if (lastHash && start === 0) {
+        throw new GitAgentTaskStoreError(
+          'AGENT_TASK_STORE_INVALID',
+          'Agent priority cursor is no longer valid.',
+        );
+      }
+
+      const tasks = cached.records.slice(start, start + options.limit);
+      const last = tasks.at(-1);
+      return {
+        tasks,
+        nextCursor:
+          last && start + tasks.length < cached.records.length
+            ? revision + '.' + taskFileName(last.task.id).slice(0, -5)
             : null,
       };
     });
@@ -442,6 +552,7 @@ export class GitAgentTaskStore implements AgentTaskStore {
       }
 
       await this.assertClean();
+      this.priorityCache = null;
       return next;
     });
   }

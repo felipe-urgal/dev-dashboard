@@ -319,3 +319,114 @@ test('cursor pagination rejects malformed or stale cursors and limits', async (t
     );
   }
 });
+
+test('priority cursor pages return actionable tasks before recent completed ones', async (t) => {
+  const { repositoryDirectory, store } = await fixture(t);
+  for (const task of [
+    agentTask({
+      id: 'task-completed',
+      state: 'completed',
+      updatedAt: '2026-10-22T15:00:00.000Z',
+    }),
+    agentTask({
+      id: 'task-running',
+      state: 'running',
+      updatedAt: '2026-10-22T09:00:00.000Z',
+    }),
+    agentTask({
+      id: 'task-failed',
+      state: 'failed',
+      updatedAt: '2026-10-22T12:00:00.000Z',
+    }),
+    agentTask({
+      id: 'task-review',
+      state: 'review',
+      updatedAt: '2026-10-22T12:00:00.000Z',
+    }),
+    agentTask({
+      id: 'task-other-project',
+      projectId: 'project-2',
+      state: 'queued',
+    }),
+  ]) {
+    await store.save(task, null);
+  }
+
+  const first = await store.listPage('project-1', {
+    limit: 2,
+    order: 'priority',
+  });
+  assert.deepEqual(
+    first.tasks.map((item) => item.task.id),
+    ['task-failed', 'task-review'],
+  );
+  assert.match(first.nextCursor ?? '', /^[a-f0-9]{40}[.][a-f0-9]{64}$/);
+  const second = await store.listPage('project-1', {
+    limit: 2,
+    order: 'priority',
+    cursor: first.nextCursor!,
+  });
+  assert.deepEqual(
+    second.tasks.map((item) => item.task.id),
+    ['task-running', 'task-completed'],
+  );
+  assert.equal(second.nextCursor, null);
+
+  // Reopening the store must still recover order from canonical Git tasks.
+  const reopened = new GitAgentTaskStore({ repositoryDirectory });
+  assert.deepEqual(
+    (
+      await reopened.listPage('project-2', { limit: 5, order: 'priority' })
+    ).tasks.map((item) => item.task.id),
+    ['task-other-project'],
+  );
+});
+
+test('priority cursors fail closed when canonical Git revision changes', async (t) => {
+  const { store } = await fixture(t);
+  await store.save(agentTask({ id: 'task-a', state: 'running' }), null);
+  await store.save(agentTask({ id: 'task-b', state: 'completed' }), null);
+
+  const first = await store.listPage('project-1', {
+    limit: 1,
+    order: 'priority',
+  });
+  assert.ok(first.nextCursor);
+  const staleCursor = first.nextCursor!;
+
+  await store.save(
+    agentTask({
+      id: 'task-b',
+      state: 'completed',
+      updatedAt: '2026-10-22T15:00:00.000Z',
+    }),
+    0,
+  );
+  await assert.rejects(
+    () =>
+      store.listPage('project-1', {
+        limit: 1,
+        cursor: staleCursor,
+        order: 'priority',
+      }),
+    (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
+  );
+  const refreshed = await store.listPage('project-1', {
+    limit: 5,
+    order: 'priority',
+  });
+  assert.deepEqual(
+    refreshed.tasks.map((item) => item.task.id),
+    ['task-a', 'task-b'],
+  );
+
+  await assert.rejects(
+    () =>
+      store.listPage('project-1', {
+        limit: 1,
+        order: 'priority',
+        cursor: 'a'.repeat(40) + '.' + 'b'.repeat(64),
+      }),
+    (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
+  );
+});

@@ -225,11 +225,20 @@ const {
 let generation = 0;
 let taskLoadVersion = 0;
 
-const sortedTasks = computed(() =>
-  [...tasks.value].sort((left, right) =>
-    right.task.updatedAt.localeCompare(left.task.updatedAt),
-  ),
-);
+function compareTaskPriority(
+  left: AgentTaskRecord,
+  right: AgentTaskRecord,
+): number {
+  const actionable = (record: AgentTaskRecord) =>
+    record.task.state !== 'completed' && record.task.state !== 'cancelled';
+  const priority = Number(actionable(right)) - Number(actionable(left));
+  if (priority !== 0) return priority;
+  const recent =
+    Date.parse(right.task.updatedAt) - Date.parse(left.task.updatedAt);
+  return recent || left.task.id.localeCompare(right.task.id);
+}
+
+const sortedTasks = computed(() => [...tasks.value].sort(compareTaskPriority));
 
 const selectedTask = computed(
   () =>
@@ -676,9 +685,7 @@ async function load(): Promise<void> {
           ?.providerId ?? 'automatic';
     }
 
-    const sorted = [...nextTasks].sort((left, right) =>
-      right.task.updatedAt.localeCompare(left.task.updatedAt),
-    );
+    const sorted = [...nextTasks].sort(compareTaskPriority);
     const active =
       sorted.find((record) =>
         [
@@ -703,6 +710,16 @@ async function load(): Promise<void> {
         : 'Não foi possível carregar o Agent Runtime.';
   } finally {
     if (requestGeneration === generation) loading.value = false;
+  }
+}
+
+async function refreshHistory(): Promise<void> {
+  const pinned = currentTask.value;
+  try {
+    await loadFirstPage();
+    if (pinned) replaceTask(pinned);
+  } catch {
+    // The history composable presents a retryable error independently.
   }
 }
 
@@ -1794,6 +1811,15 @@ onBeforeUnmount(() => {
         <p v-if="historyError" class="agent-hint" role="alert">
           {{ historyError }}
         </p>
+        <button
+          v-if="historyError"
+          class="agent-history-show-all"
+          type="button"
+          :disabled="historyLoading"
+          @click="refreshHistory"
+        >
+          Atualizar histórico
+        </button>
         <template v-else>
           <button
             v-for="record in showAllHistory

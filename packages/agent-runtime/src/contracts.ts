@@ -313,6 +313,8 @@ export interface AgentTaskPage {
 export interface AgentTaskPageOptions {
   limit: number;
   cursor?: string;
+  /** Active/actionable tasks first, followed by recently updated terminal tasks. */
+  order?: 'priority';
 }
 
 export interface AgentTaskStore {

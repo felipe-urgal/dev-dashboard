@@ -101,6 +101,7 @@ interface UsageQuery {
 interface TaskListQuery {
   limit?: number;
   cursor?: string;
+  order?: 'priority';
 }
 
 interface ProviderPreferenceBody {
@@ -2098,7 +2099,11 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
           additionalProperties: false,
           properties: {
             limit: { type: 'integer', minimum: 1, maximum: 50 },
-            cursor: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+            cursor: {
+              type: 'string',
+              pattern: '^(?:[a-f0-9]{64}|[a-f0-9]{40}[.][a-f0-9]{64})$',
+            },
+            order: { type: 'string', enum: ['priority'] },
           },
         },
         response: {
@@ -2119,8 +2124,8 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) =>
       withAgentErrors(async () => {
-        const { limit, cursor } = request.query;
-        if (limit === undefined && cursor === undefined) {
+        const { limit, cursor, order } = request.query;
+        if (limit === undefined && cursor === undefined && !order) {
           return {
             tasks: await options.agentRuntimeApiService.listTasks(
               request.params.projectId,
@@ -2135,6 +2140,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
           {
             limit: limit ?? 20,
             ...(cursor ? { cursor } : {}),
+            ...(order ? { order } : {}),
           },
         );
       }),
