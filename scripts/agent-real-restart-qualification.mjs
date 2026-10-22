@@ -33,7 +33,14 @@ function optionsFromArgs(argv) {
     const key = argv[i];
     const value = argv[i + 1];
     if (
-      !['--phase', '--provider', '--project', '--task', '--snapshot', '--api'].includes(key) ||
+      ![
+        '--phase',
+        '--provider',
+        '--project',
+        '--task',
+        '--snapshot',
+        '--api',
+      ].includes(key) ||
       typeof value !== 'string' ||
       !value
     ) {
@@ -45,20 +52,25 @@ function optionsFromArgs(argv) {
     }
     options[name] = value;
   }
-  if (!['capture', 'verify'].includes(options.phase) ||
-      !PROVIDERS.has(options.provider) ||
-      !options.project ||
-      !options.task ||
-      !options.snapshot ||
-      [options.project, options.task].some(
-        (value) => value.length > 256 || value.includes('\0'),
-      ) ||
-      !isLoopbackUrl(options.api)) {
+  if (
+    !['capture', 'verify'].includes(options.phase) ||
+    !PROVIDERS.has(options.provider) ||
+    !options.project ||
+    !options.task ||
+    !options.snapshot ||
+    [options.project, options.task].some(
+      (value) => value.length > 256 || value.includes('\0'),
+    ) ||
+    !isLoopbackUrl(options.api)
+  ) {
     throw new Error('Invalid real restart qualification scope.');
   }
   const url = new URL(options.api);
   if (
-    url.username || url.password || url.search || url.hash ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
     url.pathname !== '/'
   ) {
     throw new Error('Only the origin of a loopback API is allowed.');
@@ -96,8 +108,7 @@ function readShape(status, turns, project, task) {
     lastTurnRole: turns.turns.at(-1)?.role,
     agentTurnForExecution: (executionId) =>
       turns.turns.some(
-        (turn) =>
-          turn.role === 'agent' && turn.executionId === executionId,
+        (turn) => turn.role === 'agent' && turn.executionId === executionId,
       ),
   };
 }
@@ -110,15 +121,9 @@ function assertCaptured(shape, project, task) {
   assert.ok(Number.isSafeInteger(shape.runtime.processId));
   assert.equal(shape.activeExecution?.projectId, project);
   assert.equal(shape.activeExecution?.taskId, task);
-  assert.equal(
-    shape.activeExecution?.executionId,
-    shape.runtime.executionId,
-  );
+  assert.equal(shape.activeExecution?.executionId, shape.runtime.executionId);
   assert.equal(shape.lastTurnRole, 'user');
-  assert.equal(
-    shape.agentTurnForExecution(shape.runtime.executionId),
-    false,
-  );
+  assert.equal(shape.agentTurnForExecution(shape.runtime.executionId), false);
 }
 
 function assertVerified(before, after) {
@@ -145,7 +150,9 @@ async function requestJson(fetchImpl, options, token, path) {
       },
     });
   } catch {
-    throw new Error('Local API unavailable during read-only restart qualification.');
+    throw new Error(
+      'Local API unavailable during read-only restart qualification.',
+    );
   }
   if (!response.ok) {
     throw new Error('Local API rejected restart qualification read.');
@@ -154,8 +161,10 @@ async function requestJson(fetchImpl, options, token, path) {
 }
 
 async function observe(fetchImpl, options, token) {
-  const path = '/api/projects/' +
-    encodeURIComponent(options.project) + '/agent/tasks/' +
+  const path =
+    '/api/projects/' +
+    encodeURIComponent(options.project) +
+    '/agent/tasks/' +
     encodeURIComponent(options.task);
   const [status, turns] = await Promise.all([
     requestJson(fetchImpl, options, token, path + '/status'),
@@ -166,8 +175,11 @@ async function observe(fetchImpl, options, token) {
 
 async function loadSnapshot(filename) {
   const stat = await fs.lstat(filename);
-  if (!stat.isFile() || stat.isSymbolicLink() ||
-      stat.size > MAX_SNAPSHOT_BYTES) {
+  if (
+    !stat.isFile() ||
+    stat.isSymbolicLink() ||
+    stat.size > MAX_SNAPSHOT_BYTES
+  ) {
     throw new Error('Qualification snapshot is not a safe regular file.');
   }
   const data = JSON.parse(await fs.readFile(filename, 'utf8'));
@@ -206,7 +218,9 @@ export async function runRealRestartQualification(
   } = {},
 ) {
   if (environment.AGENT_REAL_RESTART_QUALIFY !== '1') {
-    stderr.write('Real provider restart qualification needs explicit opt-in.\n');
+    stderr.write(
+      'Real provider restart qualification needs explicit opt-in.\n',
+    );
     return 2;
   }
   let options;
@@ -241,18 +255,19 @@ export async function runRealRestartQualification(
         capturedAt: new Date().toISOString(),
         turnHashes: current.turnHashes,
       };
-      await fs.writeFile(
-        options.snapshot,
-        JSON.stringify(snapshot) + '\n',
-        { flag: 'wx', mode: 0o600 },
+      await fs.writeFile(options.snapshot, JSON.stringify(snapshot) + '\n', {
+        flag: 'wx',
+        mode: 0o600,
+      });
+      stdout.write(
+        JSON.stringify({
+          phase: 'capture',
+          status: 'captured',
+          activeExecutionObserved: true,
+          realProviderPreflightPassed: true,
+          nextAction: 'restart-dashboard-manually-then-verify',
+        }) + '\n',
       );
-      stdout.write(JSON.stringify({
-        phase: 'capture',
-        status: 'captured',
-        activeExecutionObserved: true,
-        realProviderPreflightPassed: true,
-        nextAction: 'restart-dashboard-manually-then-verify',
-      }) + '\n');
       return 0;
     }
 
@@ -266,17 +281,19 @@ export async function runRealRestartQualification(
     await sleep(OBSERVATION_DELAY_MS);
     const second = await observe(fetchImpl, options, token);
     assertVerified(snapshot, second);
-    stdout.write(JSON.stringify({
-      phase: 'verify',
-      status: 'passed',
-      externallyStartedExecutionObserved: true,
-      processInterruptionDetected: true,
-      canonicalTaskPreserved: true,
-      noNewConversationTurnsObserved: true,
-      noActiveExecutionObserved: true,
-      observationCount: 2,
-      providerReplayDirectlyObserved: false,
-    }) + '\n');
+    stdout.write(
+      JSON.stringify({
+        phase: 'verify',
+        status: 'passed',
+        externallyStartedExecutionObserved: true,
+        processInterruptionDetected: true,
+        canonicalTaskPreserved: true,
+        noNewConversationTurnsObserved: true,
+        noActiveExecutionObserved: true,
+        observationCount: 2,
+        providerReplayDirectlyObserved: false,
+      }) + '\n',
+    );
     return 0;
   } catch {
     stderr.write(
@@ -286,7 +303,9 @@ export async function runRealRestartQualification(
   }
 }
 
-if (process.argv[1] && import.meta.url ===
-  new URL(process.argv[1], 'file:').href) {
+if (
+  process.argv[1] &&
+  import.meta.url === new URL(process.argv[1], 'file:').href
+) {
   process.exitCode = await runRealRestartQualification(process.argv.slice(2));
 }
