@@ -36,8 +36,29 @@ Este documento separa **provas automatizadas do control plane** de **qualificaç
 | Duas tasks em repositórios diferentes | sistema real | pendente | duas execuções reais simultâneas |
 | Lock físico entre processos em targets independentes | sistema real parcial | gate automatizado | `Agent Physical Lock Qualification`: 2 repositórios Git e processos Node, sem providers |
 | Mesmo target com exclusão | sistema real | pendente | comprovar lock/serialização no target real |
+| PR feedback com CI/review incompleto | automatizado parcial | regressão fail-closed | `AgentRuntimeApiService`: remote explícito, CI success, review approved e 0 conversas pendentes para `ready` |
+| GitHub remoto offline, execução local preservada | automatizado parcial | fault injection | snapshot remoto indisponível, feedback `unavailable` e execução local ainda permitida |
 | PR/readiness real | integração externa | pendente | criar PR real e registrar readiness |
 | GitHub remoto indisponível | integração externa | pendente | degradar vínculo remoto sem derrubar runtime |
+
+## Regra fail-closed para PR/readiness — #1073
+
+A classificação `ready` de feedback de PR exige evidência **positiva**
+e coerente de GitHub: `remoteStatus=available`, `ciStatus=success`,
+`reviewState=approved` e zero conversas de revisão não resolvidas.
+Observação remota ausente/offline/autenticação inválida/rate limit é
+`unavailable`; CI `pending`/`unknown` ou review
+`review-required`/`unknown` fica em `attention`.
+Nenhuma dessas condições concede capability, cria merge ou dispara
+continuação automática do Agent.
+
+Os testes com snapshot reader injetado e falhando confirmam também que
+esse vínculo remoto é **observacional**: a task local pode continuar com
+autorização normal, a evidence registra a indisponibilidade de forma
+sanitizada e estados/capabilities não são alterados. A simulação de
+falha **não é** evidência de uma interrupção real do GitHub no host.
+Os gates `PR/readiness real` e `GitHub remoto indisponível` seguem
+pendentes para qualificação externa.
 
 ## Estado do tracker
 

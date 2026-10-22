@@ -2506,3 +2506,225 @@ test('archive of Agent task checks runtime ownership, terminal state and project
       error.code === 'AGENT_API_PROJECT_NOT_FOUND',
   );
 });
+
+// Remote PR state is observational. Unknown/stale snapshots may demand human
+// attention, but they must never be presented as confirmed merge readiness.
+test('AgentRuntimeApiService requires positive remote CI and review evidence for readiness', async () => {
+  const store = new MemoryTaskStore();
+  const task: AgentTask = {
+    id: 'task-pr-readiness',
+    projectId: 'project-1',
+    environmentInstanceId: 'environment:primary:project-1',
+    taskContextId: 'context-readiness',
+    state: 'review',
+    summary: 'Validate remote readiness',
+    requestedCapabilities: [],
+    createdAt: '2026-10-22T14:00:00.000Z',
+    updatedAt: '2026-10-22T14:00:00.000Z',
+  };
+  await store.save(task, null);
+  const context: TaskContext = {
+    id: 'context-readiness',
+    projectId: 'project-1',
+    environmentInstanceId: 'environment:primary:project-1',
+    branch: 'feature/readiness',
+    pullRequest: {
+      repository: 'felipe-urgal/dev-dashboard',
+      number: 999,
+    },
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+  };
+  type Remote =
+    'available' | 'unauthenticated' | 'rate-limited' | 'unavailable';
+  type CI = 'success' | 'pending' | 'failure' | 'unknown';
+  type Review =
+    'approved' | 'changes-requested' | 'review-required' | 'unknown';
+  let remote: Remote | undefined = 'available';
+  let ci: CI = 'success';
+  let review: Review = 'approved';
+  let unresolved = 0;
+  const service = new AgentRuntimeApiService({
+    taskStore: store,
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    workflowRuntime: {} as never,
+    projectStore: {
+      findProject: (id: string) =>
+        id === 'project-1' ? ({ id } as never) : null,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+    taskContextRepository: {
+      find: (id: string) => (id === context.id ? context : null),
+    },
+    taskContextSnapshotReader: {
+      snapshot: async () => ({
+        context,
+        evidence: {
+          observedAt: '2026-10-22T14:01:00.000Z',
+          pullRequest: {
+            provider: 'github' as const,
+            number: 999,
+            url: 'https://github.com/felipe-urgal/dev-dashboard/pull/999',
+            title: 'Untrusted remote input',
+            sourceBranch: 'feature/readiness',
+            baseBranch: 'main',
+            ciStatus: ci,
+            unresolvedConversationsCount: unresolved,
+            cockpit: {
+              ...(remote ? { remoteStatus: remote } : {}),
+              reviewState: review,
+              requestedReviewers: [],
+              checks: [],
+            },
+          },
+        },
+      }),
+    },
+    now: () => '2026-10-22T14:01:00.000Z',
+  } as never);
+
+  const getStatus = async () =>
+    (await service.refreshPullRequestFeedback('project-1', task.id)).status;
+  assert.equal(await getStatus(), 'ready');
+  for (const value of ['pending', 'unknown', 'failure'] as CI[]) {
+    ci = value;
+    assert.equal(await getStatus(), 'attention', `CI ${value}`);
+  }
+  ci = 'success';
+  for (const value of [
+    'review-required',
+    'unknown',
+    'changes-requested',
+  ] as Review[]) {
+    review = value;
+    assert.equal(await getStatus(), 'attention', `review ${value}`);
+  }
+  review = 'approved';
+  unresolved = 1;
+  assert.equal(await getStatus(), 'attention');
+  unresolved = 0;
+  for (const value of [
+    undefined,
+    'unauthenticated',
+    'rate-limited',
+    'unavailable',
+  ] as Array<Remote | undefined>) {
+    remote = value;
+    const feedback = await service.refreshPullRequestFeedback(
+      'project-1',
+      task.id,
+    );
+    assert.equal(
+      feedback.status,
+      'unavailable',
+      `remote ${value ?? 'missing'}`,
+    );
+    assert.equal(feedback.automaticContinuation, false);
+    assert.equal(feedback.evidence.length, 1);
+    assert.doesNotMatch(JSON.stringify(feedback), /Untrusted remote input/);
+  }
+  remote = 'available';
+  assert.equal(await getStatus(), 'ready');
+  assert.equal((await store.get(task.id))?.task.state, 'review');
+});
+
+test('AgentRuntimeApiService keeps local execution operational when GitHub feedback fails', async () => {
+  const store = new MemoryTaskStore();
+  const task: AgentTask = {
+    id: 'task-remote-outage',
+    projectId: 'project-1',
+    environmentInstanceId: 'environment:primary:project-1',
+    taskContextId: 'context-outage',
+    state: 'review',
+    summary: 'Continue local work despite GitHub outage',
+    requestedCapabilities: [],
+    createdAt: '2026-10-22T14:00:00.000Z',
+    updatedAt: '2026-10-22T14:00:00.000Z',
+  };
+  await store.save(task, null);
+  const context: TaskContext = {
+    id: 'context-outage',
+    projectId: 'project-1',
+    environmentInstanceId: 'environment:primary:project-1',
+    branch: 'feature/local-safe',
+    pullRequest: {
+      repository: 'felipe-urgal/dev-dashboard',
+      number: 999,
+    },
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+  };
+  let localExecutionCount = 0;
+  const evidence: unknown[] = [];
+  const service = new AgentRuntimeApiService({
+    taskStore: store,
+    auditStore: {
+      ...auditStore(),
+      appendEvidence: async (_taskId: string, added: unknown[]) => {
+        evidence.push(...added);
+      },
+    },
+    providerRegistry: registry,
+    workflowRuntime: {
+      execute: async () => {
+        localExecutionCount += 1;
+        return {
+          execution: {
+            id: 'execution-local',
+            taskId: task.id,
+            projectId: task.projectId,
+            providerId: 'codex',
+            state: 'succeeded',
+            finishedAt: '2026-10-22T14:03:00.000Z',
+          },
+          task: (await store.get(task.id))!,
+          providerResult: {
+            providerId: 'codex',
+            outcome: 'succeeded',
+            summary: 'Local task completed',
+          },
+        };
+      },
+    } as never,
+    projectStore: {
+      findProject: () =>
+        ({ id: 'project-1', path: '/workspace/project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => ({
+        projectId: 'project-1',
+        environmentInstanceId: 'environment:primary:project-1',
+        cwd: '/workspace/project-1',
+        runtime: 'host',
+      }),
+    },
+    taskContextRepository: {
+      find: (id: string) => (id === context.id ? context : null),
+      list: () => [context],
+    },
+    taskContextSnapshotReader: {
+      snapshot: async () => {
+        throw new Error('sensitive-github-token-should-never-leak');
+      },
+    },
+    now: () => '2026-10-22T14:03:00.000Z',
+  } as never);
+
+  const feedback = await service.refreshPullRequestFeedback(
+    'project-1',
+    task.id,
+  );
+  assert.equal(feedback.status, 'unavailable');
+  assert.equal(feedback.automaticContinuation, false);
+  assert.doesNotMatch(JSON.stringify(feedback), /sensitive-github-token/);
+
+  const result = await service.execute('project-1', task.id, 'codex');
+  assert.equal(result.providerResult.outcome, 'succeeded');
+  assert.equal(localExecutionCount, 1);
+  assert.equal((await store.get(task.id))?.task.state, 'review');
+  assert.ok(evidence.length >= 2);
+  assert.doesNotMatch(JSON.stringify(evidence), /sensitive-github-token/);
+});
