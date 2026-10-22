@@ -155,9 +155,10 @@ test('limpeza da task não herda remoção tardia; erro stale é ignorado', asyn
 });
 
 test('aplica budget novo, mantém blocking, alertas e valida campos', async () => {
-  const { state, loads, saves, removals } = setup(
-    () => ({ projectId: 'project-a', taskId: 'task-a' }),
-  );
+  const { state, loads, saves, removals } = setup(() => ({
+    projectId: 'project-a',
+    taskId: 'task-a',
+  }));
 
   await assert.rejects(state.saveBudgetChanges(), /Informe pelo menos/);
   assert.equal(saves.length, 0);
