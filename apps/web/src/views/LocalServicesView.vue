@@ -137,7 +137,11 @@ onBeforeUnmount(() => {
     <div v-if="actionError || error" role="alert" class="local-service-alert">
       {{ actionError || error }}
     </div>
-    <div v-if="notice && !actionError && !error" role="status" class="local-service-notice">
+    <div
+      v-if="notice && !actionError && !error"
+      role="status"
+      class="local-service-notice"
+    >
       {{ notice }}
     </div>
     <article v-if="service" class="local-service-card" :aria-busy="pending">
@@ -175,7 +179,9 @@ onBeforeUnmount(() => {
           class="primary-button"
           type="button"
           :disabled="
-            pending || !service.controllable || !['stopped', 'failed'].includes(service.state)
+            pending ||
+            !service.controllable ||
+            !['stopped', 'failed'].includes(service.state)
           "
           @click="operate('start')"
         >

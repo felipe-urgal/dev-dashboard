@@ -45,36 +45,59 @@ describe('local services lifecycle feedback', () => {
   });
 
   it('keeps a stop error visible after automatic refresh and manual refresh', async () => {
-    api.applyLocalServiceAction.mockRejectedValue(new Error('Helper não autorizado.'));
+    api.applyLocalServiceAction.mockRejectedValue(
+      new Error('Helper não autorizado.'),
+    );
     const wrapper = mount(LocalServicesView);
     await flushPromises();
 
-    const stop = wrapper.findAll('button').find(button => button.text() === 'Parar');
+    const stop = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Parar');
     expect(stop).toBeDefined();
     await stop!.trigger('click');
     await flushPromises();
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('Helper não autorizado.');
+    expect(wrapper.get('[role="alert"]').text()).toContain(
+      'Helper não autorizado.',
+    );
     await vi.advanceTimersByTimeAsync(10_000);
     await flushPromises();
-    expect(wrapper.get('[role="alert"]').text()).toContain('Helper não autorizado.');
+    expect(wrapper.get('[role="alert"]').text()).toContain(
+      'Helper não autorizado.',
+    );
 
-    const reload = wrapper.findAll('button').find(button => button.text() === 'Atualizar estado');
+    const reload = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Atualizar estado');
     await reload!.trigger('click');
     await flushPromises();
-    expect(wrapper.get('[role="alert"]').text()).toContain('Helper não autorizado.');
+    expect(wrapper.get('[role="alert"]').text()).toContain(
+      'Helper não autorizado.',
+    );
     wrapper.unmount();
   });
 
   it('allows restart after failed unit and shows recovered state', async () => {
-    api.fetchLocalServices.mockResolvedValue([{ ...active, state: 'failed', readiness: 'unknown' }]);
-    api.fetchLocalServicePlan.mockResolvedValue({ ...plan, action: 'start', expectedState: 'failed' });
+    api.fetchLocalServices.mockResolvedValue([
+      { ...active, state: 'failed', readiness: 'unknown' },
+    ]);
+    api.fetchLocalServicePlan.mockResolvedValue({
+      ...plan,
+      action: 'start',
+      expectedState: 'failed',
+    });
     api.applyLocalServiceAction.mockResolvedValue({
-      action: 'start', status: 'completed', service: active, message: 'Estado confirmado.',
+      action: 'start',
+      status: 'completed',
+      service: active,
+      message: 'Estado confirmado.',
     });
     const wrapper = mount(LocalServicesView);
     await flushPromises();
-    const start = wrapper.findAll('button').find(button => button.text() === 'Iniciar');
+    const start = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Iniciar');
     expect(start?.attributes('disabled')).toBeUndefined();
     await start!.trigger('click');
     await flushPromises();

@@ -26,8 +26,18 @@ function fixture(initial: 'running' | 'stopped' | 'failed' = 'stopped') {
         return [
           'Id=home-music.service',
           'LoadState=loaded',
-          'ActiveState=' + (state === 'running' ? 'active' : state === 'failed' ? 'failed' : 'inactive'),
-          'SubState=' + (state === 'running' ? 'running' : state === 'failed' ? 'failed' : 'dead'),
+          'ActiveState=' +
+            (state === 'running'
+              ? 'active'
+              : state === 'failed'
+                ? 'failed'
+                : 'inactive'),
+          'SubState=' +
+            (state === 'running'
+              ? 'running'
+              : state === 'failed'
+                ? 'failed'
+                : 'dead'),
           'UnitFileState=enabled',
           'FragmentPath=/etc/systemd/system/home-music.service',
           'Transient=no',
