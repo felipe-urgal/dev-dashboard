@@ -102,6 +102,7 @@ interface TaskListQuery {
   limit?: number;
   cursor?: string;
   order?: 'priority';
+  includeArchived?: boolean;
 }
 
 interface ProviderPreferenceBody {
@@ -1152,6 +1153,7 @@ const taskSchema = {
     },
     createdAt: { type: 'string' },
     updatedAt: { type: 'string' },
+    archivedAt: { type: 'string' },
   },
 } as const;
 
@@ -2104,6 +2106,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
               pattern: '^(?:[a-f0-9]{64}|[a-f0-9]{40}[.][a-f0-9]{64})$',
             },
             order: { type: 'string', enum: ['priority'] },
+            includeArchived: { type: 'boolean' },
           },
         },
         response: {
@@ -2124,7 +2127,13 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) =>
       withAgentErrors(async () => {
-        const { limit, cursor, order } = request.query;
+        const { limit, cursor, order, includeArchived } = request.query;
+        if (includeArchived !== undefined && order !== 'priority') {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_INVALID_REQUEST',
+            'includeArchived requires priority task ordering.',
+          );
+        }
         if (limit === undefined && cursor === undefined && !order) {
           return {
             tasks: await options.agentRuntimeApiService.listTasks(
@@ -2141,6 +2150,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
             limit: limit ?? 20,
             ...(cursor ? { cursor } : {}),
             ...(order ? { order } : {}),
+            ...(includeArchived !== undefined ? { includeArchived } : {}),
           },
         );
       }),
@@ -2233,6 +2243,39 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
           request.params.taskId,
         ),
       })),
+  );
+
+  app.post<{ Params: TaskParams }>(
+    '/projects/:projectId/agent/tasks/:taskId/archive',
+    {
+      schema: {
+        params: taskParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['task'],
+            properties: { task: taskRecordSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => {
+        if (!options.agentRuntimeApiService.archiveTask) {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_INVALID_REQUEST',
+            'Agent task archiving is unavailable.',
+          );
+        }
+        return {
+          task: await options.agentRuntimeApiService.archiveTask(
+            request.params.projectId,
+            request.params.taskId,
+          ),
+        };
+      }),
   );
 
   app.post<{ Params: TaskParams; Body: AdoptGitRefBody }>(
