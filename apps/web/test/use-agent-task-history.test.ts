@@ -14,6 +14,7 @@ interface Request {
   projectId: string;
   limit?: number;
   cursor?: string;
+  order?: 'priority';
   resolve: (value: AgentTaskPage) => void;
   reject: (error: Error) => void;
 }
@@ -60,6 +61,11 @@ test('primeira página limitada, cursor, dedupe e versão mais nova', async () =
     { projectId: requests[0]!.projectId, limit: requests[0]!.limit },
     { projectId: 'project-a', limit: 20 },
   );
+  assert.equal(requests[0]!.order, 'priority');
+  assert.deepEqual(
+    { projectId: requests[0]!.projectId, limit: requests[0]!.limit },
+    { projectId: 'project-a', limit: 20 },
+  );
   requests[0]!.resolve({
     tasks: [fakeTask('project-a', 'task-1', 3)],
     nextCursor: 'a'.repeat(64),
@@ -71,6 +77,7 @@ test('primeira página limitada, cursor, dedupe e versão mais nova', async () =
 
   const next = history.loadNextPage();
   assert.equal(requests[1]!.cursor, 'a'.repeat(64));
+  assert.equal(requests[1]!.order, 'priority');
   const simultaneous = history.loadNextPage();
   assert.equal(requests.length, 2);
   requests[1]!.resolve({
@@ -176,5 +183,7 @@ test('cockpit não faz GET legado do histórico inteiro', () => {
   assert.match(panel, /loadNextPage\(\)/);
   assert.match(panel, /props\.initialTaskId \|\| active\?\.task\.id/);
   assert.match(panel, /Carregar mais/);
+  assert.match(panel, /compareTaskPriority/);
+  assert.match(panel, /Atualizar histórico/);
   assert.doesNotMatch(panel, /fetchAgentTasks/);
 });
