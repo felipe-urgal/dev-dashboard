@@ -6,8 +6,8 @@ import type {
   AgentTask,
   AgentTaskRecord,
   AgentTaskStore,
-  type AgentTaskPage,
-  type AgentTaskPageOptions,
+  AgentTaskPage,
+  AgentTaskPageOptions,
 } from './contracts.js';
 import {
   runAgentCliProcess,
