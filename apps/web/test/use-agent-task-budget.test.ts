@@ -187,7 +187,8 @@ test('cockpit usa único owner de budget e invalida estado nos limites', () => {
     'utf8',
   );
   assert.match(panel, /useAgentTaskBudget/);
-  assert.match(panel, /reloadBudget\(\)/);
+  assert.match(panel, /useAgentTaskSupplementalData/);
+  assert.match(panel, /loadSupplementalData\(\)/);
   assert.match(panel, /saveBudgetChanges\(\)/);
   assert.match(panel, /clearBudgetChanges\(\)/);
   assert.doesNotMatch(panel, /budget\.value\s*=/);
