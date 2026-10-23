@@ -325,7 +325,7 @@ test('registro de archives não atravessa projetos e tem tamanho limitado', () =
   );
 });
 
-test('falha de página mantém tasks e cursor; retry continua sem primeira página', async () => {
+test('falha em página mantém cursor e histórico para retry', async () => {
   const { requests, fetchPage } = client();
   const history = useAgentTaskHistory(() => 'project-a', fetchPage);
 
@@ -367,7 +367,7 @@ test('falha de página mantém tasks e cursor; retry continua sem primeira pági
   ]);
 });
 
-test('cockpit preserva lista durante erro e usa cursor no retry da paginação', () => {
+test('retry de paginação mantém lista visível no cockpit', () => {
   const panel = readFileSync(
     resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
     'utf8',
