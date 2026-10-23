@@ -127,7 +127,7 @@ test('A → B → A ignores late success, and keeps the serialized lock until HT
   assert.equal(h.state.mutationBusy.value, false);
 });
 
-test('stale error cannot overwrite a new project's error and never reloads it', async () => {
+test('stale error cannot overwrite another project and never reloads it', async () => {
   const h = harness();
   const response = deferred<void>();
   const pending = h.state.mutate({
