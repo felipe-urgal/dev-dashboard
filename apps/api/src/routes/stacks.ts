@@ -578,7 +578,9 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
         },
       },
     },
-    async () => ({ resources: await options.stackResourceCatalogService.list() }),
+    async () => ({
+      resources: await options.stackResourceCatalogService.list(),
+    }),
   );
 
   app.get<{ Params: StackParams }>(

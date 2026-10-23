@@ -15,7 +15,10 @@ export class StackResourceCatalogService {
   public constructor(
     private readonly dependencies: {
       projectStore: Pick<ProjectStore, 'findProject'>;
-      environments: Pick<DevelopmentEnvironmentInstanceStore, 'list' | 'resolveForProject'>;
+      environments: Pick<
+        DevelopmentEnvironmentInstanceStore,
+        'list' | 'resolveForProject'
+      >;
       processes: Pick<ProcessManager, 'listProcesses'>;
       compose: Pick<DockerComposeProvider, 'inspect'>;
       ownership: Pick<DockerComposeOwnershipStore, 'get'>;
@@ -30,9 +33,17 @@ export class StackResourceCatalogService {
     );
 
     for (const environment of environments) {
-      const project = this.dependencies.projectStore.findProject(environment.projectId);
+      const project = this.dependencies.projectStore.findProject(
+        environment.projectId,
+      );
       if (!project) continue;
-      const name = project.name + ' · ' + environment.source.kind + ' (' + environment.id + ')';
+      const name =
+        project.name +
+        ' · ' +
+        environment.source.kind +
+        ' (' +
+        environment.id +
+        ')';
       resources.push({
         name: name + ' · Ambiente',
         target: {
@@ -61,10 +72,18 @@ export class StackResourceCatalogService {
         ? knownEnvironments.get(process.environmentInstanceId)
         : undefined;
       if (!environment || environment.projectId !== process.projectId) continue;
-      const project = this.dependencies.projectStore.findProject(process.projectId);
+      const project = this.dependencies.projectStore.findProject(
+        process.projectId,
+      );
       if (!project || !process.id || process.id.length > 160) continue;
       resources.push({
-        name: project.name + ' · Processo ' + process.kind + ' (' + process.id + ')',
+        name:
+          project.name +
+          ' · Processo ' +
+          process.kind +
+          ' (' +
+          process.id +
+          ')',
         target: {
           kind: 'process',
           projectId: project.id,
@@ -82,21 +101,37 @@ export class StackResourceCatalogService {
           projectStore: this.dependencies.projectStore,
           developmentEnvironmentInstanceStore: this.dependencies.environments,
         },
-        { projectId: environment.projectId, environmentInstanceId: environment.id },
+        {
+          projectId: environment.projectId,
+          environmentInstanceId: environment.id,
+        },
       );
       if (resolution.state !== 'resolved') continue;
       try {
         const owner = await this.dependencies.ownership.get(resolution.project);
         if (!owner) continue;
-        const inspection = await this.dependencies.compose.inspect(resolution.project);
-        if (!inspection.config || inspection.config.projectName !== owner.composeProjectName)
+        const inspection = await this.dependencies.compose.inspect(
+          resolution.project,
+        );
+        if (
+          !inspection.config ||
+          inspection.config.projectName !== owner.composeProjectName
+        )
           continue;
-        const project = this.dependencies.projectStore.findProject(environment.projectId);
+        const project = this.dependencies.projectStore.findProject(
+          environment.projectId,
+        );
         if (!project) continue;
         for (const service of inspection.config.services) {
           if (!service.name || service.name.length > 160) continue;
           resources.push({
-            name: project.name + ' · Compose ' + service.name + ' (' + environment.id + ')',
+            name:
+              project.name +
+              ' · Compose ' +
+              service.name +
+              ' (' +
+              environment.id +
+              ')',
             target: {
               kind: 'compose-service',
               projectId: project.id,
