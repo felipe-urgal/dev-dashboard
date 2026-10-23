@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { ArrowPathIcon, PuzzlePieceIcon } from '@heroicons/vue/24/outline';
 import { RouterLink } from 'vue-router';
 
 import type { Project } from '@dev-dashboard/contracts';
 
 import {
-  fetchAgentIntegrationCapabilities,
   fetchAgentIntegrationDetails,
   fetchAgentIntegrations,
   installAgentIntegration,
@@ -16,8 +15,8 @@ import {
   type AgentConcreteProviderId,
   type AgentIntegration,
   type AgentIntegrationDetails,
-  type AgentIntegrationProviderCapabilities,
 } from '../api/agent-runtime';
+import { useAgentIntegrationDiscovery } from '../composables/useAgentIntegrationDiscovery';
 import { confirmDialog } from '../stores/app-dialog';
 import { copyTextToClipboard } from '../utils/terminal-clipboard';
 import StatusBadge from './StatusBadge.vue';
@@ -40,12 +39,22 @@ const selectedProviderId = ref<AgentConcreteProviderId>('codex');
 const selectedIntegrationView = ref<IntegrationView>('all');
 const claudePluginInstallScope = ref<ClaudeMutableScope>('local');
 const claudeMcpInstallScope = ref<ClaudeMutableScope>('local');
-const capabilities = ref<AgentIntegrationProviderCapabilities[]>([]);
-const integrations = ref<AgentIntegration[]>([]);
-const integrationIssues = ref<string[]>([]);
-const loading = ref(false);
+const {
+  capabilities,
+  integrations,
+  integrationIssues,
+  loading,
+  errorMessage,
+  captureScope,
+  isCurrentScope,
+  resetDiscovery,
+  load,
+} = useAgentIntegrationDiscovery(() => ({
+  projectId: props.project.id,
+  providerId: selectedProviderId.value,
+  environmentInstanceId: props.environmentInstanceId,
+}));
 const installing = ref(false);
-const errorMessage = ref('');
 const installName = ref('');
 const installUrl = ref('');
 const installConfirmed = ref(false);
@@ -572,7 +581,12 @@ async function uninstallIntegration(
 async function inspectIntegration(
   integration: AgentIntegration,
 ): Promise<void> {
-  if (!canInspectSelectedProvider.value) return;
+  if (
+    !canInspectSelectedProvider.value ||
+    integration.providerId !== selectedProviderId.value
+  )
+    return;
+  const scope = captureScope();
 
   if (expandedIntegrationId.value === integration.id) {
     expandedIntegrationId.value = null;
@@ -585,22 +599,37 @@ async function inspectIntegration(
   inspectingIntegrationId.value = integration.id;
   errorMessage.value = '';
   try {
-    integrationDetails.value[integration.id] =
-      await fetchAgentIntegrationDetails(
-        props.project.id,
-        integration.providerId,
-        integration.kind,
-        integration.name,
-        props.environmentInstanceId,
-      );
+    const details = await fetchAgentIntegrationDetails(
+      scope.projectId,
+      integration.providerId,
+      integration.kind,
+      integration.name,
+      scope.environmentInstanceId,
+    );
+    if (
+      !isCurrentScope(scope) ||
+      expandedIntegrationId.value !== integration.id
+    )
+      return;
+    integrationDetails.value[integration.id] = details;
   } catch (error) {
+    if (
+      !isCurrentScope(scope) ||
+      expandedIntegrationId.value !== integration.id
+    )
+      return;
     expandedIntegrationId.value = null;
     errorMessage.value =
       error instanceof Error
         ? error.message
         : 'Não foi possível carregar os detalhes da integração.';
   } finally {
-    inspectingIntegrationId.value = null;
+    if (
+      isCurrentScope(scope) &&
+      inspectingIntegrationId.value === integration.id
+    ) {
+      inspectingIntegrationId.value = null;
+    }
   }
 }
 
@@ -655,41 +684,6 @@ async function installMcp(): Promise<void> {
   }
 }
 
-async function load(): Promise<void> {
-  loading.value = true;
-  errorMessage.value = '';
-
-  try {
-    capabilities.value = await fetchAgentIntegrationCapabilities();
-    try {
-      const discovery = await fetchAgentIntegrations(
-        props.project.id,
-        selectedProviderId.value,
-        props.environmentInstanceId,
-      );
-      integrations.value = discovery.integrations;
-      integrationIssues.value = discovery.issues.map((issue) => issue.message);
-    } catch (error) {
-      integrations.value = [];
-      integrationIssues.value = [];
-      errorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'A descoberta de integrações não está disponível para este provider.';
-    }
-  } catch (error) {
-    capabilities.value = [];
-    integrations.value = [];
-    integrationIssues.value = [];
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar as integrações do Agente.';
-  } finally {
-    loading.value = false;
-  }
-}
-
 watch(selectedProviderId, () => {
   selectedIntegrationView.value = 'all';
   authenticationHandoff.value = null;
@@ -706,10 +700,16 @@ watch(
     selectedProviderId.value,
   ],
   () => {
+    resetDiscovery();
+    integrationDetails.value = {};
+    expandedIntegrationId.value = null;
+    inspectingIntegrationId.value = null;
+    authenticationHandoff.value = null;
     void load();
   },
-  { immediate: true },
+  { immediate: true, flush: 'sync' },
 );
+onBeforeUnmount(resetDiscovery);
 </script>
 
 <template>
