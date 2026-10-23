@@ -227,7 +227,7 @@ test('reconectar exige snapshot da task selecionada', () => {
   assert.match(panel, /socketState === 'disconnected'/);
 });
 
-test('falha síncrona do WebSocket não bloqueia retry nem vaza erro interno', () => {
+test('falha ao criar WebSocket é recuperável e sanitizada', () => {
   const selected = { projectId: 'project-1', taskId: 'task-a' };
   const received: string[] = [];
   const errors: string[] = [];
