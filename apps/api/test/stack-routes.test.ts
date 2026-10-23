@@ -99,9 +99,17 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
     headers,
   });
   assert.equal(catalog.statusCode, 200);
-  const choices = catalog.json<{ resources: Array<{ name: string; target: { kind: string } }> }>().resources;
-  assert.equal(choices.some((choice) => choice.target.kind === 'environment'), true);
-  assert.equal(choices.some((choice) => choice.target.kind === 'health-check'), true);
+  const choices = catalog.json<{
+    resources: Array<{ name: string; target: { kind: string } }>;
+  }>().resources;
+  assert.equal(
+    choices.some((choice) => choice.target.kind === 'environment'),
+    true,
+  );
+  assert.equal(
+    choices.some((choice) => choice.target.kind === 'health-check'),
+    true,
+  );
   assert.equal(JSON.stringify(choices).includes('/tmp/api'), false);
 
   const created = await app.inject({

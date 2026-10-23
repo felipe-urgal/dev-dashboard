@@ -20,13 +20,15 @@ test('catalog exposes only backend-resolved targets, without paths or commands',
   const service = new StackResourceCatalogService({
     projectStore: { findProject: (id) => (id === 'api' ? project : null) },
     environments: {
-      list: () => [{
-        id: 'environment:primary:api',
-        projectId: 'api',
-        source: { kind: 'primary', path: '/tmp/api' },
-        runtime: { kind: 'host' },
-        lifecycle: 'ready',
-      }],
+      list: () => [
+        {
+          id: 'environment:primary:api',
+          projectId: 'api',
+          source: { kind: 'primary', path: '/tmp/api' },
+          runtime: { kind: 'host' },
+          lifecycle: 'ready',
+        },
+      ],
       resolveForProject: () => ({
         environmentInstanceId: 'environment:primary:api',
         cwd: '/tmp/api',
@@ -34,19 +36,22 @@ test('catalog exposes only backend-resolved targets, without paths or commands',
       }),
     },
     processes: {
-      listProcesses: async () => [{
-        id: 'owned-process',
-        projectId: 'api',
-        environmentInstanceId: 'environment:primary:api',
-        kind: 'server',
-        status: 'running',
-      }, {
-        id: 'foreign-process',
-        projectId: 'other',
-        environmentInstanceId: 'environment:primary:api',
-        kind: 'worker',
-        status: 'running',
-      }],
+      listProcesses: async () => [
+        {
+          id: 'owned-process',
+          projectId: 'api',
+          environmentInstanceId: 'environment:primary:api',
+          kind: 'server',
+          status: 'running',
+        },
+        {
+          id: 'foreign-process',
+          projectId: 'other',
+          environmentInstanceId: 'environment:primary:api',
+          kind: 'worker',
+          status: 'running',
+        },
+      ],
     },
     ownership: {
       get: async () => ({
@@ -63,7 +68,9 @@ test('catalog exposes only backend-resolved targets, without paths or commands',
         config: {
           projectName: 'owned-compose',
           observedAt: new Date().toISOString(),
-          services: [{ name: 'postgres', profiles: [], dependsOn: [], ports: [] }],
+          services: [
+            { name: 'postgres', profiles: [], dependsOn: [], ports: [] },
+          ],
           declaredPorts: [],
         },
       }),
@@ -71,26 +78,42 @@ test('catalog exposes only backend-resolved targets, without paths or commands',
   } as unknown as ConstructorParameters<typeof StackResourceCatalogService>[0]);
 
   const resources = await service.list();
-  assert.deepEqual(
-    resources.map((resource) => resource.target.kind).sort(),
-    ['compose-service', 'environment', 'health-check', 'process'],
+  assert.deepEqual(resources.map((resource) => resource.target.kind).sort(), [
+    'compose-service',
+    'environment',
+    'health-check',
+    'process',
+  ]);
+  assert.equal(
+    resources.some((r) => JSON.stringify(r).includes('foreign-process')),
+    false,
   );
-  assert.equal(resources.some((r) => JSON.stringify(r).includes('foreign-process')), false);
-  assert.equal(resources.some((r) => JSON.stringify(r).includes('/tmp/')), false);
-  assert.equal(resources.some((r) => r.target.kind === 'compose-service' && r.target.service === 'postgres'), true);
+  assert.equal(
+    resources.some((r) => JSON.stringify(r).includes('/tmp/')),
+    false,
+  );
+  assert.equal(
+    resources.some(
+      (r) =>
+        r.target.kind === 'compose-service' && r.target.service === 'postgres',
+    ),
+    true,
+  );
 });
 
 test('catalog does not offer Compose services with incompatible owner', async () => {
   const service = new StackResourceCatalogService({
     projectStore: { findProject: () => project },
     environments: {
-      list: () => [{
-        id: 'environment:primary:api',
-        projectId: 'api',
-        source: { kind: 'primary', path: '/tmp/api' },
-        runtime: { kind: 'host' },
-        lifecycle: 'ready',
-      }],
+      list: () => [
+        {
+          id: 'environment:primary:api',
+          projectId: 'api',
+          source: { kind: 'primary', path: '/tmp/api' },
+          runtime: { kind: 'host' },
+          lifecycle: 'ready',
+        },
+      ],
       resolveForProject: () => ({
         environmentInstanceId: 'environment:primary:api',
         cwd: '/tmp/api',
@@ -106,5 +129,8 @@ test('catalog does not offer Compose services with incompatible owner', async ()
     },
   } as unknown as ConstructorParameters<typeof StackResourceCatalogService>[0]);
   const resources = await service.list();
-  assert.equal(resources.some((resource) => resource.target.kind === 'compose-service'), false);
+  assert.equal(
+    resources.some((resource) => resource.target.kind === 'compose-service'),
+    false,
+  );
 });
