@@ -201,7 +201,9 @@ test('integration card invalidates scope synchronously on navigation and unmount
   assert.match(component, /useAgentIntegrationDiscovery\(/);
   assert.match(component, /resetDiscovery\(\)/);
   assert.match(component, /flush: 'sync'/);
-  assert.match(component, /onBeforeUnmount\(resetDiscovery\)/);
+  assert.ok(component.includes('onBeforeUnmount(() => {'));
+  assert.ok(component.includes('resetDiscovery();'));
+  assert.ok(component.includes('resetMutations();'));
   assert.match(component, /isCurrentScope\(scope\)/);
   assert.doesNotMatch(component, /async function load\(\): Promise<void>/);
 });

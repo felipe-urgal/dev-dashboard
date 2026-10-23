@@ -7,7 +7,6 @@ import type { Project } from '@dev-dashboard/contracts';
 
 import {
   fetchAgentIntegrationDetails,
-  fetchAgentIntegrations,
   installAgentIntegration,
   prepareAgentIntegrationAuthentication,
   setAgentIntegrationEnabled,
@@ -17,6 +16,7 @@ import {
   type AgentIntegrationDetails,
 } from '../api/agent-runtime';
 import { useAgentIntegrationDiscovery } from '../composables/useAgentIntegrationDiscovery';
+import { useAgentIntegrationMutations } from '../composables/useAgentIntegrationMutations';
 import { confirmDialog } from '../stores/app-dialog';
 import { copyTextToClipboard } from '../utils/terminal-clipboard';
 import StatusBadge from './StatusBadge.vue';
@@ -54,23 +54,34 @@ const {
   providerId: selectedProviderId.value,
   environmentInstanceId: props.environmentInstanceId,
 }));
-const installing = ref(false);
 const installName = ref('');
 const installUrl = ref('');
 const installConfirmed = ref(false);
 const integrationDetails = ref<Record<string, AgentIntegrationDetails>>({});
 const expandedIntegrationId = ref<string | null>(null);
 const inspectingIntegrationId = ref<string | null>(null);
-const togglingIntegrationId = ref<string | null>(null);
-const installingIntegrationId = ref<string | null>(null);
-const uninstallingIntegrationId = ref<string | null>(null);
-const authenticatingIntegrationId = ref<string | null>(null);
 const authenticationHandoff = ref<{
   integrationId: string;
   providerId: AgentConcreteProviderId;
   command: string;
   copied: boolean;
 } | null>(null);
+const {
+  mutationBusy,
+  installing,
+  installingIntegrationId,
+  authenticatingIntegrationId,
+  togglingIntegrationId,
+  uninstallingIntegrationId,
+  resetMutations,
+  mutate,
+} = useAgentIntegrationMutations(
+  () => captureScope(),
+  load,
+  (message) => {
+    errorMessage.value = message;
+  },
+);
 
 const selectedCapabilities = computed(
   () =>
@@ -281,61 +292,43 @@ const canUninstallIntegration = (integration: AgentIntegration): boolean =>
 async function installClaudePlugin(
   integration: AgentIntegration,
 ): Promise<void> {
-  if (
-    !canInstallIntegration(integration) ||
-    !integration.marketplace ||
-    installingIntegrationId.value
-  ) {
-    return;
-  }
-
-  const scopeLabel = capabilityScopeLabel(claudePluginInstallScope.value);
-  const confirmed = await confirmDialog({
-    title: 'Instalar plugin do Claude Code',
-    message:
-      'Instalar ' +
-      integration.name +
-      '@' +
-      integration.marketplace +
-      ' no escopo ' +
-      scopeLabel +
-      '? Plugins podem incluir skills, agents, hooks, MCP servers e LSP. Comandos declarados pelo marketplace não serão aceitos automaticamente.',
-    confirmLabel: 'Instalar plugin',
-    cancelLabel: 'Cancelar',
-    tone: 'warning',
+  if (!canInstallIntegration(integration)) return;
+  const entry = { ...integration };
+  const scope = claudePluginInstallScope.value;
+  const label = capabilityScopeLabel(scope);
+  await mutate({
+    kind: 'install-plugin',
+    providerId: entry.providerId,
+    integrationId: entry.id,
+    fallback: 'Não foi possível instalar o plugin do Claude Code.',
+    confirm: () =>
+      confirmDialog({
+        title: 'Instalar plugin do Claude Code',
+        message:
+          'Instalar ' +
+          entry.name +
+          '@' +
+          entry.marketplace +
+          ' no escopo ' +
+          label +
+          '? Plugins podem incluir skills, agents, hooks, MCP servers e LSP. Comandos declarados pelo marketplace não serão aceitos automaticamente.',
+        confirmLabel: 'Instalar plugin',
+        cancelLabel: 'Cancelar',
+        tone: 'warning',
+      }),
+    submit: (target) =>
+      installAgentIntegration(target.projectId, {
+        providerId: 'claude-code',
+        ...(target.environmentInstanceId
+          ? { environmentInstanceId: target.environmentInstanceId }
+          : {}),
+        kind: 'plugin',
+        name: entry.name,
+        ...(entry.marketplace ? { marketplace: entry.marketplace } : {}),
+        scope,
+        confirmed: true,
+      }),
   });
-  if (!confirmed) return;
-
-  installingIntegrationId.value = integration.id;
-  errorMessage.value = '';
-  try {
-    await installAgentIntegration(props.project.id, {
-      providerId: 'claude-code',
-      ...(props.environmentInstanceId
-        ? { environmentInstanceId: props.environmentInstanceId }
-        : {}),
-      kind: 'plugin',
-      name: integration.name,
-      marketplace: integration.marketplace,
-      scope: claudePluginInstallScope.value,
-      confirmed: true,
-    });
-
-    const discovery = await fetchAgentIntegrations(
-      props.project.id,
-      'claude-code',
-      props.environmentInstanceId,
-    );
-    integrations.value = discovery.integrations;
-    integrationIssues.value = discovery.issues.map((issue) => issue.message);
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível instalar o plugin do Claude Code.';
-  } finally {
-    installingIntegrationId.value = null;
-  }
 }
 
 async function prepareAuthentication(
@@ -343,239 +336,139 @@ async function prepareAuthentication(
 ): Promise<void> {
   if (
     !canAuthenticateIntegration(integration) ||
-    (integration.providerId === 'claude-code' && !integration.scope) ||
-    authenticatingIntegrationId.value
-  ) {
+    (integration.providerId === 'claude-code' && !integration.scope)
+  )
     return;
-  }
-
-  authenticatingIntegrationId.value = integration.id;
-  authenticationHandoff.value = null;
-  errorMessage.value = '';
-  try {
-    const handoff = await prepareAgentIntegrationAuthentication(
-      props.project.id,
-      {
-        providerId: integration.providerId,
-        ...(props.environmentInstanceId
-          ? { environmentInstanceId: props.environmentInstanceId }
+  const entry = { ...integration };
+  await mutate({
+    kind: 'authenticate',
+    providerId: entry.providerId,
+    integrationId: entry.id,
+    fallback: 'Não foi possível preparar a autenticação do MCP.',
+    refresh: false,
+    submit: (target) =>
+      prepareAgentIntegrationAuthentication(target.projectId, {
+        providerId: entry.providerId,
+        ...(target.environmentInstanceId
+          ? { environmentInstanceId: target.environmentInstanceId }
           : {}),
         kind: 'mcp-server',
-        name: integration.name,
-        ...(integration.scope ? { scope: integration.scope } : {}),
-      },
-    );
-    authenticationHandoff.value = {
-      integrationId: integration.id,
-      providerId: handoff.providerId,
-      command: [handoff.program, ...handoff.args].join(' '),
-      copied: false,
-    };
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível preparar a autenticação do MCP.';
-  } finally {
-    authenticatingIntegrationId.value = null;
-  }
+        name: entry.name,
+        ...(entry.scope ? { scope: entry.scope } : {}),
+      }),
+    apply: (handoff) => {
+      authenticationHandoff.value = {
+        integrationId: entry.id,
+        providerId: handoff.providerId,
+        command: [handoff.program, ...handoff.args].join(' '),
+        copied: false,
+      };
+    },
+  });
 }
 
 async function copyAuthenticationCommand(): Promise<void> {
   const handoff = authenticationHandoff.value;
   if (!handoff) return;
-
+  const scope = captureScope();
   const copied = await copyTextToClipboard(handoff.command);
+  if (!isCurrentScope(scope) || authenticationHandoff.value !== handoff) return;
   if (!copied) {
     errorMessage.value = 'Não foi possível copiar o comando de autenticação.';
     return;
   }
-
   handoff.copied = true;
 }
 
 async function toggleIntegration(integration: AgentIntegration): Promise<void> {
-  if (
-    !canToggleIntegration(integration) ||
-    !integration.marketplace ||
-    !integration.scope ||
-    integration.enabled === undefined ||
-    togglingIntegrationId.value
-  ) {
-    return;
-  }
-
-  togglingIntegrationId.value = integration.id;
-  errorMessage.value = '';
-  try {
-    const updated = await setAgentIntegrationEnabled(props.project.id, {
-      providerId: 'claude-code',
-      ...(props.environmentInstanceId
-        ? { environmentInstanceId: props.environmentInstanceId }
-        : {}),
-      kind: 'plugin',
-      name: integration.name,
-      marketplace: integration.marketplace,
-      scope: integration.scope,
-      enabled: !integration.enabled,
-    });
-    const current = integrations.value.find(
-      (item) => item.id === integration.id,
-    );
-    if (current && updated.enabled !== undefined) {
-      current.enabled = updated.enabled;
-    }
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível alterar o estado do plugin.';
-  } finally {
-    togglingIntegrationId.value = null;
-  }
+  if (!canToggleIntegration(integration)) return;
+  const entry = { ...integration };
+  await mutate({
+    kind: 'toggle',
+    providerId: entry.providerId,
+    integrationId: entry.id,
+    fallback: 'Não foi possível alterar o estado do plugin.',
+    submit: (target) =>
+      setAgentIntegrationEnabled(target.projectId, {
+        providerId: 'claude-code',
+        ...(target.environmentInstanceId
+          ? { environmentInstanceId: target.environmentInstanceId }
+          : {}),
+        kind: 'plugin',
+        name: entry.name,
+        ...(entry.marketplace ? { marketplace: entry.marketplace } : {}),
+        scope: entry.scope!,
+        enabled: !entry.enabled,
+      }),
+  });
 }
 
 async function uninstallIntegration(
   integration: AgentIntegration,
 ): Promise<void> {
-  if (
-    !canUninstallIntegration(integration) ||
-    uninstallingIntegrationId.value
-  ) {
-    return;
-  }
-
-  if (integration.providerId === 'codex') {
-    const confirmed = await confirmDialog({
-      title: 'Remover MCP global do Codex',
-      message:
-        'Remover a entrada global do usuário para ' +
-        integration.name +
-        '? Se este MCP também estiver configurado no projeto, ele continuará listado.',
-      confirmLabel: 'Remover MCP global',
-      cancelLabel: 'Cancelar',
-      tone: 'danger',
-    });
-    if (!confirmed) return;
-
-    uninstallingIntegrationId.value = integration.id;
-    errorMessage.value = '';
-    try {
-      await uninstallAgentIntegration(props.project.id, {
-        providerId: 'codex',
-        ...(props.environmentInstanceId
-          ? { environmentInstanceId: props.environmentInstanceId }
+  if (!canUninstallIntegration(integration)) return;
+  const entry = { ...integration };
+  const isCodex = entry.providerId === 'codex';
+  const isMcp = entry.kind === 'mcp-server';
+  const confirmOptions = isCodex
+    ? {
+        title: 'Remover MCP global do Codex',
+        message:
+          'Remover a entrada global do usuário para ' +
+          entry.name +
+          '? Se este MCP também estiver configurado no projeto, ele continuará listado.',
+        confirmLabel: 'Remover MCP global',
+      }
+    : isMcp
+      ? {
+          title: 'Remover MCP do Claude Code',
+          message:
+            'Remover ' +
+            entry.name +
+            ' do escopo ' +
+            integrationScopeLabel(entry) +
+            '? Para servidores remotos, o Claude Code também pode remover credenciais OAuth armazenadas para este servidor.',
+          confirmLabel: 'Remover MCP',
+        }
+      : {
+          title: 'Remover plugin',
+          message:
+            'Remover ' +
+            entry.name +
+            ' do escopo ' +
+            integrationScopeLabel(entry) +
+            '? Os dados persistentes do plugin serão preservados.',
+          confirmLabel: 'Remover plugin',
+        };
+  if (!isCodex && !entry.scope) return;
+  await mutate({
+    kind: 'uninstall',
+    providerId: entry.providerId,
+    integrationId: entry.id,
+    fallback: isCodex
+      ? 'Não foi possível remover o MCP global do Codex.'
+      : isMcp
+        ? 'Não foi possível remover o MCP do Claude Code.'
+        : 'Não foi possível remover o plugin.',
+    confirm: () =>
+      confirmDialog({
+        ...confirmOptions,
+        cancelLabel: 'Cancelar',
+        tone: 'danger',
+      }),
+    submit: (target) =>
+      uninstallAgentIntegration(target.projectId, {
+        providerId: entry.providerId,
+        ...(target.environmentInstanceId
+          ? { environmentInstanceId: target.environmentInstanceId }
           : {}),
-        kind: 'mcp-server',
-        name: integration.name,
-        scope: 'user',
+        kind: entry.kind,
+        name: entry.name,
+        ...(entry.marketplace ? { marketplace: entry.marketplace } : {}),
+        scope: isCodex ? 'user' : entry.scope!,
         confirmed: true,
-      });
-      integrations.value = integrations.value.filter(
-        (item) => item.id !== integration.id,
-      );
-    } catch (error) {
-      errorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível remover o MCP global do Codex.';
-    } finally {
-      uninstallingIntegrationId.value = null;
-    }
-    return;
-  }
-
-  if (
-    integration.providerId === 'claude-code' &&
-    integration.kind === 'mcp-server' &&
-    integration.scope
-  ) {
-    const confirmed = await confirmDialog({
-      title: 'Remover MCP do Claude Code',
-      message:
-        'Remover ' +
-        integration.name +
-        ' do escopo ' +
-        integrationScopeLabel(integration) +
-        '? Para servidores remotos, o Claude Code também pode remover credenciais OAuth armazenadas para este servidor.',
-      confirmLabel: 'Remover MCP',
-      cancelLabel: 'Cancelar',
-      tone: 'danger',
-    });
-    if (!confirmed) return;
-
-    uninstallingIntegrationId.value = integration.id;
-    errorMessage.value = '';
-    try {
-      await uninstallAgentIntegration(props.project.id, {
-        providerId: 'claude-code',
-        ...(props.environmentInstanceId
-          ? { environmentInstanceId: props.environmentInstanceId }
-          : {}),
-        kind: 'mcp-server',
-        name: integration.name,
-        scope: integration.scope,
-        confirmed: true,
-      });
-      const discovery = await fetchAgentIntegrations(
-        props.project.id,
-        'claude-code',
-        props.environmentInstanceId,
-      );
-      integrations.value = discovery.integrations;
-      integrationIssues.value = discovery.issues.map((issue) => issue.message);
-    } catch (error) {
-      errorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível remover o MCP do Claude Code.';
-    } finally {
-      uninstallingIntegrationId.value = null;
-    }
-    return;
-  }
-
-  if (!integration.marketplace || !integration.scope) return;
-
-  const confirmed = await confirmDialog({
-    title: 'Remover plugin',
-    message:
-      'Remover ' +
-      integration.name +
-      ' do escopo ' +
-      integrationScopeLabel(integration) +
-      '? Os dados persistentes do plugin serão preservados.',
-    confirmLabel: 'Remover plugin',
-    cancelLabel: 'Cancelar',
-    tone: 'danger',
+      }),
   });
-  if (!confirmed) return;
-
-  uninstallingIntegrationId.value = integration.id;
-  errorMessage.value = '';
-  try {
-    await uninstallAgentIntegration(props.project.id, {
-      providerId: 'claude-code',
-      ...(props.environmentInstanceId
-        ? { environmentInstanceId: props.environmentInstanceId }
-        : {}),
-      kind: 'plugin',
-      name: integration.name,
-      marketplace: integration.marketplace,
-      scope: integration.scope,
-      confirmed: true,
-    });
-    integrations.value = integrations.value.filter(
-      (item) => item.id !== integration.id,
-    );
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível remover o plugin.';
-  } finally {
-    uninstallingIntegrationId.value = null;
-  }
 }
 
 async function inspectIntegration(
@@ -634,54 +527,46 @@ async function inspectIntegration(
 }
 
 async function installMcp(): Promise<void> {
+  const providerId = selectedProviderId.value;
   if (
-    (selectedProviderId.value !== 'codex' &&
-      selectedProviderId.value !== 'claude-code') ||
-    installing.value ||
+    (providerId !== 'codex' && providerId !== 'claude-code') ||
+    mutationBusy.value ||
     !installConfirmed.value ||
     !installName.value.trim() ||
     !installUrl.value.trim()
-  ) {
+  )
     return;
-  }
 
-  const providerId = selectedProviderId.value;
+  // Values must be immutable before the first await. A project switch after
+  // the confirmation cannot redirect the request to the newly selected target.
+  const name = installName.value.trim();
+  const url = installUrl.value.trim();
   const scope = providerId === 'codex' ? 'user' : claudeMcpInstallScope.value;
-
-  installing.value = true;
-  errorMessage.value = '';
-  try {
-    await installAgentIntegration(props.project.id, {
-      providerId,
-      ...(props.environmentInstanceId
-        ? { environmentInstanceId: props.environmentInstanceId }
-        : {}),
-      kind: 'mcp-server',
-      name: installName.value.trim(),
-      scope,
-      confirmed: true,
-      url: installUrl.value.trim(),
-    });
-    installName.value = '';
-    installUrl.value = '';
-    installConfirmed.value = false;
-    const discovery = await fetchAgentIntegrations(
-      props.project.id,
-      providerId,
-      props.environmentInstanceId,
-    );
-    integrations.value = discovery.integrations;
-    integrationIssues.value = discovery.issues.map((issue) => issue.message);
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : providerId === 'codex'
-          ? 'Não foi possível adicionar o MCP do Codex.'
-          : 'Não foi possível adicionar o MCP do Claude Code.';
-  } finally {
-    installing.value = false;
-  }
+  await mutate({
+    kind: 'install-mcp',
+    providerId,
+    fallback:
+      providerId === 'codex'
+        ? 'Não foi possível adicionar o MCP do Codex.'
+        : 'Não foi possível adicionar o MCP do Claude Code.',
+    submit: (target) =>
+      installAgentIntegration(target.projectId, {
+        providerId,
+        ...(target.environmentInstanceId
+          ? { environmentInstanceId: target.environmentInstanceId }
+          : {}),
+        kind: 'mcp-server',
+        name,
+        scope,
+        confirmed: true,
+        url,
+      }),
+    apply: () => {
+      installName.value = '';
+      installUrl.value = '';
+      installConfirmed.value = false;
+    },
+  });
 }
 
 watch(selectedProviderId, () => {
@@ -701,6 +586,7 @@ watch(
   ],
   () => {
     resetDiscovery();
+    resetMutations();
     integrationDetails.value = {};
     expandedIntegrationId.value = null;
     inspectingIntegrationId.value = null;
@@ -709,7 +595,10 @@ watch(
   },
   { immediate: true, flush: 'sync' },
 );
-onBeforeUnmount(resetDiscovery);
+onBeforeUnmount(() => {
+  resetDiscovery();
+  resetMutations();
+});
 </script>
 
 <template>
@@ -803,7 +692,7 @@ onBeforeUnmount(resetDiscovery);
           type="text"
           maxlength="64"
           placeholder="openaiDeveloperDocs"
-          :disabled="installing"
+          :disabled="mutationBusy"
         />
       </label>
       <label>
@@ -813,7 +702,7 @@ onBeforeUnmount(resetDiscovery);
           type="url"
           maxlength="2048"
           placeholder="https://example.com/mcp"
-          :disabled="installing"
+          :disabled="mutationBusy"
         />
       </label>
       <label
@@ -821,7 +710,7 @@ onBeforeUnmount(resetDiscovery);
         class="agent-integration-install-field"
       >
         <span>Escopo</span>
-        <select v-model="claudeMcpInstallScope" :disabled="installing">
+        <select v-model="claudeMcpInstallScope" :disabled="mutationBusy">
           <option value="local">Local</option>
           <option value="project">Projeto</option>
           <option value="user">Usuário global</option>
@@ -831,7 +720,7 @@ onBeforeUnmount(resetDiscovery);
         <input
           v-model="installConfirmed"
           type="checkbox"
-          :disabled="installing"
+          :disabled="mutationBusy"
         />
         <span>
           {{
@@ -851,7 +740,7 @@ onBeforeUnmount(resetDiscovery);
           class="secondary-button"
           type="submit"
           :disabled="
-            installing ||
+            mutationBusy ||
             !installConfirmed ||
             !installName.trim() ||
             !installUrl.trim()
@@ -906,10 +795,7 @@ onBeforeUnmount(resetDiscovery);
         class="agent-integration-install-scope"
       >
         <span>Escopo para instalar plugins</span>
-        <select
-          v-model="claudePluginInstallScope"
-          :disabled="Boolean(installingIntegrationId)"
-        >
+        <select v-model="claudePluginInstallScope" :disabled="mutationBusy">
           <option value="local">Local</option>
           <option value="project">Projeto</option>
           <option value="user">Usuário global</option>
@@ -991,7 +877,7 @@ onBeforeUnmount(resetDiscovery);
               v-if="canInstallIntegration(integration)"
               class="agent-integration-details-button"
               type="button"
-              :disabled="Boolean(installingIntegrationId)"
+              :disabled="mutationBusy"
               @click="installClaudePlugin(integration)"
             >
               {{
@@ -1004,7 +890,7 @@ onBeforeUnmount(resetDiscovery);
               v-if="canAuthenticateIntegration(integration)"
               class="agent-integration-details-button"
               type="button"
-              :disabled="authenticatingIntegrationId === integration.id"
+              :disabled="mutationBusy"
               @click="prepareAuthentication(integration)"
             >
               {{
@@ -1017,10 +903,7 @@ onBeforeUnmount(resetDiscovery);
               v-if="canToggleIntegration(integration)"
               class="agent-integration-details-button"
               type="button"
-              :disabled="
-                togglingIntegrationId === integration.id ||
-                uninstallingIntegrationId === integration.id
-              "
+              :disabled="mutationBusy"
               @click="toggleIntegration(integration)"
             >
               {{
@@ -1035,10 +918,7 @@ onBeforeUnmount(resetDiscovery);
               v-if="canUninstallIntegration(integration)"
               class="agent-integration-details-button"
               type="button"
-              :disabled="
-                uninstallingIntegrationId === integration.id ||
-                togglingIntegrationId === integration.id
-              "
+              :disabled="mutationBusy"
               @click="uninstallIntegration(integration)"
             >
               {{
