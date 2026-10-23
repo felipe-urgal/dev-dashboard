@@ -63,7 +63,7 @@ function harness() {
     kind: 'cancel' | 'retry' | 'recover';
     projectId: string;
     taskId: string;
-    resolve: (value: never) => void;
+    resolve: (value: AgentTaskRecord | AgentTaskStatus) => void;
     reject: (error: Error) => void;
   }> = [];
   const execute: typeof executeAgentTask = (
@@ -78,7 +78,7 @@ function harness() {
         projectId,
         taskId,
         providerId,
-        attachmentIds,
+        attachmentIds: attachmentIds ?? [],
         profileId,
         resolve,
         reject,
@@ -94,7 +94,7 @@ function harness() {
         kind,
         projectId,
         taskId,
-        resolve: resolve as (value: never) => void,
+        resolve: resolve as unknown as (value: AgentTaskRecord | AgentTaskStatus) => void,
         reject,
       });
     });
