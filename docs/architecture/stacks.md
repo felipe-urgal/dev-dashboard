@@ -122,6 +122,31 @@ Instance e processo usam o detalhe neutro do projeto: a definição da Stack nã
 o runtime da Environment Instance nem o `ManagedProcess.kind`, portanto a UI não
 infere Sidekiq/Webpack/Testes/Servidor a partir de ids ou nomes.
 
+### Administração pela interface
+
+`GET /api/stacks/resources` oferece um catálogo somente leitura e autenticado
+dos recursos que o servidor consegue identificar. Environment Instances vêm do
+store local; processos exigem vínculo comprovado com Project e Environment
+Instance; o health check de servidor é uma identidade conhecida; serviços
+Compose só são oferecidos quando a configuração estruturada coincide com o
+ownership do domínio Compose. Falhas de descoberta não inventam recursos.
+
+O catálogo não concede poderes sobre o host: disponibilidade de um target
+no seletor não substitui preflight e ownership no momento da execução.
+
+A interface permite criar a primeira Stack e editar a topologia existente
+usando exclusivamente targets escolhidos nesse catálogo. O browser cria apenas
+identidades locais de nodes e dependências explícitas: não envia path, command
+ou argv. O backend permanece responsável pela validação da definição,
+referências básicas, ciclos e revisão esperada nas edições. Alvos previamente
+persistidos podem continuar visíveis mesmo quando não aparecem no catálogo
+atual, para permitir inspeção e remoção sem adotar recursos externos.
+
+A confirmação de Stop conserva a revisão conhecida no início do diálogo e
+recusa Checks cuja definição não corresponde à Stack exibida. Isso **não**
+transforma o Stop em confirmação backend de plano multi-node, não cria um
+job agregador e não substitui fencing físico entre Stacks distintas.
+
 ## Journal opt-in de operações (base de recovery)
 
 O backend possui `StackOperationJournal`, um journal local de **metadados** versionados e limitados por tamanho (diretório `stack-operations-v1`, permissões `0700`/`0600`), com ID aleatório para cada solicitação e lock exclusivo por identidade da Stack (hash SHA-256 do ID). O journal registra intenção, revisão aceita, ordem de nodes e, após resposta do owner, somente `nodeId`/`state` dos steps retornados. Nunca persiste logs, caminhos, comandos ou diagnósticos brutos.

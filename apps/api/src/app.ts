@@ -47,6 +47,7 @@ import { GitWorktreeRemovalResourceGuardService } from './services/git-worktree-
 import { GitSyncProgressService } from './services/git-sync-progress-service.js';
 import { DashboardTerminalService } from './services/dashboard-terminal-service.js';
 import { StackDefinitionService } from './services/stack-definition-service.js';
+import { StackResourceCatalogService } from './services/stack-resource-catalog-service.js';
 import { StackDependencyDiscoveryService } from './services/stack-dependency-discovery-service.js';
 import { StackCheckService } from './services/stack-check-service.js';
 import { StackComposeHealthAdapter } from './services/stack-compose-health-adapter.js';
@@ -514,6 +515,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     ...(stackOperationJournal ? { stackOperationJournal } : {}),
     stackDefinitionService,
+    stackResourceCatalogService: new StackResourceCatalogService({
+      projectStore: context.projectStore,
+      environments: context.developmentEnvironmentInstanceStore,
+      processes: context.processManager,
+      compose: dockerComposeProvider,
+      ownership: dockerComposeOwnershipStore,
+    }),
     stackDependencyDiscoveryService,
     stackCheckService,
     stackLogsService,

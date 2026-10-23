@@ -3,6 +3,7 @@ import type {
   StackCheck,
   StackDependencyDiscovery,
   StackLogsSnapshot,
+  StackResource,
   StackRestartResult,
   StackStartResult,
   StackStopResult,
@@ -13,6 +14,17 @@ import { requestJson } from './core';
 interface StackListResponse {
   stacks: Stack[];
   revisions: Record<string, string>;
+}
+
+interface StackResourcesResponse {
+  resources: StackResource[];
+}
+
+export async function fetchStackResources(): Promise<StackResource[]> {
+  const response = await requestJson<StackResourcesResponse>(
+    '/api/stacks/resources',
+  );
+  return response.resources;
 }
 
 interface StackCheckResponse {

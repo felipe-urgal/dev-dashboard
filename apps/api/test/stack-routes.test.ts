@@ -93,6 +93,25 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
     'content-type': 'application/json',
   };
 
+  const catalog = await app.inject({
+    method: 'GET',
+    url: '/api/stacks/resources',
+    headers,
+  });
+  assert.equal(catalog.statusCode, 200);
+  const choices = catalog.json<{
+    resources: Array<{ name: string; target: { kind: string } }>;
+  }>().resources;
+  assert.equal(
+    choices.some((choice) => choice.target.kind === 'environment'),
+    true,
+  );
+  assert.equal(
+    choices.some((choice) => choice.target.kind === 'health-check'),
+    true,
+  );
+  assert.equal(JSON.stringify(choices).includes('/tmp/api'), false);
+
   const created = await app.inject({
     method: 'PUT',
     url: '/api/stacks/local-stack',

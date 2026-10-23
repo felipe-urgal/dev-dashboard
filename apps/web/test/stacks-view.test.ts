@@ -14,6 +14,10 @@ const viewSource = readFileSync(
   'utf8',
 );
 const apiSource = readFileSync(resolve(webRoot, 'src/api/stacks.ts'), 'utf8');
+const editorSource = readFileSync(
+  resolve(webRoot, 'src/components/StackDefinitionEditor.vue'),
+  'utf8',
+);
 const paletteSource = readFileSync(
   resolve(webRoot, 'src/command-palette-navigation.ts'),
   'utf8',
@@ -51,6 +55,22 @@ describe('Stacks multi-projeto', () => {
     expect(apiSource).not.toContain('command');
   });
 
+  it('cria Stacks sem definição prévia e edita nodes/arestas por catálogo backend', () => {
+    expect(viewSource).toContain('fetchStackResources');
+    expect(viewSource).toContain('async function submitCreate(');
+    expect(viewSource).toContain('await saveStack(definition)');
+    expect(viewSource).toContain('async function submitEdit(');
+    expect(viewSource).toContain('editingRevision.value');
+    expect(viewSource).toContain('StackDefinitionEditor');
+    expect(editorSource).toContain('props.resources[index]');
+    expect(editorSource).toContain('dependencies.value.push');
+    expect(editorSource).toContain('removeNode(');
+    expect(editorSource).not.toContain('command:');
+    expect(editorSource).not.toContain('argv:');
+    expect(editorSource).not.toContain('path:');
+    expect(apiSource).toContain("'/api/stacks/resources'");
+  });
+
   it('navega para o domínio responsável sem inferir process kind', () => {
     expect(viewSource).toContain("name: 'project-compose'");
     expect(viewSource).toContain("name: 'project-server'");
@@ -67,6 +87,11 @@ describe('Stacks multi-projeto', () => {
     expect(viewSource).toContain('@click="confirmStop(stack)"');
     expect(viewSource).toContain('function confirmStop(stack: Stack)');
     expect(viewSource).toContain('check.topology.stopOrder');
+    expect(viewSource).toContain('JSON.stringify(check.stack)');
+    expect(viewSource).toContain(
+      'const confirmedRevision = expectedRevision(stack.id)',
+    );
+    expect(viewSource).toContain('stopStack(stack.id, confirmedRevision)');
     expect(viewSource).toContain("node.target.kind === 'environment'");
     expect(viewSource).toContain("node.target.kind === 'health-check'");
     expect(viewSource).toContain('await confirmDialog({');
