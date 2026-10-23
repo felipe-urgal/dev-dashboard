@@ -31,7 +31,10 @@ function record(taskId: string, projectId = 'project-a'): AgentTaskRecord {
 }
 
 function status(taskId: string): AgentTaskStatus {
-  return { task: record(taskId), runtime: { state: 'idle' } } as AgentTaskStatus;
+  return {
+    task: record(taskId),
+    runtime: { state: 'idle' },
+  } as AgentTaskStatus;
 }
 
 function harness() {
@@ -63,9 +66,23 @@ function harness() {
     resolve: (value: never) => void;
     reject: (error: Error) => void;
   }> = [];
-  const execute: typeof executeAgentTask = (projectId, taskId, providerId, attachmentIds, profileId) =>
+  const execute: typeof executeAgentTask = (
+    projectId,
+    taskId,
+    providerId,
+    attachmentIds,
+    profileId,
+  ) =>
     new Promise((resolve, reject) => {
-      requests.push({ projectId, taskId, providerId, attachmentIds, profileId, resolve, reject });
+      requests.push({
+        projectId,
+        taskId,
+        providerId,
+        attachmentIds,
+        profileId,
+        resolve,
+        reject,
+      });
     });
   function mutation<T>(
     kind: 'cancel' | 'retry' | 'recover',
@@ -96,15 +113,28 @@ function harness() {
     mutating,
     (result) => executionResults.push(result.task.task.id),
     (result) => replaced.push(result.task.id),
-    async (selected) => { reloads.push(selected.taskId); },
+    async (selected) => {
+      reloads.push(selected.taskId);
+    },
     (message) => errors.push(message),
-    () => { cleared += 1; },
+    () => {
+      cleared += 1;
+    },
     { execute, cancel, retry, recover },
   );
   return {
-    state, target, mutating, requests, mutations, errors,
-    replaced, executionResults, reloads,
-    allow: (value: boolean) => { allowed = value; },
+    state,
+    target,
+    mutating,
+    requests,
+    mutations,
+    errors,
+    replaced,
+    executionResults,
+    reloads,
+    allow: (value: boolean) => {
+      allowed = value;
+    },
     cleared: () => cleared,
   };
 }
@@ -145,13 +175,20 @@ test('execution captures provider and attachments exactly once, then reconciles'
 
 test('A → B → A invalidates a late execution without replay or corrupting selection', async () => {
   const h = harness();
-  const old = h.state.executeCurrent({ providerId: 'codex', attachmentIds: [] });
+  const old = h.state.executeCurrent({
+    providerId: 'codex',
+    attachmentIds: [],
+  });
   h.target.taskId = 'task-b';
   h.state.resetLifecycle();
   h.target.taskId = 'task-a';
   h.state.resetLifecycle();
   await h.state.executeCurrent({ providerId: 'codex', attachmentIds: [] });
-  assert.equal(h.requests.length, 1, 'in-flight provider execution remains locked');
+  assert.equal(
+    h.requests.length,
+    1,
+    'in-flight provider execution remains locked',
+  );
   h.requests[0]!.resolve(execution('task-a'));
   await old;
   assert.deepEqual(h.executionResults, []);
@@ -162,14 +199,20 @@ test('A → B → A invalidates a late execution without replay or corrupting se
 
 test('stale execution error is ignored; ambiguous current error reloads without replay', async () => {
   const h = harness();
-  const stale = h.state.executeCurrent({ providerId: 'codex', attachmentIds: [] });
+  const stale = h.state.executeCurrent({
+    providerId: 'codex',
+    attachmentIds: [],
+  });
   h.target.projectId = 'project-b';
   h.state.resetLifecycle();
   h.requests[0]!.reject(new Error('stale private error'));
   await stale;
   assert.deepEqual(h.errors, []);
   assert.deepEqual(h.reloads, []);
-  const current = h.state.executeCurrent({ providerId: 'automatic', attachmentIds: [] });
+  const current = h.state.executeCurrent({
+    providerId: 'automatic',
+    attachmentIds: [],
+  });
   h.requests[1]!.reject(new Error('Connection closed'));
   await current;
   assert.deepEqual(h.errors, ['Connection closed']);
@@ -220,7 +263,10 @@ test('retry requires failed state and recovery requires interrupted/blocked with
 
 test('forged response task or project does not overwrite current state', async () => {
   const h = harness();
-  const pending = h.state.executeCurrent({ providerId: 'codex', attachmentIds: [] });
+  const pending = h.state.executeCurrent({
+    providerId: 'codex',
+    attachmentIds: [],
+  });
   h.requests[0]!.resolve(execution('task-b'));
   await pending;
   assert.deepEqual(h.replaced, []);
