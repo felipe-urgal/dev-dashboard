@@ -26,6 +26,7 @@ import type { Project, TaskContext } from '@dev-dashboard/contracts';
 
 import { fetchTaskContexts } from '../api/task-contexts';
 import { useAgentNotifications } from '../composables/useAgentNotifications';
+import { useAgentExecutionProfiles } from '../composables/useAgentExecutionProfiles';
 import { useAgentTaskRealtime } from '../composables/useAgentTaskRealtime';
 import { useAgentTaskUsage } from '../composables/useAgentTaskUsage';
 import { useAgentTaskBudget } from '../composables/useAgentTaskBudget';
@@ -54,7 +55,6 @@ import {
   resolveAgentCheckpoint,
   retryAgentTask,
   setAgentAuthorization,
-  setAgentExecutionProfiles,
   type AgentActivity,
   type AgentAttachment,
   type AgentAuthorization,
@@ -62,8 +62,6 @@ import {
   type AgentBacklogIssue,
   type AgentCapability,
   type AgentConversationTurn,
-  type AgentExecutionProfile,
-  type AgentExecutionProfileConfiguration,
   type AgentExecutionResult,
   type AgentProviderId,
   type AgentProviderStatus,
@@ -138,14 +136,29 @@ const selectedTaskContextId = ref('');
 const selectedTaskId = ref('');
 const selectedProviderId = ref<AgentProviderId>('automatic');
 const requestedCapabilities = ref<AgentCapability[]>(['workspace:write']);
-const executionProfiles = ref<AgentExecutionProfileConfiguration | null>(null);
-const selectedProfileId = ref('');
-const profileIdDraft = ref('');
-const profileLabelDraft = ref('');
-const profileTimeoutSeconds = ref('');
-const profileMaxTokens = ref('');
-const profileMaxCost = ref('');
-const profileBudgetMode = ref<'soft' | 'hard'>('soft');
+const {
+  executionProfiles,
+  selectedProfileId,
+  profileIdDraft,
+  profileLabelDraft,
+  profileTimeoutSeconds,
+  profileMaxTokens,
+  profileMaxCost,
+  profileBudgetMode,
+  profileSaving,
+  effectiveProfileSummary,
+  resetExecutionProfiles,
+  setLoadedExecutionProfiles,
+  applySelectedProfile,
+  saveCurrentExecutionProfile,
+  removeSelectedExecutionProfile,
+} = useAgentExecutionProfiles(
+  () => props.project.id,
+  selectedProviderId,
+  requestedCapabilities,
+  (id) => providerLabel(id),
+  (message) => { errorMessage.value = message; },
+);
 const instruction = ref('');
 const conversationInstruction = ref('');
 const conversationTurns = ref<AgentConversationTurn[]>([]);
@@ -353,25 +366,6 @@ const openIntegrations = (): void => {
     block: 'start',
   });
 };
-
-const selectedExecutionProfile = computed(() =>
-  executionProfiles.value?.profiles.find(
-    (profile) => profile.id === selectedProfileId.value,
-  ),
-);
-
-const effectiveProfileSummary = computed(() => {
-  const profile = selectedExecutionProfile.value;
-  if (!profile) return 'Sem perfil · configuração manual';
-  return [
-    profile.label,
-    providerLabel(profile.providerId),
-    profile.timeoutMs
-      ? Math.round(profile.timeoutMs / 1000) + 's'
-      : 'sem timeout',
-    profile.budget?.mode ? 'budget ' + profile.budget.mode : 'sem budget',
-  ].join(' · ');
-});
 
 const pendingCheckpoint = computed(() => {
   const values = activity.value?.checkpoints ?? [];
@@ -641,6 +635,7 @@ async function load(): Promise<void> {
   clearUsage();
   resetBudget();
   resetHistory();
+  resetExecutionProfiles();
   showAllHistory.value = false;
   taskLoadVersion += 1;
   selectedTaskId.value = '';
@@ -658,11 +653,7 @@ async function load(): Promise<void> {
     if (requestGeneration !== generation) return;
     providers.value = nextProviders;
     taskContexts.value = nextTaskContexts;
-    executionProfiles.value = nextExecutionProfiles;
-    if (!selectedProfileId.value) {
-      selectedProfileId.value = nextExecutionProfiles?.defaultProfileId ?? '';
-    }
-    applySelectedProfile();
+    setLoadedExecutionProfiles(nextExecutionProfiles, props.project.id);
 
     const matchingContext =
       nextTaskContexts.find(
@@ -832,83 +823,6 @@ function parseBacklogInstruction(
 
 function chooseBacklogIssue(issue: AgentBacklogIssue): void {
   instruction.value = 'pegue a #' + issue.number;
-}
-
-function applySelectedProfile(): void {
-  const profile = executionProfiles.value?.profiles.find(
-    (candidate) => candidate.id === selectedProfileId.value,
-  );
-  if (!profile) return;
-  selectedProviderId.value = profile.providerId;
-  requestedCapabilities.value = [...profile.requestedCapabilities];
-}
-
-async function saveCurrentExecutionProfile(): Promise<void> {
-  const id = profileIdDraft.value.trim().toLowerCase();
-  const label = profileLabelDraft.value.trim();
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(id) || !label) {
-    errorMessage.value = 'Informe id simples e nome do perfil.';
-    return;
-  }
-  const timeoutSeconds = profileTimeoutSeconds.value.trim()
-    ? Number(profileTimeoutSeconds.value)
-    : undefined;
-  const maxTotalTokens = profileMaxTokens.value.trim()
-    ? Number(profileMaxTokens.value)
-    : undefined;
-  const maxEstimatedCostUsd = profileMaxCost.value.trim()
-    ? Number(profileMaxCost.value)
-    : undefined;
-  const profile: AgentExecutionProfile = {
-    id,
-    label,
-    providerId: selectedProviderId.value,
-    ...(selectedProviderId.value === 'automatic'
-      ? { fallbackOrder: ['codex', 'claude-code'] }
-      : {}),
-    ...(timeoutSeconds !== undefined
-      ? { timeoutMs: Math.round(timeoutSeconds * 1000) }
-      : {}),
-    ...(maxTotalTokens !== undefined || maxEstimatedCostUsd !== undefined
-      ? {
-          budget: {
-            ...(maxTotalTokens !== undefined ? { maxTotalTokens } : {}),
-            ...(maxEstimatedCostUsd !== undefined
-              ? { maxEstimatedCostUsd }
-              : {}),
-            mode: profileBudgetMode.value,
-          },
-        }
-      : {}),
-    requestedCapabilities: [...requestedCapabilities.value],
-  };
-  const current = executionProfiles.value?.profiles ?? [];
-  const profiles = [
-    ...current.filter((candidate) => candidate.id !== id),
-    profile,
-  ];
-  executionProfiles.value = await setAgentExecutionProfiles(props.project.id, {
-    defaultProfileId: executionProfiles.value?.defaultProfileId ?? id,
-    profiles,
-  });
-  selectedProfileId.value = id;
-}
-
-async function removeSelectedExecutionProfile(): Promise<void> {
-  if (!selectedProfileId.value || !executionProfiles.value) return;
-  const profiles = executionProfiles.value.profiles.filter(
-    (profile) => profile.id !== selectedProfileId.value,
-  );
-  const defaultProfileId =
-    executionProfiles.value.defaultProfileId === selectedProfileId.value
-      ? profiles[0]?.id
-      : executionProfiles.value.defaultProfileId;
-  executionProfiles.value = await setAgentExecutionProfiles(props.project.id, {
-    ...(defaultProfileId ? { defaultProfileId } : {}),
-    profiles,
-  });
-  selectedProfileId.value = defaultProfileId ?? '';
-  applySelectedProfile();
 }
 
 async function createTask(): Promise<void> {
@@ -1322,6 +1236,7 @@ onBeforeUnmount(() => {
   clearUsage();
   resetBudget();
   resetHistory();
+  resetExecutionProfiles();
 });
 </script>
 
@@ -1563,7 +1478,7 @@ onBeforeUnmount(() => {
           <span>Provider atual</span>
           <select
             v-model="selectedProviderId"
-            :disabled="executing || !!selectedProfileId"
+            :disabled="executing || profileSaving || !!selectedProfileId"
           >
             <option
               v-for="provider in providerOptions"
@@ -1584,7 +1499,7 @@ onBeforeUnmount(() => {
           <span>Perfil de execução</span>
           <select
             v-model="selectedProfileId"
-            :disabled="executing"
+            :disabled="executing || profileSaving"
             @change="applySelectedProfile"
           >
             <option value="">Manual</option>
@@ -1650,7 +1565,7 @@ onBeforeUnmount(() => {
             <button
               class="secondary-button"
               type="button"
-              :disabled="mutating"
+              :disabled="mutating || profileSaving"
               @click="saveCurrentExecutionProfile"
             >
               Salvar perfil atual
