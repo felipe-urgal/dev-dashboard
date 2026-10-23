@@ -85,10 +85,7 @@ test('loads capabilities and scoped integrations without exposing discovery issu
   );
   h.listRequests[0]!.resolve(list('a', 'codex'));
   await pending;
-  assert.deepEqual(
-    integrationIds(h.state),
-    ['a'],
-  );
+  assert.deepEqual(integrationIds(h.state), ['a']);
   assert.deepEqual(h.state.integrationIssues.value, ['sanitized-a']);
   assert.equal(h.state.errorMessage.value, '');
   assert.equal(h.state.loading.value, false);
@@ -115,10 +112,7 @@ test('project/provider A → B → A never applies an earlier capability respons
   await Promise.resolve();
   h.listRequests[0]!.resolve(list('current', 'codex'));
   await current;
-  assert.deepEqual(
-    integrationIds(h.state),
-    ['current'],
-  );
+  assert.deepEqual(integrationIds(h.state), ['current']);
   assert.equal(h.state.loading.value, false);
 });
 
@@ -141,10 +135,7 @@ test('an earlier integration response or error cannot overwrite newer provider l
 
   h.listRequests[0]!.reject(new Error('stale list failure'));
   await stale;
-  assert.deepEqual(
-    integrationIds(h.state),
-    ['new'],
-  );
+  assert.deepEqual(integrationIds(h.state), ['new']);
   assert.deepEqual(h.state.integrationIssues.value, ['sanitized-new']);
   assert.equal(h.state.errorMessage.value, '');
 });
@@ -163,10 +154,7 @@ test('same-target overlapping refreshes apply only latest response', async () =>
     h.state.capabilities.value.map((item) => item.providerId),
     ['codex'],
   );
-  assert.deepEqual(
-    integrationIds(h.state),
-    ['latest'],
-  );
+  assert.deepEqual(integrationIds(h.state), ['latest']);
   assert.equal(h.state.loading.value, false);
 });
 
@@ -185,10 +173,7 @@ test('current discovery failure is retryable and stale errors after reset are su
   h.listRequests[1]!.resolve(list('recovered', 'codex'));
   await retry;
   assert.equal(h.state.errorMessage.value, '');
-  assert.deepEqual(
-    integrationIds(h.state),
-    ['recovered'],
-  );
+  assert.deepEqual(integrationIds(h.state), ['recovered']);
   h.state.resetDiscovery();
   assert.deepEqual(h.state.integrations.value, []);
   assert.equal(h.state.loading.value, false);
