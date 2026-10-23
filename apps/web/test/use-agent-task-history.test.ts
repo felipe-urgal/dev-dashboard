@@ -289,7 +289,10 @@ test('refresh e alternância de arquivadas preservam revisão mais recente', asy
   await show;
   assert.equal(history.tasks.value[0]?.version, 5);
   history.upsertTask(fakeTask('project-a', 'task-a', 4));
-  assert.equal(history.tasks.value[0]?.task.archivedAt, '2026-10-23T14:00:00.000Z');
+  assert.equal(
+    history.tasks.value[0]?.task.archivedAt,
+    '2026-10-23T14:00:00.000Z',
+  );
 
   const hide = history.setShowArchived(false);
   requests[2]!.resolve({ tasks: [], nextCursor: null });
