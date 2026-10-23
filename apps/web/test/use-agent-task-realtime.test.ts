@@ -226,3 +226,62 @@ test('reconectar exige snapshot da task selecionada', () => {
   assert.match(panel, /Reconectar realtime/);
   assert.match(panel, /socketState === 'disconnected'/);
 });
+
+test('falha síncrona do WebSocket não bloqueia retry nem vaza erro interno', () => {
+  const selected = { projectId: 'project-1', taskId: 'task-a' };
+  const received: string[] = [];
+  const errors: string[] = [];
+  const realtime = useAgentTaskRealtime(
+    () => selected,
+    (value) => received.push(value.status.task.task.id),
+    (message) => errors.push(message),
+  );
+
+  realtime.connect('project-1', 'task-a');
+  const old = FakeWebSocket.instances[0]!;
+  old.open();
+
+  vi.stubGlobal(
+    'WebSocket',
+    class {
+      constructor() {
+        throw new Error('Provider token=private-credential');
+      }
+    },
+  );
+  assert.doesNotThrow(() => realtime.connect('project-1', 'task-a'));
+  assert.equal(old.readyState, FakeWebSocket.CLOSED);
+  assert.equal(realtime.socketState.value, 'disconnected');
+  assert.deepEqual(errors, ['Não foi possível conectar ao realtime da task.']);
+  old.emit({ type: 'update', snapshot: snapshot('project-1', 'task-a') });
+  assert.deepEqual(received, []);
+
+  vi.stubGlobal('WebSocket', FakeWebSocket);
+  realtime.connect('project-1', 'task-a');
+  const recovered = FakeWebSocket.instances[1]!;
+  assert.equal(realtime.socketState.value, 'connecting');
+  recovered.open();
+  recovered.emit({
+    type: 'ready',
+    snapshot: snapshot('project-1', 'task-a'),
+  });
+  assert.equal(realtime.socketState.value, 'connected');
+  assert.deepEqual(received, ['task-a']);
+  assert.equal(FakeWebSocket.instances.length, 2);
+});
+
+test('target inválido não cria socket nem aciona callback de erro', () => {
+  const selected = { projectId: 'project-1', taskId: 'task-a' };
+  const errors: string[] = [];
+  const realtime = useAgentTaskRealtime(
+    () => selected,
+    () => undefined,
+    (message) => errors.push(message),
+  );
+  realtime.connect('project-1', '');
+  realtime.connect('project-2', 'task-a');
+  realtime.connect('project-1', 'task-b');
+  assert.deepEqual(FakeWebSocket.instances, []);
+  assert.deepEqual(errors, []);
+  assert.equal(realtime.socketState.value, 'idle');
+});
