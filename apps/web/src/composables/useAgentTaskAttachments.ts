@@ -130,11 +130,15 @@ export function useAgentTaskAttachments(
           { filename: file.name, mediaType, contentBase64 },
         );
         if (!isCurrent()) return;
-        attachments.value = [...attachments.value, attachment];
-        selectedAttachmentIds.value = [
-          ...selectedAttachmentIds.value,
-          attachment.id,
-        ];
+        if (!attachments.value.some((item) => item.id === attachment.id)) {
+          attachments.value = [...attachments.value, attachment];
+        }
+        if (!selectedAttachmentIds.value.includes(attachment.id)) {
+          selectedAttachmentIds.value = [
+            ...selectedAttachmentIds.value,
+            attachment.id,
+          ];
+        }
       }
     } catch (error) {
       if (isCurrent()) {
