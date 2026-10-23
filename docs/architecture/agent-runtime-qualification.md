@@ -35,40 +35,38 @@ intenções de navegação e carregamento.
 
 ## Gates
 
-| Gate | Tipo | Estado atual | Evidência |
-| --- | --- | --- | --- |
-| Criar task pela aba Agente | automatizado | coberto | `project-agent-qualification.spec.ts` |
-| Autorização explícita | automatizado | coberto | UI concede somente capability solicitada |
-| Checkpoint humano | automatizado | coberto | execução abre checkpoint e exige decisão explícita |
-| Continuação após checkpoint | automatizado | coberto | instrução de continuação é enviada na resolução |
-| Evidence após conclusão | automatizado | coberto | UI recebe evidence de teste após segunda execução |
-| Persistência/restart do task store | automatizado | coberto | testes do `GitAgentTaskStore` |
-| Runtime interrompido/recovery | automatizado | coberto | `packages/agent-runtime/test/recovery.test.ts` |
-| Conversa multi-turn sem replay após reabrir stores | automatizado | coberto | `packages/agent-runtime/test/conversation-recovery.test.ts` |
-| Exclusão por task/owner | automatizado | coberto | lock manager e ownership tests |
-| Browser bridge/tool safety | automatizado | coberto | testes de browser provider/bridge/tool policy |
-| Activity/Jobs sem prompt/output bruto | automatizado | coberto | testes de Activity da #776 |
-| Provider indisponível | automatizado | coberto | UI mantém estado explícito e execução bloqueada |
-| Retry após falha | automatizado | coberto | E2E devolve task `failed` para `queued` somente por ação explícita |
-| Recover após interrupção | automatizado | coberto | E2E exige ação `Recover` e reconstrói estado `queued` |
-| E2E real Codex | provider real | concluído | execução real em 2026-09-24; evidência consolidada na #777 |
-| E2E real Claude Code | provider real | bloqueado externo | CLI presente, mas autenticação/entitlement indisponível; evidência na #777 |
-| E2E real ChatGPT Browser | provider real | concluído | execução real em 2026-09-24 e hardening do #925; evidência na #777 |
-| Automatic com providers reais | provider real | próximo gate | confirmar seleção determinística entre os providers locais reais por preflight e execução |
-| Multi-turn real Codex | provider real | gate executável | `agent:qualification:multiturn`; exige recuperação de marcador entre execuções reais |
-| Multi-turn real Claude Code | provider real | bloqueado externo | mesmo gate, mas preflight continua bloqueado por autenticação/entitlement local |
-| Multi-turn real ChatGPT Browser | provider real | gate executável | mesmo gate contra Browser Bridge/extensão reais |
-| Multi-turn real Automatic | provider real | gate executável | registra provider concreto por turno; opção de troca Codex↔Claude quando ambos estiverem disponíveis |
-| Restart físico do processo Agent com provider controlado | sistema real parcial | gate automatizado | `Agent Physical Process Restart`: dois processos Node, Git/conversation/audit/runtime stores reais e `SIGKILL` |
-| Restart real, evidência antes/depois | provider real assistido | protocolo opt-in | `agent:qualification:restart-observe`; exige execução no host + intervenção do operador, sem prova real ainda |
-| Restart do Dashboard durante execução real | sistema real | pendente | matar/reiniciar processo e registrar recovery |
-| Duas tasks em repositórios diferentes | sistema real | pendente | duas execuções reais simultâneas |
-| Lock físico entre processos em targets independentes | sistema real parcial | gate automatizado | `Agent Physical Lock Qualification`: 2 repositórios Git e processos Node, sem providers |
-| Mesmo target com exclusão | sistema real | pendente | comprovar lock/serialização no target real |
-| PR feedback com CI/review incompleto | automatizado parcial | regressão fail-closed | `AgentRuntimeApiService`: remote explícito, CI success, review approved e 0 conversas pendentes para `ready` |
-| GitHub remoto offline, execução local preservada | automatizado parcial | fault injection | snapshot remoto indisponível, feedback `unavailable` e execução local ainda permitida |
-| PR/readiness real | integração externa | pendente | criar PR real e registrar readiness |
-| GitHub remoto indisponível | integração externa | pendente | degradar vínculo remoto sem derrubar runtime |
+| Gate                                               | Tipo                    | Estado atual          | Evidência                                                                                                     |
+| -------------------------------------------------- | ----------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Criar task pela aba Agente                         | automatizado            | coberto               | `project-agent-qualification.spec.ts`                                                                         |
+| Autorização explícita                              | automatizado            | coberto               | UI concede somente capability solicitada                                                                      |
+| Checkpoint humano                                  | automatizado            | coberto               | execução abre checkpoint e exige decisão explícita                                                            |
+| Continuação após checkpoint                        | automatizado            | coberto               | instrução de continuação é enviada na resolução                                                               |
+| Evidence após conclusão                            | automatizado            | coberto               | UI recebe evidence de teste após segunda execução                                                             |
+| Persistência/restart do task store                 | automatizado            | coberto               | testes do `GitAgentTaskStore`                                                                                 |
+| Runtime interrompido/recovery                      | automatizado            | coberto               | `packages/agent-runtime/test/recovery.test.ts`                                                                |
+| Conversa multi-turn sem replay após reabrir stores | automatizado            | coberto               | `packages/agent-runtime/test/conversation-recovery.test.ts`                                                   |
+| Exclusão por task/owner                            | automatizado            | coberto               | lock manager e ownership tests                                                                                |
+| Browser bridge/tool safety                         | automatizado            | coberto               | testes de browser provider/bridge/tool policy                                                                 |
+| Activity/Jobs sem prompt/output bruto              | automatizado            | coberto               | testes de Activity da #776                                                                                    |
+| Provider indisponível                              | automatizado            | coberto               | UI mantém estado explícito e execução bloqueada                                                               |
+| Retry após falha                                   | automatizado            | coberto               | E2E devolve task `failed` para `queued` somente por ação explícita                                            |
+| Recover após interrupção                           | automatizado            | coberto               | E2E exige ação `Recover` e reconstrói estado `queued`                                                         |
+| E2E real Codex                                     | provider real           | concluído             | execução real em 2026-09-24; evidência consolidada na #777                                                    |
+| E2E real Claude Code                               | provider real           | bloqueado externo     | CLI presente, mas autenticação/entitlement indisponível; evidência na #777                                    |
+| E2E real ChatGPT Browser                           | provider real           | concluído             | execução real em 2026-09-24 e hardening do #925; evidência na #777                                            |
+| Automatic com providers reais                      | provider real           | próximo gate          | confirmar seleção determinística entre os providers locais reais por preflight e execução                     |
+| Multi-turn real Codex                              | provider real           | gate executável       | `agent:qualification:multiturn`; exige recuperação de marcador entre execuções reais                          |
+| Multi-turn real Claude Code                        | provider real           | bloqueado externo     | mesmo gate, mas preflight continua bloqueado por autenticação/entitlement local                               |
+| Multi-turn real ChatGPT Browser                    | provider real           | gate executável       | mesmo gate contra Browser Bridge/extensão reais                                                               |
+| Multi-turn real Automatic                          | provider real           | gate executável       | registra provider concreto por turno; opção de troca Codex↔Claude quando ambos estiverem disponíveis          |
+| Restart real, evidência antes/depois               | provider real assistido | protocolo opt-in      | `agent:qualification:restart-observe`; exige execução no host + intervenção do operador, sem prova real ainda |
+| Restart do Dashboard durante execução real         | sistema real            | pendente              | matar/reiniciar processo e registrar recovery                                                                 |
+| Duas tasks em repositórios diferentes              | sistema real            | pendente              | duas execuções reais simultâneas                                                                              |
+| Mesmo target com exclusão                          | sistema real            | pendente              | comprovar lock/serialização no target real                                                                    |
+| PR feedback com CI/review incompleto               | automatizado parcial    | regressão fail-closed | `AgentRuntimeApiService`: remote explícito, CI success, review approved e 0 conversas pendentes para `ready`  |
+| GitHub remoto offline, execução local preservada   | automatizado parcial    | fault injection       | snapshot remoto indisponível, feedback `unavailable` e execução local ainda permitida                         |
+| PR/readiness real                                  | integração externa      | pendente              | criar PR real e registrar readiness                                                                           |
+| GitHub remoto indisponível                         | integração externa      | pendente              | degradar vínculo remoto sem derrubar runtime                                                                  |
 
 ## Regra fail-closed para PR/readiness — #1073
 
@@ -140,83 +138,6 @@ npm run test:e2e --workspace=@dev-dashboard/web -- project-agent-qualification.s
 ```
 
 Esse teste usa providers simulados de forma deliberada. Ele prova o fluxo da UI/API client e as transições esperadas, mas **não** prova disponibilidade/autenticação/comportamento real de Codex, Claude ou ChatGPT Browser.
-
-## Gate físico de ownership (sem provider externo) — #1073
-
-O CI executa o job `Agent Physical Lock Qualification` com Node e Git reais,
-em diretórios descartáveis e sem credenciais de providers/GitHub:
-
-```bash
-npm run build:packages
-AGENT_LOCK_QUALIFY=1 node scripts/qualify-agent-lock-ownership.mjs
-```
-
-O gate exige opt-in explícito e **não aceita caminhos/targets arbitrários**
-na linha de comando. Cria dois repositórios Git temporários, inicia processos
-independentes do SO usando `AgentTaskLockManager` compilado do runtime e
-comprova: (1) um concorrente no mesmo target recebe `AGENT_TASK_LOCKED`;
-(2) targets separados mantêm locks ao mesmo tempo; (3) a espera pelo mesmo
-target não avança antes da liberação; (4) após encerrar um owner com
-`SIGKILL`, outra instância reconhece o PID morto e recupera o lock.
-Os recursos são apagados no `finally`, e a evidência é somente JSON
-sanitizado de categorias e resultados, sem tokens, prompts ou saídas de providers.
-
-**Limite da evidência:** isso qualifica a implementação do lock físico
-**entre processos** e o isolamento de diretórios Git, não o orquestrador
-com dois providers reais, a escolha de target por Task Context, uma execução
-em andamento durante restart do Dashboard, a idempotência do turno, ou PR/
-readiness remoto. Os gates de `Duas tasks em repositórios diferentes`,
-`Mesmo target com exclusão` ponta a ponta e `Restart durante execução real`
-permanecem pendentes até provas com o runtime e os providers apropriados.
-CI verde não altera o estado de `blocked external` de Claude.
-
-## Gate físico de interrupção e recovery entre processos — #1073
-
-O job `Agent Physical Process Restart` executa o runtime compilado com
-`GitAgentTaskStore`, `AgentRuntimeStateStore`, `AgentConversationStore`,
-`AgentAuditStore` e `AgentTaskLockManager` reais em disco. Ele inicia
-um processo Node que salva um turno concluído e outro turno em andamento
-com um **provider controlado sem conexão externa**, mata o processo
-durante a segunda execução com `SIGKILL` e inicia **outro processo**
-sobre os mesmos stores.
-
-```bash
-npm run build:packages
-AGENT_RESTART_QUALIFY=1 node scripts/qualify-agent-process-restart.mjs
-```
-
-O gate cria apenas diretórios temporários sob `os.tmpdir()`, exige opt-in,
-rejeita caminhos fornecidos pelo operador e apaga os dados em `finally`.
-Não reinicia serviços instalados, não consome credenciais externas e
-não toca em repositórios/projetos do usuário.
-
-A verificação comprova:
-
-1. execução não concluída detectada como `interrupted` após morte física
-   do processo anterior, preservando o `executionId` e o state `running`
-   canônico;
-2. ausência de execução ativa no runtime novo e ausência de dispatch
-   automático do provider ao chamar `recoverInterrupted`;
-3. necessidade de recovery explícito, que altera somente bookkeeping para
-   `idle` e **não** reabre task canônica ambígua para replay;
-4. turno do usuário pendente permanece único, e reexecução é recusada
-   mesmo após recovery explícito;
-5. turno previamente concluído mantém usuário + resposta no store,
-   e enviar o mesmo `turnId` novamente retorna
-   `AGENT_WORKFLOW_TURN_ALREADY_SUBMITTED`;
-6. quantidade de chamadas ao provider controlado não aumenta ao reiniciar,
-   consultar status ou tentar um turno já persistido.
-
-A evidência JSON contém apenas flags, contagens e tipo de fixture;
-não imprime conteúdo da conversa, tokens, cookies nem saída de providers.
-
-**Limitação:** esse gate comprova a semântica física de recovery entre
-processos usando stores canônicos, mas **não** mata o processo da API
-do Dashboard com uma execução de **provider externo real** em andamento.
-Por isso, o gate `Restart do Dashboard durante execução real` continua
-pendente e só poderá ser fechado com evidência de provider real e da
-instalação local. A qualificação multi-turn de providers reais, PR/readiness
-remoto e falha de GitHub remoto permanecem separadas.
 
 ## Protocolo opt-in de restart com provider real — #1073
 

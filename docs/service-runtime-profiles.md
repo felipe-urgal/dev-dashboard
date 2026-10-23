@@ -41,7 +41,7 @@ Environment Instance; a revision conflict requires refreshing before retrying.
 
 The `Prévia Start` / `Prévia Stop` selector displays decisions, shared
 consumers, observed readiness and ports, and omitted resources. It never
-executes services, even when the preview says a resource *would* be started or
+executes services, even when the preview says a resource _would_ be started or
 stopped. `Excluir perfil…` removes only the profile after a second confirmation.
 It does not delete or stop any database, process, container or Stack.
 
@@ -52,71 +52,31 @@ actual Fastify routes, persisted revisioned stores, reconciled worktree IDs,
 and a deterministic service catalog. It never starts Compose, accesses
 databases, or makes host lifecycle calls.
 
-| Scenario | Evidence expected |
-| --- | --- |
+| Scenario                                   | Evidence expected                                                                                                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Controle Gastos `test` versus `production` | Distinct binding IDs, service references and observed ports, even when both databases advertise the same friendly name; switching profiles only changes the read-only plan/hash |
-| Primary checkout versus linked worktree | Separate Environment Instance IDs and isolated profile lists; the worktree test DB cannot be adopted by a primary profile |
-| Loto Lab shared cache | Consumer count from both projects retains the shared resource on a scoped Stop plan |
-| Loto Lab with no profile | Existing unscoped plan remains available; no implicit migration or profile |
-| Stale, foreign and disabled binding | HTTP 409/404; no fallback to another database by role/name |
-| Dev Container | Host-level profile configuration and preview are rejected |
-| Production selection | `executable: false` on both Start and Stop previews; no production deployment, migration or DB command |
-| Persistence | Profiles and bindings rehydrate from independently versioned stores |
+| Primary checkout versus linked worktree    | Separate Environment Instance IDs and isolated profile lists; the worktree test DB cannot be adopted by a primary profile                                                       |
+| Loto Lab shared cache                      | Consumer count from both projects retains the shared resource on a scoped Stop plan                                                                                             |
+| Loto Lab with no profile                   | Existing unscoped plan remains available; no implicit migration or profile                                                                                                      |
+| Stale, foreign and disabled binding        | HTTP 409/404; no fallback to another database by role/name                                                                                                                      |
+| Dev Container                              | Host-level profile configuration and preview are rejected                                                                                                                       |
+| Production selection                       | `executable: false` on both Start and Stop previews; no production deployment, migration or DB command                                                                          |
+| Persistence                                | Profiles and bindings rehydrate from independently versioned stores                                                                                                             |
 
-**Evidence boundary:** the test uses *distinct observed service references and
-ports*, but those values alone cannot establish physical isolation of data,
+**Evidence boundary:** the test uses _distinct observed service references and
+ports_, but those values alone cannot establish physical isolation of data,
 volumes, credentials or network namespaces. Real database/volume separation,
 permission boundaries, and Production Contract integrations still require an
 explicit, non-mutating qualification against disposable local infrastructure,
 with no real production endpoints or secrets. Do not interpret a successful
 preview or these tests as proof of production database isolation.
 
-## Physical qualification (disposable CI infrastructure)
-
-The **Disposable PostgreSQL Isolation** CI check runs
-`scripts/qualify-runtime-profile-isolation.mjs` in a fresh GitHub-hosted
-runner. The script refuses to run unless `RUNTIME_ISOLATION_QUALIFY=1`
-is explicitly set, and it never accepts a project path, production endpoint,
-existing container name or database credentials from the caller. It creates
-four new PostgreSQL 16 fixtures with cryptographically random resource names,
-individual Docker named volumes and unique passwords:
-
-- Controle Gastos primary **test** and linked-worktree **test**
-- a **production-shaped disposable fixture**, never an actual production DB
-- a separate Loto Lab fixture
-
-The containers use `--network none`, publish **no host ports** and do
-not mount host files. The check inspects this configuration and the exact volume
-attachments. It seeds different markers, changes only the primary test marker,
-checks the other three remain untouched, then recreates the primary test
-container to prove persistence in *its own volume*. In parallel it creates a
-real temporary Git repository with two linked worktrees, each mapped to a
-distinct fixture volume. The script deletes only the randomly named resources
-that it created, including on ordinary test failures; cleanup failures fail
-the check.
-
-A dedicated disposable Docker host is required for local opt-in runs:
-
-```bash
-docker pull postgres:16-alpine
-RUNTIME_ISOLATION_QUALIFY=1 node scripts/qualify-runtime-profile-isolation.mjs
-```
-
-**Scope:** this checks physical fixture-volume and worktree separation.
-The existing HTTP qualification verifies the *API* enforces profile and
-Environment Instance IDs, stale bindings, read-only previews and shared
-services. Neither check deploys, migrates, reads real production secrets or
-authorizes database operations. The Production Contract is a separate
-operational control: the mere selection of a `production` runtime profile
-does not authorize its operations. An isolated physical fixture is **not**
-evidence that any external production database is configured safely.
-
 ## Semantics and limits
 
 - With no configured profile for an instance, **no existing behavior changes**:
   the Dashboard, Stacks and Compose keep using their existing binding/config
   flow. Nothing is migrated or implicitly switched.
-- Profiles are *declarative selection only*. GET/POST/PUT/DELETE never run
+- Profiles are _declarative selection only_. GET/POST/PUT/DELETE never run
   Compose, systemd, processes, deploy, migrations or database commands.
 - A change to an underlying binding can make the selected ID stale; GET
   exposes `staleBindingIds` and does not silently resolve by service name,
