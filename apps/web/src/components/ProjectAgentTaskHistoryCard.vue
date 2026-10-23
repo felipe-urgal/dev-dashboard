@@ -117,9 +117,7 @@ const taskStateSummary = (state: string): string => {
     </button>
     <template v-if="tasks.length">
       <button
-        v-for="record in showAllHistory
-          ? tasks
-          : tasks.slice(0, 5)"
+        v-for="record in showAllHistory ? tasks : tasks.slice(0, 5)"
         :key="record.task.id"
         class="agent-history-item"
         :class="{ 'is-selected': record.task.id === selectedTaskId }"

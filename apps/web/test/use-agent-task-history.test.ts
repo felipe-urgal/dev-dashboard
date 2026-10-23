@@ -191,7 +191,10 @@ test('task selecionada pode ser incluída sem paginação e isolada por projeto'
 
 function historyCardSource(): string {
   return readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentTaskHistoryCard.vue'),
+    resolve(
+      import.meta.dirname,
+      '../src/components/ProjectAgentTaskHistoryCard.vue',
+    ),
     'utf8',
   );
 }

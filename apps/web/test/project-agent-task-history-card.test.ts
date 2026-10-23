@@ -4,7 +4,10 @@ import { mount } from '@vue/test-utils';
 import type { AgentTaskRecord, AgentTaskState } from '../src/api/agent-runtime';
 import ProjectAgentTaskHistoryCard from '../src/components/ProjectAgentTaskHistoryCard.vue';
 
-function task(id: string, state: AgentTaskState = 'completed'): AgentTaskRecord {
+function task(
+  id: string,
+  state: AgentTaskState = 'completed',
+): AgentTaskRecord {
   return {
     version: 1,
     task: {
@@ -19,7 +22,11 @@ function task(id: string, state: AgentTaskState = 'completed'): AgentTaskRecord 
   };
 }
 
-function render(overrides: Partial<InstanceType<typeof ProjectAgentTaskHistoryCard>['$props']> = {}) {
+function render(
+  overrides: Partial<
+    InstanceType<typeof ProjectAgentTaskHistoryCard>['$props']
+  > = {},
+) {
   const tasks = Array.from({ length: 7 }, (_, index) =>
     task('task-' + index, index === 0 ? 'running' : 'completed'),
   );
@@ -55,18 +62,18 @@ describe('ProjectAgentTaskHistoryCard', () => {
     await wrapper.get('button.agent-history-show-all').trigger('click');
     // Primeiro controle alterna arquivadas; o segundo expande.
     expect(wrapper.emitted('toggle-archived')).toEqual([[]]);
-    const expand = wrapper.findAll('button.agent-history-show-all').find(
-      (button) => button.text() === 'Ver mais',
-    );
+    const expand = wrapper
+      .findAll('button.agent-history-show-all')
+      .find((button) => button.text() === 'Ver mais');
     await expand!.trigger('click');
     expect(wrapper.emitted('expand')).toEqual([[]]);
     expect(wrapper.emitted('load-more')).toBeUndefined();
 
     await wrapper.setProps({ showAllHistory: true });
     expect(wrapper.findAll('button.agent-history-item')).toHaveLength(7);
-    const loadMore = wrapper.findAll('button.agent-history-show-all').find(
-      (button) => button.text() === 'Carregar mais',
-    );
+    const loadMore = wrapper
+      .findAll('button.agent-history-show-all')
+      .find((button) => button.text() === 'Carregar mais');
     await loadMore!.trigger('click');
     expect(wrapper.emitted('load-more')).toEqual([[]]);
     expect(wrapper.emitted('select')).toBeUndefined();
@@ -80,12 +87,14 @@ describe('ProjectAgentTaskHistoryCard', () => {
     });
     expect(wrapper.findAll('button.agent-history-item')).toHaveLength(7);
     expect(wrapper.get('[role="alert"]').text()).toContain('Falha temporária');
-    expect(wrapper.findAll('button.agent-history-show-all').some(
-      (button) => button.text() === 'Carregar mais',
-    )).toBe(false);
-    const retry = wrapper.findAll('button.agent-history-show-all').find(
-      (button) => button.text() === 'Tentar novamente',
-    );
+    expect(
+      wrapper
+        .findAll('button.agent-history-show-all')
+        .some((button) => button.text() === 'Carregar mais'),
+    ).toBe(false);
+    const retry = wrapper
+      .findAll('button.agent-history-show-all')
+      .find((button) => button.text() === 'Tentar novamente');
     await retry!.trigger('click');
     expect(wrapper.emitted('retry')).toEqual([[]]);
     expect(wrapper.emitted('load-more')).toBeUndefined();
@@ -106,9 +115,9 @@ describe('ProjectAgentTaskHistoryCard', () => {
 
   it('somente sinaliza alternância de arquivadas; não executa archive, provider ou realtime', async () => {
     const wrapper = render({ showArchived: true });
-    const toggle = wrapper.findAll('button.agent-history-show-all').find(
-      (button) => button.text() === 'Ocultar arquivadas',
-    );
+    const toggle = wrapper
+      .findAll('button.agent-history-show-all')
+      .find((button) => button.text() === 'Ocultar arquivadas');
     await toggle!.trigger('click');
     expect(wrapper.emitted('toggle-archived')).toEqual([[]]);
     expect(wrapper.emitted('select')).toBeUndefined();
