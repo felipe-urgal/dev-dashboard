@@ -183,10 +183,9 @@ test('cockpit delegates attachment ownership and clears it on project and task c
     'utf8',
   );
   assert.match(panel, /useAgentTaskAttachments\(/);
-  assert.match(
-    panel,
-    /applyLoadedAttachments\(nextAttachments, props\.project\.id, taskId\)/,
-  );
+  assert.match(panel, /useAgentTaskDetailReads\(/);
+  assert.match(panel, /applyLoadedAttachments\(/);
+  assert.match(panel, /attachmentsRevision/);
   assert.match(panel, /resetAttachments\(\)/);
   assert.doesNotMatch(panel, /async function addAttachments\(/);
   assert.doesNotMatch(panel, /attachments\.value\s*=/);
@@ -215,4 +214,20 @@ test('snapshot racing with upload response does not duplicate attachment IDs', a
   await pending;
   assert.deepEqual(attachmentIds(h.state), ['same']);
   assert.deepEqual(h.state.selectedAttachmentIds.value, ['same']);
+});
+
+test('attachment revision rejects stale reads before upload', async () => {
+  const h = harness();
+  const initial = h.state.attachmentsRevision();
+  h.state.applyLoadedAttachments([attachment('present', 't-a')], 'p-a', 't-a');
+  assert.equal(h.state.attachmentsRevision(), initial);
+
+  const pending = h.state.addAttachments(input(file('new.txt')));
+  assert.equal(h.state.attachmentsRevision(), initial + 1);
+  h.target.taskId = 't-b';
+  h.state.resetAttachments();
+  h.reads[0]!.resolve('bmV3');
+  await pending;
+  assert.equal(h.state.attachmentsRevision(), initial + 2);
+  assert.deepEqual(h.state.attachments.value, []);
 });

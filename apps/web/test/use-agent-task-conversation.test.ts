@@ -297,8 +297,12 @@ test('cockpit delega conversa e invalida estado na seleção, carga e unmount', 
     'utf8',
   );
   assert.match(panel, /useAgentTaskConversation\(/);
-  assert.match(panel, /applyLoadedConversation\(\s*nextConversation/);
-  assert.match(panel, /conversationSnapshotRevision/);
+  assert.match(panel, /useAgentTaskDetailReads\(/);
+  assert.match(
+    panel,
+    /applyLoadedConversation\(nextConversation, target, revision\)/,
+  );
+  assert.match(panel, /conversationRevision,/);
   assert.match(panel, /resetConversation\(\)/);
   assert.doesNotMatch(panel, /conversationTurns\.value\s*=/);
   assert.doesNotMatch(panel, /executeAgentConversationTurn\(/);

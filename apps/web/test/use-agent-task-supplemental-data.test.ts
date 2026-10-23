@@ -145,8 +145,10 @@ test('cockpit não aguarda budget e usage antes de mostrar task e conectar socke
   assert.match(loader, /await Promise\.all\(\[/);
   assert.match(loader, /fetchAgentTaskStatus\(/);
   assert.match(loader, /fetchAgentActivity\(/);
-  assert.match(loader, /fetchAgentConversation\(/);
-  assert.match(loader, /fetchAgentAttachments\(/);
+  assert.doesNotMatch(loader, /fetchAgentConversation\(/);
+  assert.doesNotMatch(loader, /fetchAgentAttachments\(/);
+  assert.match(loader, /loadTaskDetails\(\)/);
+  assert.match(panel, /useAgentTaskDetailReads\(/);
   assert.match(loader, /connectTaskSocket\(/);
   assert.doesNotMatch(loader, /reloadBudget\(\)/);
   assert.doesNotMatch(loader, /reloadUsage\(\)/);

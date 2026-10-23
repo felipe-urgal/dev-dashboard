@@ -66,6 +66,8 @@ export function useAgentTaskAttachments(
   const selectedAttachmentIds = ref<string[]>([]);
   const uploadingAttachment = ref(false);
   let generation = 0;
+  // Invalidates GET snapshots started before an upload or a task switch.
+  const attachmentsRevision = (): number => generation;
 
   function resetAttachments(): void {
     generation += 1;
@@ -158,6 +160,7 @@ export function useAgentTaskAttachments(
     selectedAttachmentIds,
     uploadingAttachment,
     resetAttachments,
+    attachmentsRevision,
     applyLoadedAttachments,
     attachmentFor,
     addAttachments,
