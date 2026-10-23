@@ -26,6 +26,12 @@ function list(
   };
 }
 
+function integrationIds(
+  state: ReturnType<typeof useAgentIntegrationDiscovery>,
+): string[] {
+  return state.integrations.value.map((item) => item.id);
+}
+
 function harness() {
   const target = {
     projectId: 'project-a',
@@ -80,7 +86,7 @@ test('loads capabilities and scoped integrations without exposing discovery issu
   h.listRequests[0]!.resolve(list('a', 'codex'));
   await pending;
   assert.deepEqual(
-    h.state.integrations.value.map((item) => item.id),
+    integrationIds(h.state),
     ['a'],
   );
   assert.deepEqual(h.state.integrationIssues.value, ['sanitized-a']);
@@ -110,7 +116,7 @@ test('project/provider A → B → A never applies an earlier capability respons
   h.listRequests[0]!.resolve(list('current', 'codex'));
   await current;
   assert.deepEqual(
-    h.state.integrations.value.map((item) => item.id),
+    integrationIds(h.state),
     ['current'],
   );
   assert.equal(h.state.loading.value, false);
@@ -136,7 +142,7 @@ test('an earlier integration response or error cannot overwrite newer provider l
   h.listRequests[0]!.reject(new Error('stale list failure'));
   await stale;
   assert.deepEqual(
-    h.state.integrations.value.map((item) => item.id),
+    integrationIds(h.state),
     ['new'],
   );
   assert.deepEqual(h.state.integrationIssues.value, ['sanitized-new']);
@@ -158,7 +164,7 @@ test('same-target overlapping refreshes apply only latest response', async () =>
     ['codex'],
   );
   assert.deepEqual(
-    h.state.integrations.value.map((item) => item.id),
+    integrationIds(h.state),
     ['latest'],
   );
   assert.equal(h.state.loading.value, false);
@@ -180,7 +186,7 @@ test('current discovery failure is retryable and stale errors after reset are su
   await retry;
   assert.equal(h.state.errorMessage.value, '');
   assert.deepEqual(
-    h.state.integrations.value.map((item) => item.id),
+    integrationIds(h.state),
     ['recovered'],
   );
   h.state.resetDiscovery();
