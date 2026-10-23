@@ -10,11 +10,16 @@ import {
 } from '../src/api/agent-runtime';
 import { useAgentIntegrationDiscovery } from '../src/composables/useAgentIntegrationDiscovery';
 
-function capabilities(providerId: AgentConcreteProviderId): AgentIntegrationProviderCapabilities[] {
+function capabilities(
+  providerId: AgentConcreteProviderId,
+): AgentIntegrationProviderCapabilities[] {
   return [{ providerId, integrations: [] }];
 }
 
-function list(id: string, providerId: AgentConcreteProviderId): AgentIntegrationListResult {
+function list(
+  id: string,
+  providerId: AgentConcreteProviderId,
+): AgentIntegrationListResult {
   return {
     integrations: [{ id, providerId, kind: 'mcp-server', name: id }],
     issues: [{ code: 'source-unavailable', message: 'sanitized-' + id }],
@@ -38,16 +43,22 @@ function harness() {
     resolve: (value: AgentIntegrationListResult) => void;
     reject: (reason: Error) => void;
   }> = [];
-  const state = useAgentIntegrationDiscovery(
-    () => target,
-    {
-      capabilities: () =>
-        new Promise((resolve, reject) => capabilityRequests.push({ resolve, reject })),
-      integrations: (projectId, providerId, environmentInstanceId) =>
-        new Promise((resolve, reject) =>
-          listRequests.push({ projectId, providerId, environmentInstanceId, resolve, reject })),
-    },
-  );
+  const state = useAgentIntegrationDiscovery(() => target, {
+    capabilities: () =>
+      new Promise((resolve, reject) =>
+        capabilityRequests.push({ resolve, reject }),
+      ),
+    integrations: (projectId, providerId, environmentInstanceId) =>
+      new Promise((resolve, reject) =>
+        listRequests.push({
+          projectId,
+          providerId,
+          environmentInstanceId,
+          resolve,
+          reject,
+        }),
+      ),
+  });
   return { state, target, capabilityRequests, listRequests };
 }
 
@@ -59,12 +70,19 @@ test('loads capabilities and scoped integrations without exposing discovery issu
   h.capabilityRequests[0]!.resolve(capabilities('codex'));
   await Promise.resolve();
   assert.deepEqual(
-    [h.listRequests[0]?.projectId, h.listRequests[0]?.providerId, h.listRequests[0]?.environmentInstanceId],
+    [
+      h.listRequests[0]?.projectId,
+      h.listRequests[0]?.providerId,
+      h.listRequests[0]?.environmentInstanceId,
+    ],
     ['project-a', 'codex', 'env-a'],
   );
   h.listRequests[0]!.resolve(list('a', 'codex'));
   await pending;
-  assert.deepEqual(h.state.integrations.value.map((item) => item.id), ['a']);
+  assert.deepEqual(
+    h.state.integrations.value.map((item) => item.id),
+    ['a'],
+  );
   assert.deepEqual(h.state.integrationIssues.value, ['sanitized-a']);
   assert.equal(h.state.errorMessage.value, '');
   assert.equal(h.state.loading.value, false);
@@ -91,7 +109,10 @@ test('project/provider A → B → A never applies an earlier capability respons
   await Promise.resolve();
   h.listRequests[0]!.resolve(list('current', 'codex'));
   await current;
-  assert.deepEqual(h.state.integrations.value.map((item) => item.id), ['current']);
+  assert.deepEqual(
+    h.state.integrations.value.map((item) => item.id),
+    ['current'],
+  );
   assert.equal(h.state.loading.value, false);
 });
 
@@ -114,7 +135,10 @@ test('an earlier integration response or error cannot overwrite newer provider l
 
   h.listRequests[0]!.reject(new Error('stale list failure'));
   await stale;
-  assert.deepEqual(h.state.integrations.value.map((item) => item.id), ['new']);
+  assert.deepEqual(
+    h.state.integrations.value.map((item) => item.id),
+    ['new'],
+  );
   assert.deepEqual(h.state.integrationIssues.value, ['sanitized-new']);
   assert.equal(h.state.errorMessage.value, '');
 });
@@ -129,8 +153,14 @@ test('same-target overlapping refreshes apply only latest response', async () =>
   await current;
   h.capabilityRequests[0]!.resolve(capabilities('claude-code'));
   await old;
-  assert.deepEqual(h.state.capabilities.value.map((item) => item.providerId), ['codex']);
-  assert.deepEqual(h.state.integrations.value.map((item) => item.id), ['latest']);
+  assert.deepEqual(
+    h.state.capabilities.value.map((item) => item.providerId),
+    ['codex'],
+  );
+  assert.deepEqual(
+    h.state.integrations.value.map((item) => item.id),
+    ['latest'],
+  );
   assert.equal(h.state.loading.value, false);
 });
 
@@ -149,7 +179,10 @@ test('current discovery failure is retryable and stale errors after reset are su
   h.listRequests[1]!.resolve(list('recovered', 'codex'));
   await retry;
   assert.equal(h.state.errorMessage.value, '');
-  assert.deepEqual(h.state.integrations.value.map((item) => item.id), ['recovered']);
+  assert.deepEqual(
+    h.state.integrations.value.map((item) => item.id),
+    ['recovered'],
+  );
   h.state.resetDiscovery();
   assert.deepEqual(h.state.integrations.value, []);
   assert.equal(h.state.loading.value, false);
@@ -168,7 +201,12 @@ test('scope identity includes environment and invalidates unmounted inspection/r
 
 test('integration card invalidates scope synchronously on navigation and unmount', () => {
   const component = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentIntegrationsCard.vue'), 'utf8');
+    resolve(
+      import.meta.dirname,
+      '../src/components/ProjectAgentIntegrationsCard.vue',
+    ),
+    'utf8',
+  );
   assert.match(component, /useAgentIntegrationDiscovery\(/);
   assert.match(component, /resetDiscovery\(\)/);
   assert.match(component, /flush: 'sync'/);

@@ -613,14 +613,21 @@ async function inspectIntegration(
       return;
     integrationDetails.value[integration.id] = details;
   } catch (error) {
-    if (!isCurrentScope(scope) || expandedIntegrationId.value !== integration.id) return;
+    if (
+      !isCurrentScope(scope) ||
+      expandedIntegrationId.value !== integration.id
+    )
+      return;
     expandedIntegrationId.value = null;
     errorMessage.value =
       error instanceof Error
         ? error.message
         : 'Não foi possível carregar os detalhes da integração.';
   } finally {
-    if (isCurrentScope(scope) && inspectingIntegrationId.value === integration.id) {
+    if (
+      isCurrentScope(scope) &&
+      inspectingIntegrationId.value === integration.id
+    ) {
       inspectingIntegrationId.value = null;
     }
   }
