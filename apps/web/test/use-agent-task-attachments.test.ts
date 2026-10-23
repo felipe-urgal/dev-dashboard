@@ -24,6 +24,10 @@ const attachment = (id: string, taskId: string): AgentAttachment => ({
   createdAt: '2026-10-23T12:00:00Z',
 });
 
+function attachmentIds(state: ReturnType<typeof useAgentTaskAttachments>): string[] {
+  return state.attachments.value.map((item) => item.id);
+}
+
 function harness() {
   const target = { projectId: 'p-a', taskId: 't-a' };
   const errors: string[] = [];
@@ -103,7 +107,7 @@ test('in-flight server write stays on A; old result cannot pollute or unlock B',
   h.writes[1]!.resolve(attachment('new', 't-b'));
   await current;
   assert.deepEqual(
-    h.state.attachments.value.map((a) => a.id),
+    attachmentIds(h.state),
     ['new'],
   );
   assert.deepEqual(h.state.selectedAttachmentIds.value, ['new']);
@@ -122,7 +126,7 @@ test('stale upload error after project change is ignored; current error can retr
   await old;
   assert.deepEqual(h.errors, []);
   assert.deepEqual(
-    h.state.attachments.value.map((a) => a.id),
+    attachmentIds(h.state),
     ['present'],
   );
 
@@ -139,7 +143,7 @@ test('stale upload error after project change is ignored; current error can retr
   h.writes[2]!.resolve(attachment('retry', 't-a'));
   await retry;
   assert.deepEqual(
-    h.state.attachments.value.map((a) => a.id),
+    attachmentIds(h.state),
     ['present', 'retry'],
   );
 });
@@ -175,7 +179,7 @@ test('snapshot filters selection and refuses different task', () => {
   assert.deepEqual(h.state.selectedAttachmentIds.value, []);
   h.state.applyLoadedAttachments([attachment('other', 't-b')], 'p-a', 't-b');
   assert.deepEqual(
-    h.state.attachments.value.map((a) => a.id),
+    attachmentIds(h.state),
     ['b'],
   );
   assert.equal(h.state.attachmentFor('b')?.filename, 'b.txt');
@@ -220,7 +224,7 @@ test('snapshot racing with upload response does not duplicate attachment IDs', a
   h.writes[0]!.resolve(attachment('same', 't-a'));
   await pending;
   assert.deepEqual(
-    h.state.attachments.value.map((a) => a.id),
+    attachmentIds(h.state),
     ['same'],
   );
   assert.deepEqual(h.state.selectedAttachmentIds.value, ['same']);
