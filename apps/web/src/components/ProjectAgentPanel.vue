@@ -33,6 +33,7 @@ import { useAgentTaskUsage } from '../composables/useAgentTaskUsage';
 import { useAgentTaskBudget } from '../composables/useAgentTaskBudget';
 import { useAgentTaskHistory } from '../composables/useAgentTaskHistory';
 import { useAgentTaskCreation } from '../composables/useAgentTaskCreation';
+import { useAgentTaskDeepLink } from '../composables/useAgentTaskDeepLink';
 import { useAgentTaskArchive } from '../composables/useAgentTaskArchive';
 import { useAgentTaskAttachments } from '../composables/useAgentTaskAttachments';
 import { useAgentTaskConversation } from '../composables/useAgentTaskConversation';
@@ -806,10 +807,13 @@ async function load(): Promise<void> {
         ].includes(record.task.state),
       ) ?? sorted[0];
 
-    // A deep link must remain accessible even outside the first cursor page.
-    const taskId = props.initialTaskId || active?.task.id || '';
-    selectedTaskId.value = taskId;
-    if (taskId) await loadTask(taskId, requestGeneration);
+    // A route-driven selection may already be loading while the first page
+    // resolves. Do not replace it with the default task or start a second GET.
+    if (!selectedTaskId.value) {
+      const taskId = props.initialTaskId || active?.task.id || '';
+      selectedTaskId.value = taskId;
+      if (taskId) await loadTask(taskId, requestGeneration);
+    }
   } catch (error) {
     if (requestGeneration !== generation) return;
     errorMessage.value =
@@ -941,6 +945,12 @@ function handleConversationKeydown(event: KeyboardEvent): void {
     void continueCurrentConversation();
   }
 }
+
+useAgentTaskDeepLink(
+  () => props.initialTaskId,
+  () => selectedTaskId.value,
+  selectTask,
+);
 
 watch(
   () => props.project.id,
