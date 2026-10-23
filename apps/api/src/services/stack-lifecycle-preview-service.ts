@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 
 import type {
-  StackCheck,
   StackLifecyclePreview,
   StackNodeTarget,
   StackResource,
