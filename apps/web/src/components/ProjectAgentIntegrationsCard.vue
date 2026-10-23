@@ -78,7 +78,9 @@ const {
 } = useAgentIntegrationMutations(
   () => captureScope(),
   load,
-  (message) => { errorMessage.value = message; },
+  (message) => {
+    errorMessage.value = message;
+  },
 );
 
 const selectedCapabilities = computed(
@@ -287,7 +289,9 @@ const canUninstallIntegration = (integration: AgentIntegration): boolean =>
       integration.scope === 'user')) ||
   canToggleIntegration(integration);
 
-async function installClaudePlugin(integration: AgentIntegration): Promise<void> {
+async function installClaudePlugin(
+  integration: AgentIntegration,
+): Promise<void> {
   if (!canInstallIntegration(integration)) return;
   const entry = { ...integration };
   const scope = claudePluginInstallScope.value;
@@ -297,35 +301,44 @@ async function installClaudePlugin(integration: AgentIntegration): Promise<void>
     providerId: entry.providerId,
     integrationId: entry.id,
     fallback: 'Não foi possível instalar o plugin do Claude Code.',
-    confirm: () => confirmDialog({
-      title: 'Instalar plugin do Claude Code',
-      message:
-        'Instalar ' + entry.name + '@' + entry.marketplace +
-        ' no escopo ' + label +
-        '? Plugins podem incluir skills, agents, hooks, MCP servers e LSP. Comandos declarados pelo marketplace não serão aceitos automaticamente.',
-      confirmLabel: 'Instalar plugin',
-      cancelLabel: 'Cancelar',
-      tone: 'warning',
-    }),
-    submit: (target) => installAgentIntegration(target.projectId, {
-      providerId: 'claude-code',
-      ...(target.environmentInstanceId
-        ? { environmentInstanceId: target.environmentInstanceId }
-        : {}),
-      kind: 'plugin',
-      name: entry.name,
-      marketplace: entry.marketplace,
-      scope,
-      confirmed: true,
-    }),
+    confirm: () =>
+      confirmDialog({
+        title: 'Instalar plugin do Claude Code',
+        message:
+          'Instalar ' +
+          entry.name +
+          '@' +
+          entry.marketplace +
+          ' no escopo ' +
+          label +
+          '? Plugins podem incluir skills, agents, hooks, MCP servers e LSP. Comandos declarados pelo marketplace não serão aceitos automaticamente.',
+        confirmLabel: 'Instalar plugin',
+        cancelLabel: 'Cancelar',
+        tone: 'warning',
+      }),
+    submit: (target) =>
+      installAgentIntegration(target.projectId, {
+        providerId: 'claude-code',
+        ...(target.environmentInstanceId
+          ? { environmentInstanceId: target.environmentInstanceId }
+          : {}),
+        kind: 'plugin',
+        name: entry.name,
+        marketplace: entry.marketplace,
+        scope,
+        confirmed: true,
+      }),
   });
 }
 
-async function prepareAuthentication(integration: AgentIntegration): Promise<void> {
+async function prepareAuthentication(
+  integration: AgentIntegration,
+): Promise<void> {
   if (
     !canAuthenticateIntegration(integration) ||
     (integration.providerId === 'claude-code' && !integration.scope)
-  ) return;
+  )
+    return;
   const entry = { ...integration };
   await mutate({
     kind: 'authenticate',
@@ -333,9 +346,8 @@ async function prepareAuthentication(integration: AgentIntegration): Promise<voi
     integrationId: entry.id,
     fallback: 'Não foi possível preparar a autenticação do MCP.',
     refresh: false,
-    submit: (target) => prepareAgentIntegrationAuthentication(
-      target.projectId,
-      {
+    submit: (target) =>
+      prepareAgentIntegrationAuthentication(target.projectId, {
         providerId: entry.providerId,
         ...(target.environmentInstanceId
           ? { environmentInstanceId: target.environmentInstanceId }
@@ -343,8 +355,7 @@ async function prepareAuthentication(integration: AgentIntegration): Promise<voi
         kind: 'mcp-server',
         name: entry.name,
         ...(entry.scope ? { scope: entry.scope } : {}),
-      },
-    ),
+      }),
     apply: (handoff) => {
       authenticationHandoff.value = {
         integrationId: entry.id,
@@ -377,21 +388,24 @@ async function toggleIntegration(integration: AgentIntegration): Promise<void> {
     providerId: entry.providerId,
     integrationId: entry.id,
     fallback: 'Não foi possível alterar o estado do plugin.',
-    submit: (target) => setAgentIntegrationEnabled(target.projectId, {
-      providerId: 'claude-code',
-      ...(target.environmentInstanceId
-        ? { environmentInstanceId: target.environmentInstanceId }
-        : {}),
-      kind: 'plugin',
-      name: entry.name,
-      ...(entry.marketplace ? { marketplace: entry.marketplace } : {}),
-      scope: entry.scope!,
-      enabled: !entry.enabled,
-    }),
+    submit: (target) =>
+      setAgentIntegrationEnabled(target.projectId, {
+        providerId: 'claude-code',
+        ...(target.environmentInstanceId
+          ? { environmentInstanceId: target.environmentInstanceId }
+          : {}),
+        kind: 'plugin',
+        name: entry.name,
+        ...(entry.marketplace ? { marketplace: entry.marketplace } : {}),
+        scope: entry.scope!,
+        enabled: !entry.enabled,
+      }),
   });
 }
 
-async function uninstallIntegration(integration: AgentIntegration): Promise<void> {
+async function uninstallIntegration(
+  integration: AgentIntegration,
+): Promise<void> {
   if (!canUninstallIntegration(integration)) return;
   const entry = { ...integration };
   const isCodex = entry.providerId === 'codex';
@@ -399,7 +413,8 @@ async function uninstallIntegration(integration: AgentIntegration): Promise<void
   const confirmOptions = isCodex
     ? {
         title: 'Remover MCP global do Codex',
-        message: 'Remover a entrada global do usuário para ' +
+        message:
+          'Remover a entrada global do usuário para ' +
           entry.name +
           '? Se este MCP também estiver configurado no projeto, ele continuará listado.',
         confirmLabel: 'Remover MCP global',
@@ -407,14 +422,20 @@ async function uninstallIntegration(integration: AgentIntegration): Promise<void
     : isMcp
       ? {
           title: 'Remover MCP do Claude Code',
-          message: 'Remover ' + entry.name + ' do escopo ' +
+          message:
+            'Remover ' +
+            entry.name +
+            ' do escopo ' +
             integrationScopeLabel(entry) +
             '? Para servidores remotos, o Claude Code também pode remover credenciais OAuth armazenadas para este servidor.',
           confirmLabel: 'Remover MCP',
         }
       : {
           title: 'Remover plugin',
-          message: 'Remover ' + entry.name + ' do escopo ' +
+          message:
+            'Remover ' +
+            entry.name +
+            ' do escopo ' +
             integrationScopeLabel(entry) +
             '? Os dados persistentes do plugin serão preservados.',
           confirmLabel: 'Remover plugin',
@@ -429,22 +450,24 @@ async function uninstallIntegration(integration: AgentIntegration): Promise<void
       : isMcp
         ? 'Não foi possível remover o MCP do Claude Code.'
         : 'Não foi possível remover o plugin.',
-    confirm: () => confirmDialog({
-      ...confirmOptions,
-      cancelLabel: 'Cancelar',
-      tone: 'danger',
-    }),
-    submit: (target) => uninstallAgentIntegration(target.projectId, {
-      providerId: entry.providerId,
-      ...(target.environmentInstanceId
-        ? { environmentInstanceId: target.environmentInstanceId }
-        : {}),
-      kind: entry.kind,
-      name: entry.name,
-      ...(entry.marketplace ? { marketplace: entry.marketplace } : {}),
-      scope: isCodex ? 'user' : entry.scope!,
-      confirmed: true,
-    }),
+    confirm: () =>
+      confirmDialog({
+        ...confirmOptions,
+        cancelLabel: 'Cancelar',
+        tone: 'danger',
+      }),
+    submit: (target) =>
+      uninstallAgentIntegration(target.projectId, {
+        providerId: entry.providerId,
+        ...(target.environmentInstanceId
+          ? { environmentInstanceId: target.environmentInstanceId }
+          : {}),
+        kind: entry.kind,
+        name: entry.name,
+        ...(entry.marketplace ? { marketplace: entry.marketplace } : {}),
+        scope: isCodex ? 'user' : entry.scope!,
+        confirmed: true,
+      }),
   });
 }
 
@@ -511,7 +534,8 @@ async function installMcp(): Promise<void> {
     !installConfirmed.value ||
     !installName.value.trim() ||
     !installUrl.value.trim()
-  ) return;
+  )
+    return;
 
   // Values must be immutable before the first await. A project switch after
   // the confirmation cannot redirect the request to the newly selected target.
@@ -521,20 +545,22 @@ async function installMcp(): Promise<void> {
   await mutate({
     kind: 'install-mcp',
     providerId,
-    fallback: providerId === 'codex'
-      ? 'Não foi possível adicionar o MCP do Codex.'
-      : 'Não foi possível adicionar o MCP do Claude Code.',
-    submit: (target) => installAgentIntegration(target.projectId, {
-      providerId,
-      ...(target.environmentInstanceId
-        ? { environmentInstanceId: target.environmentInstanceId }
-        : {}),
-      kind: 'mcp-server',
-      name,
-      scope,
-      confirmed: true,
-      url,
-    }),
+    fallback:
+      providerId === 'codex'
+        ? 'Não foi possível adicionar o MCP do Codex.'
+        : 'Não foi possível adicionar o MCP do Claude Code.',
+    submit: (target) =>
+      installAgentIntegration(target.projectId, {
+        providerId,
+        ...(target.environmentInstanceId
+          ? { environmentInstanceId: target.environmentInstanceId }
+          : {}),
+        kind: 'mcp-server',
+        name,
+        scope,
+        confirmed: true,
+        url,
+      }),
     apply: () => {
       installName.value = '';
       installUrl.value = '';
@@ -769,10 +795,7 @@ onBeforeUnmount(() => {
         class="agent-integration-install-scope"
       >
         <span>Escopo para instalar plugins</span>
-        <select
-          v-model="claudePluginInstallScope"
-          :disabled="mutationBusy"
-        >
+        <select v-model="claudePluginInstallScope" :disabled="mutationBusy">
           <option value="local">Local</option>
           <option value="project">Projeto</option>
           <option value="user">Usuário global</option>
