@@ -39,6 +39,12 @@ function result(id: string, taskId: string): AgentConversationExecutionResult {
   return { userTurn, agentTurn } as AgentConversationExecutionResult;
 }
 
+function conversationTurnIds(
+  state: ReturnType<typeof useAgentTaskConversation>,
+): string[] {
+  return state.conversationTurns.value.map((turn) => turn.id);
+}
+
 function harness() {
   const target = { projectId: 'project-a', taskId: 'task-a' };
   const requests: Array<{
@@ -130,7 +136,7 @@ test('envio gera um único ID e captura provider, profile, anexos e conteúdo', 
   await pending;
   assert.equal(h.state.conversationInstruction.value, '');
   assert.deepEqual(
-    h.state.conversationTurns.value.map((turn) => turn.id),
+    conversationTurnIds(h.state),
     ['turn-1', 'turn-1-agent'],
   );
   assert.deepEqual(h.success, [{ projectId: 'project-a', taskId: 'task-a' }]);
@@ -166,7 +172,7 @@ test('resposta da task A após A → B → A não altera a nova conversa nem lib
   await current;
   assert.equal(h.state.conversationSending.value, false);
   assert.deepEqual(
-    h.state.conversationTurns.value.map((turn) => turn.id),
+    conversationTurnIds(h.state),
     ['turn-2', 'turn-2-agent'],
   );
 });
@@ -211,7 +217,7 @@ test('após resposta ambígua com turno já persistido, draft é limpo sem reenv
   await pending;
   assert.equal(h.state.conversationInstruction.value, '');
   assert.deepEqual(
-    h.state.conversationTurns.value.map((turn) => turn.id),
+    conversationTurnIds(h.state),
     ['turn-1'],
   );
   assert.equal(h.requests.length, 1);
@@ -240,7 +246,7 @@ test('snapshots anteriores ao envio são descartados; snapshot canônico posteri
     currentRevision,
   );
   assert.deepEqual(
-    h.state.conversationTurns.value.map((turn) => turn.id),
+    conversationTurnIds(h.state),
     ['canonical'],
   );
   h.state.applyLoadedConversation(
@@ -249,7 +255,7 @@ test('snapshots anteriores ao envio são descartados; snapshot canônico posteri
     currentRevision,
   );
   assert.deepEqual(
-    h.state.conversationTurns.value.map((turn) => turn.id),
+    conversationTurnIds(h.state),
     ['canonical'],
   );
 });
@@ -270,7 +276,7 @@ test('snapshot pré-existente com turno retornado não produz duplicados', async
   h.requests[0]!.resolve(result('turn-1', 'task-a'));
   await pending;
   assert.deepEqual(
-    h.state.conversationTurns.value.map((turn) => turn.id),
+    conversationTurnIds(h.state),
     ['turn-1', 'turn-1-agent'],
   );
 });
