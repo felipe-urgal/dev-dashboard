@@ -50,6 +50,7 @@ import { StackDefinitionService } from './services/stack-definition-service.js';
 import { StackResourceCatalogService } from './services/stack-resource-catalog-service.js';
 import { StackDependencyDiscoveryService } from './services/stack-dependency-discovery-service.js';
 import { StackCheckService } from './services/stack-check-service.js';
+import { StackLifecyclePreviewService } from './services/stack-lifecycle-preview-service.js';
 import { StackComposeHealthAdapter } from './services/stack-compose-health-adapter.js';
 import { StackHealthCheckAdapter } from './services/stack-health-check-adapter.js';
 import { StackLogsService } from './services/stack-logs-service.js';
@@ -524,6 +525,20 @@ export async function buildApp(options: BuildAppOptions = {}) {
     }),
     stackDependencyDiscoveryService,
     stackCheckService,
+    stackLifecyclePreviewService: new StackLifecyclePreviewService(
+      {
+        check: stackCheckService,
+        stacks: stackDefinitionService,
+        resources: new StackResourceCatalogService({
+          projectStore: context.projectStore,
+          environments: context.developmentEnvironmentInstanceStore,
+          processes: context.processManager,
+          compose: dockerComposeProvider,
+          ownership: dockerComposeOwnershipStore,
+        }),
+      },
+      options.now ? { now: () => new Date(options.now!()) } : {},
+    ),
     stackLogsService,
     stackRestartService,
     stackStartService,
