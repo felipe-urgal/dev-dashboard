@@ -361,10 +361,10 @@ test('falha de página mantém tasks e cursor; retry continua sem primeira pági
 
   assert.equal(history.historyError.value, '');
   assert.equal(history.historyHasMore.value, false);
-  assert.deepEqual(
-    history.tasks.value.map((task) => task.task.id).sort(),
-    ['task-1', 'task-2'],
-  );
+  assert.deepEqual(history.tasks.value.map((task) => task.task.id).sort(), [
+    'task-1',
+    'task-2',
+  ]);
 });
 
 test('cockpit preserva lista durante erro e usa cursor no retry da paginação', () => {
@@ -383,6 +383,12 @@ test('cockpit preserva lista durante erro e usa cursor no retry da paginação',
   assert.match(panel, /Tentar novamente/);
   assert.match(panel, /Atualizar histórico/);
   assert.match(panel, /<template v-if="sortedTasks\.length">/);
-  assert.match(panel, /v-if="showAllHistory && historyHasMore && !historyError"/);
-  assert.doesNotMatch(panel, /<template v-else>\s*<button\s*v-for="record in showAllHistory/);
+  assert.match(
+    panel,
+    /v-if="showAllHistory && historyHasMore && !historyError"/,
+  );
+  assert.doesNotMatch(
+    panel,
+    /<template v-else>\s*<button\s*v-for="record in showAllHistory/,
+  );
 });
