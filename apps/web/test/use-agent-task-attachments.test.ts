@@ -14,28 +14,48 @@ const file = (name: string, type = 'text/plain', size = 5): File =>
 const input = (...files: File[]): Event =>
   ({ target: { files, value: 'selected' } }) as unknown as Event;
 const attachment = (id: string, taskId: string): AgentAttachment => ({
-  id, taskId, filename: id + '.txt', mediaType: 'text/plain', byteSize: 5,
-  sha256: 'hash', source: 'user-upload', createdAt: '2026-10-23T12:00:00Z',
+  id,
+  taskId,
+  filename: id + '.txt',
+  mediaType: 'text/plain',
+  byteSize: 5,
+  sha256: 'hash',
+  source: 'user-upload',
+  createdAt: '2026-10-23T12:00:00Z',
 });
 
 function harness() {
   const target = { projectId: 'p-a', taskId: 't-a' };
   const errors: string[] = [];
-  const reads: Array<{ resolve: (value: string) => void; reject: (error: Error) => void }> = [];
+  const reads: Array<{
+    resolve: (value: string) => void;
+    reject: (error: Error) => void;
+  }> = [];
   const writes: Array<{
-    projectId: string; taskId: string; filename: string;
-    resolve: (value: AgentAttachment) => void; reject: (error: Error) => void;
+    projectId: string;
+    taskId: string;
+    filename: string;
+    resolve: (value: AgentAttachment) => void;
+    reject: (error: Error) => void;
   }> = [];
   const create: typeof createAgentAttachment = (projectId, taskId, payload) =>
     new Promise((resolve, reject) =>
-      writes.push({ projectId, taskId, filename: payload.filename, resolve, reject }));
+      writes.push({
+        projectId,
+        taskId,
+        filename: payload.filename,
+        resolve,
+        reject,
+      }),
+    );
   const state = useAgentTaskAttachments(
     () => target,
     (message) => errors.push(message),
     () => {},
     {
       create,
-      readBase64: () => new Promise((resolve, reject) => reads.push({ resolve, reject })),
+      readBase64: () =>
+        new Promise((resolve, reject) => reads.push({ resolve, reject })),
     },
   );
   return { target, errors, reads, writes, state };
@@ -43,7 +63,9 @@ function harness() {
 
 test('file read from A cannot upload after A → B → A or reset', async () => {
   const h = harness();
-  const pending = h.state.addAttachments(input(file('one.txt'), file('two.txt')));
+  const pending = h.state.addAttachments(
+    input(file('one.txt'), file('two.txt')),
+  );
   assert.equal(h.reads.length, 1);
   h.target.taskId = 't-b';
   h.state.resetAttachments();
@@ -58,10 +80,15 @@ test('file read from A cannot upload after A → B → A or reset', async () => 
 
 test('in-flight server write stays on A; old result cannot pollute or unlock B', async () => {
   const h = harness();
-  const old = h.state.addAttachments(input(file('old.txt'), file('second.txt')));
+  const old = h.state.addAttachments(
+    input(file('old.txt'), file('second.txt')),
+  );
   h.reads[0]!.resolve('b2xk');
   await Promise.resolve();
-  assert.deepEqual([h.writes[0]?.projectId, h.writes[0]?.taskId], ['p-a', 't-a']);
+  assert.deepEqual(
+    [h.writes[0]?.projectId, h.writes[0]?.taskId],
+    ['p-a', 't-a'],
+  );
   h.target.taskId = 't-b';
   h.state.resetAttachments();
   const current = h.state.addAttachments(input(file('new.txt')));
@@ -75,7 +102,10 @@ test('in-flight server write stays on A; old result cannot pollute or unlock B',
   assert.equal(h.writes[1]?.taskId, 't-b');
   h.writes[1]!.resolve(attachment('new', 't-b'));
   await current;
-  assert.deepEqual(h.state.attachments.value.map((a) => a.id), ['new']);
+  assert.deepEqual(
+    h.state.attachments.value.map((a) => a.id),
+    ['new'],
+  );
   assert.deepEqual(h.state.selectedAttachmentIds.value, ['new']);
   assert.equal(h.state.uploadingAttachment.value, false);
 });
@@ -91,7 +121,10 @@ test('stale upload error after project change is ignored; current error can retr
   h.writes[0]!.reject(new Error('stale secret'));
   await old;
   assert.deepEqual(h.errors, []);
-  assert.deepEqual(h.state.attachments.value.map((a) => a.id), ['present']);
+  assert.deepEqual(
+    h.state.attachments.value.map((a) => a.id),
+    ['present'],
+  );
 
   const current = h.state.addAttachments(input(file('new.txt')));
   h.reads[1]!.resolve('bmV3');
@@ -105,18 +138,24 @@ test('stale upload error after project change is ignored; current error can retr
   await Promise.resolve();
   h.writes[2]!.resolve(attachment('retry', 't-a'));
   await retry;
-  assert.deepEqual(h.state.attachments.value.map((a) => a.id), ['present', 'retry']);
+  assert.deepEqual(
+    h.state.attachments.value.map((a) => a.id),
+    ['present', 'retry'],
+  );
 });
 
 test('validation enforces 8 attachments, 1 MB and accepted media types before API', async () => {
   const h = harness();
-  await h.state.addAttachments(input(file('huge.txt', 'text/plain', 1024 * 1024 + 1)));
+  await h.state.addAttachments(
+    input(file('huge.txt', 'text/plain', 1024 * 1024 + 1)),
+  );
   assert.match(h.errors.at(-1) ?? '', /1 MB/);
   await h.state.addAttachments(input(file('script.sh', 'text/x-shellscript')));
   assert.match(h.errors.at(-1) ?? '', /não suportado/);
   h.state.applyLoadedAttachments(
     Array.from({ length: 8 }, (_, index) => attachment(String(index), 't-a')),
-    'p-a', 't-a',
+    'p-a',
+    't-a',
   );
   await h.state.addAttachments(input(file('ninth.txt')));
   assert.match(h.errors.at(-1) ?? '', /no máximo 8/);
@@ -126,12 +165,19 @@ test('validation enforces 8 attachments, 1 MB and accepted media types before AP
 
 test('snapshot filters selection and refuses different task', () => {
   const h = harness();
-  h.state.applyLoadedAttachments([attachment('a', 't-a'), attachment('b', 't-a')], 'p-a', 't-a');
+  h.state.applyLoadedAttachments(
+    [attachment('a', 't-a'), attachment('b', 't-a')],
+    'p-a',
+    't-a',
+  );
   h.state.selectedAttachmentIds.value = ['a', 'invalid'];
   h.state.applyLoadedAttachments([attachment('b', 't-a')], 'p-a', 't-a');
   assert.deepEqual(h.state.selectedAttachmentIds.value, []);
   h.state.applyLoadedAttachments([attachment('other', 't-b')], 'p-a', 't-b');
-  assert.deepEqual(h.state.attachments.value.map((a) => a.id), ['b']);
+  assert.deepEqual(
+    h.state.attachments.value.map((a) => a.id),
+    ['b'],
+  );
   assert.equal(h.state.attachmentFor('b')?.filename, 'b.txt');
   h.state.resetAttachments();
   assert.equal(h.state.attachmentFor('b'), undefined);
@@ -139,9 +185,14 @@ test('snapshot filters selection and refuses different task', () => {
 
 test('cockpit delegates attachment ownership and clears it on project and task changes', () => {
   const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'), 'utf8');
+    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
+    'utf8',
+  );
   assert.match(panel, /useAgentTaskAttachments\(/);
-  assert.match(panel, /applyLoadedAttachments\(nextAttachments, props\.project\.id, taskId\)/);
+  assert.match(
+    panel,
+    /applyLoadedAttachments\(nextAttachments, props\.project\.id, taskId\)/,
+  );
   assert.match(panel, /resetAttachments\(\)/);
   assert.doesNotMatch(panel, /async function addAttachments\(/);
   assert.doesNotMatch(panel, /attachments\.value\s*=/);
