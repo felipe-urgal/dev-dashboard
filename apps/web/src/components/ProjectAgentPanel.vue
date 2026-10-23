@@ -1725,9 +1725,16 @@ onBeforeUnmount(() => {
               </select>
             </div>
 
-            <p v-if="supplementalWarning" class="agent-hint" role="status">
-              {{ supplementalWarning }}
-            </p>
+            <div v-if="supplementalWarning" class="agent-hint" role="status">
+              <p>{{ supplementalWarning }}</p>
+              <button
+                class="agent-history-show-all"
+                type="button"
+                @click="loadSupplementalData"
+              >
+                Recarregar métricas
+              </button>
+            </div>
             <div class="agent-usage-strip">
               <span>
                 <small>Execuções medidas</small>
