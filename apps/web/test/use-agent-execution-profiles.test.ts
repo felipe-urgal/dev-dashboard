@@ -64,7 +64,10 @@ test('perfil default seleciona provider e capabilities com cópia independente',
     providerId: 'codex' as const,
     requestedCapabilities: ['git:commit' as const],
   };
-  h.state.setLoadedExecutionProfiles(configuration('project-a', [profile], 'secure'), 'project-a');
+  h.state.setLoadedExecutionProfiles(
+    configuration('project-a', [profile], 'secure'),
+    'project-a',
+  );
   assert.equal(h.state.selectedProfileId.value, 'secure');
   assert.equal(h.provider.value, 'codex');
   assert.deepEqual(h.capabilities.value, ['git:commit']);
@@ -91,9 +94,14 @@ test('save usa snapshot dos drafts, sem dupla mutation e sem alterar grants', as
     maxTotalTokens: 1000,
     mode: 'hard',
   });
-  assert.deepEqual(h.requests[0]!.input.profiles[0]?.fallbackOrder, ['codex', 'claude-code']);
+  assert.deepEqual(h.requests[0]!.input.profiles[0]?.fallbackOrder, [
+    'codex',
+    'claude-code',
+  ]);
   h.provider.value = 'codex';
-  h.requests[0]!.resolve(configuration('project-a', h.requests[0]!.input.profiles, 'normal'));
+  h.requests[0]!.resolve(
+    configuration('project-a', h.requests[0]!.input.profiles, 'normal'),
+  );
   await pending;
   assert.equal(h.state.selectedProfileId.value, 'normal');
   assert.equal(h.state.profileSaving.value, false);
@@ -113,7 +121,9 @@ test('projeto A → B → A descarta resposta e erro antigos do save', async () 
   h.state.resetExecutionProfiles();
   h.state.setLoadedExecutionProfiles(configuration('project-a'), 'project-a');
 
-  h.requests[0]!.resolve(configuration('project-a', h.requests[0]!.input.profiles, 'a'));
+  h.requests[0]!.resolve(
+    configuration('project-a', h.requests[0]!.input.profiles, 'a'),
+  );
   await stale;
   assert.equal(h.state.selectedProfileId.value, '');
   assert.deepEqual(h.state.executionProfiles.value?.profiles, []);
@@ -144,11 +154,17 @@ test('remove conserva outros perfis, rejeita request duplicado e reporta falha a
     providerId: 'automatic' as const,
     requestedCapabilities: [],
   };
-  h.state.setLoadedExecutionProfiles(configuration('project-a', [a, b], 'a'), 'project-a');
+  h.state.setLoadedExecutionProfiles(
+    configuration('project-a', [a, b], 'a'),
+    'project-a',
+  );
   const pending = h.state.removeSelectedExecutionProfile();
   await h.state.removeSelectedExecutionProfile();
   assert.equal(h.requests.length, 1);
-  assert.deepEqual(h.requests[0]!.input.profiles.map((profile) => profile.id), ['b']);
+  assert.deepEqual(
+    h.requests[0]!.input.profiles.map((profile) => profile.id),
+    ['b'],
+  );
   assert.equal(h.requests[0]!.input.defaultProfileId, 'b');
   h.requests[0]!.reject(new Error('API profile failure'));
   await assert.rejects(pending, /API profile failure/);
