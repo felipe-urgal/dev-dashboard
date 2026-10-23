@@ -17,6 +17,7 @@ type SnapshotResult = 'applied' | 'stale' | 'invalid';
  * The cockpit has one status/activity owner shared by REST and realtime.
  * Accept only snapshots for the selected task and never replace a newer
  * canonical version (or newer runtime observation) with an older one.
+ * All activity records must belong to that same task before reaching the UI.
  */
 export function useAgentTaskSnapshots(
   selectedTask: () => SelectedTask | null,
@@ -49,7 +50,17 @@ export function useAgentTaskSnapshots(
       !Array.isArray(nextActivity?.events) ||
       !Array.isArray(nextActivity.authorizations) ||
       !Array.isArray(nextActivity.checkpoints) ||
-      !Array.isArray(nextActivity.evidence)
+      !Array.isArray(nextActivity.evidence) ||
+      !nextActivity.events.every(
+        (entry) => entry?.taskId === selected.taskId,
+      ) ||
+      !nextActivity.authorizations.every(
+        (entry) => entry?.taskId === selected.taskId,
+      ) ||
+      !nextActivity.checkpoints.every(
+        (entry) => entry?.taskId === selected.taskId,
+      ) ||
+      !nextActivity.evidence.every((entry) => entry?.taskId === selected.taskId)
     ) {
       return 'invalid';
     }
