@@ -58,3 +58,40 @@ grant, live systemd unit and ownership lease before every command.
 No plan dispositions are upgraded by this read-only evidence. The planner
 still returns `executable: false`, the systemd user lifecycle adapter is
 still internal/unwired, and no new service mutation endpoint exists.
+
+## Prévia de lifecycle por Stack — #1116 (read-only)
+
+`GET /api/stacks/:stackId/service-plan?action=start|stop&expectedPlanHash=...&expectedRevision=...`
+
+A rota usa a **Stack persistida no backend**, a revisão SHA-256 de
+`stackRevision`, a ordem calculada por `StackTopologyService` e a saúde
+observada por `StackCheckService`. O catálogo de recursos do servidor é
+consultado para identificar targets atualmente conhecidos. Não recebe
+comandos, paths, lista de nodes nem identidade de recurso arbitrária do
+navegador. Uma revisão ou um hash anterior diferente retorna 409.
+
+O contrato `StackLifecyclePreview` exibe as disposições de cada node
+(`willStart`, `willStop`, `alreadyReady`, `retained`, `blocked`,
+`unsupported`), dependências por ID e contagem de **outras Stacks** que
+referenciam o mesmo target exato. Start usa ordem topológica; Stop inverte e
+retém dependências que continuam atendendo nós ativos/retidos. Falhas de
+identidade, observação ausente ou health incerta bloqueiam. O status de
+processo gerenciado `running` isoladamente não prova readiness da aplicação.
+O hash considera revisão, ação, ordem, estado/disposição de cada node,
+consumidores por outra Stack e disponibilidade do catálogo, **não** o instante
+variável de polling. A janela observacional é de 30 segundos.
+
+**Limitação de segurança:** essa contagem não prova ausência de
+consumidores fora das Stacks (bindings, containers externos, produção etc.).
+A prévia ainda **não** aplica integralmente Port Registry, vínculos, grants,
+fencing entre processos, políticas operacionais de produção nem confirmação
+atômica. `willStart/willStop` representam candidatos observacionais, **não**
+autorização para mutação. `status: ready` significa apenas ausência de
+bloqueios conhecidos nessa observação parcial. `executable: false` é
+**incondicional**. Não há novo POST/runner, lock ou comando no host.
+
+O planner por projeto/Environment Instance continua independente e
+inalterado. Unificar os preflights de ambos os targets sob provas completas
+de ownership/portas/consumidores, coordenação física, recuperação segura e
+qualificação E2E ainda é requisito para concluir a #1116. Nenhum checkbox
+geral de execução mutável deve ser marcado apenas por esta prévia.

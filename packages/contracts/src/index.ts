@@ -23,6 +23,7 @@ export type {
 export type {
   Stack,
   StackCheck,
+  StackLifecyclePreview,
   StackComposeServiceTarget,
   StackDependency,
   StackDependencyDiscovery,

@@ -31,6 +31,7 @@ import type { StackStopService } from '../services/stack-stop-service.js';
 import { StackTopologyServiceError } from '../services/stack-topology-service.js';
 import { stackRevision } from '../services/stack-revision.js';
 import type { StackResourceCatalogService } from '../services/stack-resource-catalog-service.js';
+import type { StackLifecyclePreviewService } from '../services/stack-lifecycle-preview-service.js';
 import type { StackOperationJournal } from '../services/stack-operation-journal.js';
 
 interface Options extends FastifyPluginOptions {
@@ -44,6 +45,7 @@ interface Options extends FastifyPluginOptions {
     'discover'
   >;
   stackCheckService: Pick<StackCheckService, 'check'>;
+  stackLifecyclePreviewService: Pick<StackLifecyclePreviewService, 'preview'>;
   stackLogsService: Pick<StackLogsService, 'read'>;
   stackRestartService: Pick<StackRestartService, 'restart'>;
   stackStartService: Pick<StackStartService, 'start'>;
@@ -272,6 +274,94 @@ const stackCheckSchema = {
     stack: stackSchema,
     topology: stackTopologyPlanSchema,
     health: stackHealthSchema,
+  },
+} as const;
+
+const stackLifecyclePreviewSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'target',
+    'action',
+    'status',
+    'expectedRevision',
+    'planHash',
+    'observedAt',
+    'expiresAt',
+    'order',
+    'nodes',
+    'diagnostics',
+    'executable',
+  ],
+  properties: {
+    target: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind', 'stackId'],
+      properties: {
+        kind: { type: 'string', const: 'stack' },
+        stackId: { type: 'string' },
+      },
+    },
+    action: { type: 'string', enum: ['start', 'stop'] },
+    status: { type: 'string', enum: ['ready', 'blocked'] },
+    expectedRevision: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    planHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    observedAt: { type: 'string' },
+    expiresAt: { type: 'string' },
+    order: { type: 'array', maxItems: 200, items: { type: 'string' } },
+    nodes: {
+      type: 'array',
+      maxItems: 200,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'nodeId',
+          'name',
+          'kind',
+          'state',
+          'disposition',
+          'dependencies',
+          'otherStackConsumers',
+        ],
+        properties: {
+          nodeId: { type: 'string' },
+          name: { type: 'string' },
+          kind: {
+            type: 'string',
+            enum: ['environment', 'process', 'compose-service', 'health-check'],
+          },
+          state: {
+            type: 'string',
+            enum: [
+              'ready',
+              'starting',
+              'stopped',
+              'failed',
+              'blocked',
+              'unknown',
+            ],
+          },
+          disposition: {
+            type: 'string',
+            enum: [
+              'willStart',
+              'willStop',
+              'alreadyReady',
+              'retained',
+              'blocked',
+              'unsupported',
+            ],
+          },
+          dependencies: { type: 'array', items: { type: 'string' } },
+          otherStackConsumers: { type: 'integer', minimum: 0 },
+          diagnostic: { type: 'string' },
+        },
+      },
+    },
+    diagnostics: { type: 'array', items: { type: 'string' } },
+    executable: { type: 'boolean', const: false },
   },
 } as const;
 
@@ -640,6 +730,48 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
             request.params.stackId,
           ),
         };
+      } catch (error) {
+        throw mapStackError(error);
+      }
+    },
+  );
+
+  app.get<{
+    Params: StackParams;
+    Querystring: {
+      action: 'start' | 'stop';
+      expectedPlanHash?: string;
+      expectedRevision?: string;
+    };
+  }>(
+    '/stacks/:stackId/service-plan',
+    {
+      schema: {
+        params: stackParamsSchema,
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['action'],
+          properties: {
+            action: { type: 'string', enum: ['start', 'stop'] },
+            expectedPlanHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+            expectedRevision: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+          },
+        },
+        response: {
+          200: stackLifecyclePreviewSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      try {
+        return await options.stackLifecyclePreviewService.preview(
+          request.params.stackId,
+          request.query.action,
+          request.query.expectedPlanHash,
+          request.query.expectedRevision,
+        );
       } catch (error) {
         throw mapStackError(error);
       }
