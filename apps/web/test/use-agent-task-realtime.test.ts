@@ -171,7 +171,7 @@ test('reconexão mantém um owner e ignora close tardio', () => {
   assert.equal(realtime.socketState.value, 'idle');
 });
 
-test('reconexão após queda desativa socket antigo e retoma somente a task atual', () => {
+test('reconectar fecha socket antigo e mantém a task atual', () => {
   const selected = { projectId: 'project-1', taskId: 'task-a' };
   const received: string[] = [];
   const realtime = useAgentTaskRealtime(
@@ -205,7 +205,7 @@ test('reconexão após queda desativa socket antigo e retoma somente a task atua
   assert.equal(realtime.socketState.value, 'idle');
 });
 
-test('cockpit só oferece reconexão para snapshot canônico da task selecionada', () => {
+test('reconectar exige snapshot da task selecionada', () => {
   const panel = readFileSync(
     resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
     'utf8',
