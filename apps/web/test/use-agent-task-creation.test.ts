@@ -6,6 +6,7 @@ import { test } from 'vitest';
 
 import {
   type AgentBacklogAdoptionResult,
+  type AgentCapability,
   type AgentTaskRecord,
   type adoptAgentBacklog,
   type createAgentTask,
@@ -43,7 +44,7 @@ function harness() {
     projectId: 'project-a',
     environmentInstanceId: 'env-a',
     taskContextId: 'context-a',
-    requestedCapabilities: ['workspace:write' as const],
+    requestedCapabilities: ['workspace:write'] as AgentCapability[],
   };
   const mutating = ref(false);
   const creates: Array<{
@@ -133,7 +134,7 @@ test('criação captura projeto, contexto, capabilities e texto antes da requisi
   const h = harness();
   h.state.instruction.value = '  tarefa nova  ';
   const pending = h.state.createTask();
-  h.target.requestedCapabilities.push('git:commit' as never);
+  h.target.requestedCapabilities.push('git:commit');
   h.state.instruction.value = 'rascunho posterior';
   await h.state.createTask();
   assert.equal(h.creates.length, 1);
