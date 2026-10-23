@@ -10,7 +10,10 @@ import {
   type adoptAgentBacklog,
   type createAgentTask,
 } from '../src/api/agent-runtime';
-import { useAgentTaskCreation, parseAgentBacklogInstruction } from '../src/composables/useAgentTaskCreation';
+import {
+  useAgentTaskCreation,
+  parseAgentBacklogInstruction,
+} from '../src/composables/useAgentTaskCreation';
 import { type fetchTaskContexts } from '../src/api/task-contexts';
 
 function record(projectId: string, taskId = 'task-1'): AgentTaskRecord {
@@ -110,11 +113,19 @@ function harness() {
 }
 
 test('intenção de backlog reconhece variações e issue explícita sem falsa adoção', () => {
-  assert.deepEqual(parseAgentBacklogInstruction('  Pegue a PRÓXIMA atividade '), {});
+  assert.deepEqual(
+    parseAgentBacklogInstruction('  Pegue a PRÓXIMA atividade '),
+    {},
+  );
   assert.deepEqual(parseAgentBacklogInstruction('pegue a proxima issue'), {});
-  assert.deepEqual(parseAgentBacklogInstruction(' pegue  a #123 '), { issueNumber: 123 });
+  assert.deepEqual(parseAgentBacklogInstruction(' pegue  a #123 '), {
+    issueNumber: 123,
+  });
   assert.equal(parseAgentBacklogInstruction('pegue a #0'), null);
-  assert.equal(parseAgentBacklogInstruction('pegue a #99999999999999999999'), null);
+  assert.equal(
+    parseAgentBacklogInstruction('pegue a #99999999999999999999'),
+    null,
+  );
   assert.equal(parseAgentBacklogInstruction('crie uma task comum'), null);
 });
 
@@ -168,7 +179,10 @@ test('adoção ambígua não cria seleção; issue escolhida usa ambiente e busc
     issue,
     candidates: [],
     reused: true,
-    task: { ...record('project-a'), task: { ...record('project-a').task, taskContextId: 'context-new' } },
+    task: {
+      ...record('project-a'),
+      task: { ...record('project-a').task, taskContextId: 'context-new' },
+    },
   });
   await Promise.resolve();
   assert.equal(h.contexts[0]?.projectId, 'project-a');
@@ -176,7 +190,11 @@ test('adoção ambígua não cria seleção; issue escolhida usa ambiente e busc
   h.contexts[0]!.resolve([]);
   await pending;
   assert.deepEqual(h.committed, ['task-1']);
-  assert.deepEqual(h.reloaded, ['task-1'], 'context selection does not prevent reloading adopted task');
+  assert.deepEqual(
+    h.reloaded,
+    ['task-1'],
+    'context selection does not prevent reloading adopted task',
+  );
   assert.deepEqual(h.notices, ['123:0']);
   assert.equal(h.state.backlogAdoptionNotice.value?.reused, true);
   assert.deepEqual(h.state.backlogCandidates.value, []);
