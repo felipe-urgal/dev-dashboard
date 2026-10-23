@@ -281,8 +281,17 @@ const stackLifecyclePreviewSchema = {
   type: 'object',
   additionalProperties: false,
   required: [
-    'target', 'action', 'status', 'expectedRevision', 'planHash',
-    'observedAt', 'expiresAt', 'order', 'nodes', 'diagnostics', 'executable',
+    'target',
+    'action',
+    'status',
+    'expectedRevision',
+    'planHash',
+    'observedAt',
+    'expiresAt',
+    'order',
+    'nodes',
+    'diagnostics',
+    'executable',
   ],
   properties: {
     target: {
@@ -296,30 +305,56 @@ const stackLifecyclePreviewSchema = {
     },
     action: { type: 'string', enum: ['start', 'stop'] },
     status: { type: 'string', enum: ['ready', 'blocked'] },
-    expectedRevision: { type: 'string', pattern: '^[a-f0-9]{64}
-  type: 'object',
-  additionalProperties: false,
-  required: ['nodeId', 'state', 'source', 'readAt'],
-  properties: {
-    nodeId: { type: 'string' },
-    state: {
-      type: 'string',
-      enum: ['available', 'empty', 'unsupported', 'unavailable'],
+    expectedRevision: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    planHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    observedAt: { type: 'string' },
+    expiresAt: { type: 'string' },
+    order: { type: 'array', maxItems: 200, items: { type: 'string' } },
+    nodes: {
+      type: 'array',
+      maxItems: 200,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'nodeId',
+          'name',
+          'kind',
+          'state',
+          'disposition',
+          'dependencies',
+          'otherStackConsumers',
+        ],
+        properties: {
+          nodeId: { type: 'string' },
+          name: { type: 'string' },
+          kind: {
+            type: 'string',
+            enum: ['environment', 'process', 'compose-service', 'health-check'],
+          },
+          state: {
+            type: 'string',
+            enum: ['ready', 'starting', 'stopped', 'failed', 'blocked', 'unknown'],
+          },
+          disposition: {
+            type: 'string',
+            enum: [
+              'willStart', 'willStop', 'alreadyReady',
+              'retained', 'blocked', 'unsupported',
+            ],
+          },
+          dependencies: { type: 'array', items: { type: 'string' } },
+          otherStackConsumers: { type: 'integer', minimum: 0 },
+          diagnostic: { type: 'string' },
+        },
+      },
     },
-    source: {
-      type: 'string',
-      enum: ['compose', 'process', 'none'],
-    },
-    content: { type: 'string' },
-    truncated: { type: 'boolean' },
-    masked: { type: 'boolean' },
-    redactionCount: { type: 'integer', minimum: 0 },
-    readAt: { type: 'string' },
-    diagnostic: { type: 'string' },
+    diagnostics: { type: 'array', items: { type: 'string' } },
+    executable: { type: 'boolean', const: false },
   },
 } as const;
 
-cconst stackNodeLogSchema = {
+const stackNodeLogSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['nodeId', 'state', 'source', 'readAt'],
@@ -708,30 +743,24 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
           required: ['action'],
           properties: {
             action: { type: 'string', enum: ['start', 'stop'] },
-            expectedPlanHash: { type: 'string', pattern: '^[a-f0-9]{64}
-    {
-      schema: {
-        params: stackParamsSchema,
-        response: {
-          200: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['check'],
-            properties: {
-              check: stackCheckSchema,
-              revision: { type: 'string' },
-            },
+            expectedPlanHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+            expectedRevision: { type: 'string', pattern: '^[a-f0-9]{64}$' },
           },
+        },
+        response: {
+          200: stackLifecyclePreviewSchema,
           ...commonErrorResponseSchemas,
         },
       },
     },
     async (request) => {
       try {
-        const check = await options.stackCheckService.check(
+        return await options.stackLifecyclePreviewService.preview(
           request.params.stackId,
+          request.query.action,
+          request.query.expectedPlanHash,
+          request.query.expectedRevision,
         );
-        return { check, revision: stackRevision(check.stack) };
       } catch (error) {
         throw mapStackError(error);
       }
