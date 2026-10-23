@@ -864,6 +864,16 @@ async function refreshHistory(): Promise<void> {
   }
 }
 
+async function retryHistory(): Promise<void> {
+  // A failed next-page query keeps the cursor and cached tasks intact.
+  // Only an initial-load failure needs to restart from the first page.
+  if (historyLoaded.value && historyHasMore.value) {
+    await loadNextPage();
+  } else {
+    await refreshHistory();
+  }
+}
+
 async function toggleArchivedHistory(): Promise<void> {
   const pinned = currentTask.value;
   const requestProject = props.project.id;
@@ -1547,7 +1557,7 @@ onBeforeUnmount(() => {
             Ver mais
           </button>
           <button
-            v-if="showAllHistory && historyHasMore"
+            v-if="showAllHistory && historyHasMore && !historyError"
             class="agent-history-show-all"
             type="button"
             :disabled="historyLoading"
@@ -1568,7 +1578,7 @@ onBeforeUnmount(() => {
         <p v-if="historyLoading && !historyLoaded" class="agent-hint">
           Carregando histórico de tasks...
         </p>
-        <p v-else-if="!sortedTasks.length" class="agent-hint">
+        <p v-else-if="!sortedTasks.length && !historyError" class="agent-hint">
           {{
             historyHasMore
               ? 'Nenhuma task encontrada nesta página. Carregue a próxima.'
@@ -1583,11 +1593,15 @@ onBeforeUnmount(() => {
           class="agent-history-show-all"
           type="button"
           :disabled="historyLoading"
-          @click="refreshHistory"
+          @click="retryHistory"
         >
-          Atualizar histórico
+          {{
+            historyLoaded && historyHasMore
+              ? 'Tentar novamente'
+              : 'Atualizar histórico'
+          }}
         </button>
-        <template v-else>
+        <template v-if="sortedTasks.length">
           <button
             v-for="record in showAllHistory
               ? sortedTasks

@@ -324,3 +324,71 @@ test('registro de archives não atravessa projetos e tem tamanho limitado', () =
     ['task-256'],
   );
 });
+
+test('falha em página mantém cursor e histórico para retry', async () => {
+  const { requests, fetchPage } = client();
+  const history = useAgentTaskHistory(() => 'project-a', fetchPage);
+
+  const first = history.loadFirstPage();
+  requests[0]!.resolve({
+    tasks: [fakeTask('project-a', 'task-1', 2)],
+    nextCursor: 'a'.repeat(64),
+  });
+  await first;
+
+  const second = history.loadNextPage();
+  requests[1]!.reject(new Error('Falha temporária'));
+  await second;
+
+  assert.equal(history.historyLoaded.value, true);
+  assert.equal(history.historyHasMore.value, true);
+  assert.equal(history.nextCursor.value, 'a'.repeat(64));
+  assert.deepEqual(
+    history.tasks.value.map((task) => task.task.id),
+    ['task-1'],
+  );
+  assert.match(history.historyError.value, /Falha temporária/);
+
+  const retry = history.loadNextPage();
+  assert.equal(requests.length, 3);
+  assert.equal(requests[2]!.cursor, 'a'.repeat(64));
+  assert.equal(requests[2]!.includeArchived, false);
+  requests[2]!.resolve({
+    tasks: [fakeTask('project-a', 'task-2', 1)],
+    nextCursor: null,
+  });
+  await retry;
+
+  assert.equal(history.historyError.value, '');
+  assert.equal(history.historyHasMore.value, false);
+  assert.deepEqual(history.tasks.value.map((task) => task.task.id).sort(), [
+    'task-1',
+    'task-2',
+  ]);
+});
+
+test('retry de paginação mantém lista visível no cockpit', () => {
+  const panel = readFileSync(
+    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
+    'utf8',
+  );
+  const retry = panel.slice(
+    panel.indexOf('async function retryHistory('),
+    panel.indexOf('async function toggleArchivedHistory('),
+  );
+  assert.match(retry, /historyLoaded\.value && historyHasMore\.value/);
+  assert.match(retry, /await loadNextPage\(\)/);
+  assert.match(retry, /await refreshHistory\(\)/);
+  assert.match(panel, /@click="retryHistory"/);
+  assert.match(panel, /Tentar novamente/);
+  assert.match(panel, /Atualizar histórico/);
+  assert.match(panel, /<template v-if="sortedTasks\.length">/);
+  assert.match(
+    panel,
+    /v-if="showAllHistory && historyHasMore && !historyError"/,
+  );
+  assert.doesNotMatch(
+    panel,
+    /<template v-else>\s*<button\s*v-for="record in showAllHistory/,
+  );
+});
