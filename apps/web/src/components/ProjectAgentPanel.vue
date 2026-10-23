@@ -35,6 +35,10 @@ import { useAgentTaskHistory } from '../composables/useAgentTaskHistory';
 import { useAgentTaskAttachments } from '../composables/useAgentTaskAttachments';
 import { useAgentTaskConversation } from '../composables/useAgentTaskConversation';
 import {
+  useAgentTaskApprovals,
+  authorizationScopeLabel,
+} from '../composables/useAgentTaskApprovals';
+import {
   providerDiagnosticAction,
   providerDiagnosticSummary,
   providerObservedAtLabel,
@@ -52,12 +56,8 @@ import {
   fetchAgentProviders,
   fetchAgentTaskStatus,
   recoverAgentTask,
-  resolveAgentCheckpoint,
   retryAgentTask,
-  setAgentAuthorization,
   type AgentActivity,
-  type AgentAuthorization,
-  type AgentAuthorizationScope,
   type AgentBacklogIssue,
   type AgentCapability,
   type AgentExecutionResult,
@@ -160,7 +160,6 @@ const backlogAdoptionNotice = ref<{
   reused: boolean;
   taskContextId?: string;
 } | null>(null);
-const checkpointInstruction = ref('');
 const status = ref<AgentTaskStatus | null>(null);
 const activity = ref<AgentActivity | null>(null);
 const latestExecution = ref<AgentExecutionResult | null>(null);
@@ -168,6 +167,40 @@ const loading = ref(false);
 const mutating = ref(false);
 const executing = ref(false);
 const errorMessage = ref('');
+const {
+  checkpointInstruction,
+  pendingCheckpoint,
+  authorizationByCapability,
+  authorizationGranted,
+  resetApprovals,
+  toggleAuthorization,
+  resolveCheckpoint,
+} = useAgentTaskApprovals(
+  () => {
+    const record = currentTask.value;
+    if (
+      !record ||
+      record.task.id !== selectedTaskId.value ||
+      status.value?.task.task.id !== selectedTaskId.value
+    )
+      return null;
+    return {
+      projectId: props.project.id,
+      taskId: record.task.id,
+      requestedCapabilities: [...record.task.requestedCapabilities],
+    };
+  },
+  activity,
+  mutating,
+  replaceTask,
+  ({ taskId }) => loadTask(taskId),
+  (message) => {
+    errorMessage.value = message;
+  },
+  () => {
+    errorMessage.value = '';
+  },
+);
 const {
   conversationInstruction,
   conversationTurns,
@@ -388,43 +421,6 @@ const openIntegrations = (): void => {
   });
 };
 
-const pendingCheckpoint = computed(() => {
-  const values = activity.value?.checkpoints ?? [];
-  for (let index = values.length - 1; index >= 0; index -= 1) {
-    if (values[index]?.status === 'pending') return values[index] ?? null;
-  }
-  return null;
-});
-
-const authorizationByCapability = computed(() => {
-  const values = new Map<AgentCapability, AgentAuthorization>();
-  for (const authorization of activity.value?.authorizations ?? []) {
-    values.set(authorization.capability, authorization);
-  }
-  return values;
-});
-
-const authorizationGranted = (capability: AgentCapability): boolean =>
-  authorizationByCapability.value.get(capability)?.granted === true;
-
-const authorizationScopeLabel = (
-  scope: AgentAuthorizationScope | undefined,
-): string => {
-  if (!scope) return 'Sem escopo estruturado (legado)';
-  switch (scope.kind) {
-    case 'environment':
-      return 'Ambiente · ' + scope.environmentInstanceId;
-    case 'branch':
-      return 'Branch · ' + scope.branch;
-    case 'repository-branch':
-      return scope.repository + ' · ' + scope.branch;
-    case 'pull-request':
-      return scope.repository + ' · PR #' + scope.number;
-    case 'release-target':
-      return 'Target · ' + scope.target;
-  }
-};
-
 const providerLabel = (providerId: AgentProviderId): string => {
   switch (providerId) {
     case 'automatic':
@@ -588,6 +584,7 @@ async function loadTask(
     activity.value = null;
     resetConversation();
     resetAttachments();
+    resetApprovals();
     resetBudget();
     closeSocket();
     clearUsage();
@@ -645,6 +642,7 @@ async function load(): Promise<void> {
   resetProviders();
   resetAttachments();
   resetConversation();
+  resetApprovals();
   showAllHistory.value = false;
   taskLoadVersion += 1;
   selectedTaskId.value = '';
@@ -799,6 +797,7 @@ async function selectTask(taskId: string): Promise<void> {
   activity.value = null;
   resetConversation();
   resetAttachments();
+  resetApprovals();
   latestExecution.value = null;
   errorMessage.value = '';
   await loadTask(taskId);
@@ -870,6 +869,7 @@ async function createTask(): Promise<void> {
       selectedTaskId.value = result.task.task.id;
       resetAttachments();
       resetConversation();
+      resetApprovals();
       instruction.value = '';
       latestExecution.value = null;
       taskContexts.value = await fetchTaskContexts(props.project.id);
@@ -894,6 +894,7 @@ async function createTask(): Promise<void> {
     selectedTaskId.value = record.task.id;
     resetAttachments();
     resetConversation();
+    resetApprovals();
     instruction.value = '';
     latestExecution.value = null;
     await loadTask(record.task.id);
@@ -1045,62 +1046,6 @@ async function recoverCurrent(): Promise<void> {
   }
 }
 
-async function toggleAuthorization(
-  capability: AgentCapability,
-  granted: boolean,
-): Promise<void> {
-  const record = currentTask.value;
-  if (!record || mutating.value) return;
-  mutating.value = true;
-  errorMessage.value = '';
-  try {
-    await setAgentAuthorization(
-      props.project.id,
-      record.task.id,
-      capability,
-      granted,
-    );
-    activity.value = await fetchAgentActivity(props.project.id, record.task.id);
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível alterar a autorização.';
-  } finally {
-    mutating.value = false;
-  }
-}
-
-async function resolveCheckpoint(
-  decision: 'approved' | 'rejected',
-): Promise<void> {
-  const record = currentTask.value;
-  const checkpoint = pendingCheckpoint.value;
-  if (!record || !checkpoint || mutating.value) return;
-  mutating.value = true;
-  errorMessage.value = '';
-
-  try {
-    const result = await resolveAgentCheckpoint(
-      props.project.id,
-      record.task.id,
-      checkpoint.id,
-      decision,
-      decision === 'approved' ? checkpointInstruction.value : undefined,
-    );
-    replaceTask(result.task);
-    checkpointInstruction.value = '';
-    await loadTask(record.task.id);
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível resolver o checkpoint.';
-  } finally {
-    mutating.value = false;
-  }
-}
-
 function handleComposerKeydown(event: KeyboardEvent): void {
   if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
     event.preventDefault();
@@ -1133,6 +1078,7 @@ onBeforeUnmount(() => {
   resetProviders();
   resetAttachments();
   resetConversation();
+  resetApprovals();
 });
 </script>
 
@@ -2146,6 +2092,7 @@ onBeforeUnmount(() => {
 
               <textarea
                 v-model="checkpointInstruction"
+                :disabled="mutating"
                 rows="3"
                 maxlength="4000"
                 placeholder="Instrução opcional para continuar..."
