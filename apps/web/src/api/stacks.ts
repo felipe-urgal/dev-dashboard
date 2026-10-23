@@ -21,7 +21,9 @@ interface StackResourcesResponse {
 }
 
 export async function fetchStackResources(): Promise<StackResource[]> {
-  const response = await requestJson<StackResourcesResponse>('/api/stacks/resources');
+  const response = await requestJson<StackResourcesResponse>(
+    '/api/stacks/resources',
+  );
   return response.resources;
 }
 

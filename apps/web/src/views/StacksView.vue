@@ -668,18 +668,25 @@ onMounted(() => {
       </div>
 
       <div class="stack-actions">
-        <button class="stack-button stack-button-primary" type="button" @click="beginCreate">
+        <button
+          class="stack-button stack-button-primary"
+          type="button"
+          @click="beginCreate"
+        >
           Criar Stack
         </button>
-      <button
-        class="stack-button"
-        type="button"
-        :disabled="loading"
-        @click="load"
-      >
-        <ArrowPathIcon :class="{ 'is-spinning': loading }" aria-hidden="true" />
-        Atualizar
-      </button>
+        <button
+          class="stack-button"
+          type="button"
+          :disabled="loading"
+          @click="load"
+        >
+          <ArrowPathIcon
+            :class="{ 'is-spinning': loading }"
+            aria-hidden="true"
+          />
+          Atualizar
+        </button>
       </div>
     </header>
 
@@ -688,7 +695,8 @@ onMounted(() => {
     </p>
 
     <p v-if="resourceError" class="stacks-error" role="alert">
-      Catálogo indisponível: {{ resourceError }}. Os recursos já configurados ainda podem ser revisados.
+      Catálogo indisponível: {{ resourceError }}. Os recursos já configurados
+      ainda podem ser revisados.
     </p>
 
     <StackDefinitionEditor

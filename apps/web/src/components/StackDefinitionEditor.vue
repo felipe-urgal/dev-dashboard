@@ -53,8 +53,7 @@ function addNode(): void {
   if (
     !resource ||
     nodes.value.some(
-      (node) =>
-        JSON.stringify(node.target) === JSON.stringify(resource.target),
+      (node) => JSON.stringify(node.target) === JSON.stringify(resource.target),
     )
   ) {
     error.value = 'Selecione um recurso disponível no catálogo atualizado.';
@@ -90,7 +89,8 @@ function addDependency(): void {
         dependency.dependsOnNodeId === requirementId.value,
     )
   ) {
-    error.value = 'Escolha dois nodes diferentes e uma dependência ainda não adicionada.';
+    error.value =
+      'Escolha dois nodes diferentes e uma dependência ainda não adicionada.';
     return;
   }
   dependencies.value.push({
@@ -109,7 +109,8 @@ function nodeName(id: string): string {
 function submit(): void {
   const normalized = name.value.trim();
   if (!normalized || normalized.length > 240 || nodes.value.length === 0) {
-    error.value = 'Informe um nome e selecione pelo menos um recurso conhecido.';
+    error.value =
+      'Informe um nome e selecione pelo menos um recurso conhecido.';
     return;
   }
   error.value = '';
@@ -147,7 +148,10 @@ function submit(): void {
     <div class="resource-controls">
       <label>
         Recurso conhecido do backend
-        <select v-model="resourceIndex" :disabled="disabled || !availableResources.length">
+        <select
+          v-model="resourceIndex"
+          :disabled="disabled || !availableResources.length"
+        >
           <option value="">Selecione um recurso</option>
           <option
             v-for="resource in availableResources"
@@ -158,7 +162,11 @@ function submit(): void {
           </option>
         </select>
       </label>
-      <button type="button" :disabled="disabled || !resourceIndex" @click="addNode">
+      <button
+        type="button"
+        :disabled="disabled || !resourceIndex"
+        @click="addNode"
+      >
         Adicionar node
       </button>
     </div>
@@ -200,7 +208,9 @@ function submit(): void {
           </option>
         </select>
       </label>
-      <button type="button" @click="addDependency">Adicionar dependência</button>
+      <button type="button" @click="addDependency">
+        Adicionar dependência
+      </button>
     </fieldset>
     <ul class="editor-list" aria-label="Dependências selecionadas">
       <li
@@ -214,13 +224,18 @@ function submit(): void {
         <button
           type="button"
           :disabled="disabled"
-          @click="dependencies = dependencies.filter((item) => item !== dependency)"
+          @click="
+            dependencies = dependencies.filter((item) => item !== dependency)
+          "
         >
           Remover dependência
         </button>
       </li>
     </ul>
-    <p>O backend valida a topologia, as referências e a revisão antes de persistir.</p>
+    <p>
+      O backend valida a topologia, as referências e a revisão antes de
+      persistir.
+    </p>
     <div class="editor-actions">
       <button type="submit" :disabled="disabled || !nodes.length">
         Salvar definição
