@@ -39,6 +39,7 @@ import { useAgentTaskDeepLink } from '../composables/useAgentTaskDeepLink';
 import { useAgentTaskArchive } from '../composables/useAgentTaskArchive';
 import { useAgentTaskAttachments } from '../composables/useAgentTaskAttachments';
 import { useAgentTaskConversation } from '../composables/useAgentTaskConversation';
+import { useAgentTaskDetailReads } from '../composables/useAgentTaskDetailReads';
 import { useAgentTaskLifecycle } from '../composables/useAgentTaskLifecycle';
 import {
   useAgentTaskApprovals,
@@ -51,8 +52,6 @@ import {
 } from '../agent-provider-doctor';
 import {
   fetchAgentActivity,
-  fetchAgentAttachments,
-  fetchAgentConversation,
   fetchAgentExecutionProfiles,
   fetchAgentProviders,
   fetchAgentTaskStatus,
@@ -334,6 +333,7 @@ const {
   selectedAttachmentIds,
   uploadingAttachment,
   resetAttachments,
+  attachmentsRevision,
   applyLoadedAttachments,
   attachmentFor,
   addAttachments,
@@ -348,6 +348,26 @@ const {
   () => {
     errorMessage.value = '';
   },
+);
+const {
+  detailWarning,
+  resetTaskDetails,
+  loadTaskDetails,
+} = useAgentTaskDetailReads(
+  () =>
+    selectedTaskId.value
+      ? { projectId: props.project.id, taskId: selectedTaskId.value }
+      : null,
+  conversationRevision,
+  attachmentsRevision,
+  (nextConversation, target, revision) =>
+    applyLoadedConversation(nextConversation, target, revision),
+  (nextAttachments, target) =>
+    applyLoadedAttachments(
+      nextAttachments,
+      target.projectId,
+      target.taskId,
+    ),
 );
 const {
   providerRefreshing,
@@ -701,7 +721,7 @@ async function loadTask(
   requestGeneration = generation,
 ): Promise<void> {
   const loadVersion = ++taskLoadVersion;
-  const conversationSnapshotRevision = conversationRevision();
+  resetTaskDetails();
   if (!taskId) {
     status.value = null;
     activity.value = null;
@@ -718,13 +738,10 @@ async function loadTask(
 
   loadSupplementalData();
   try {
-    const [nextStatus, nextActivity, nextConversation, nextAttachments] =
-      await Promise.all([
-        fetchAgentTaskStatus(props.project.id, taskId),
-        fetchAgentActivity(props.project.id, taskId),
-        fetchAgentConversation(props.project.id, taskId),
-        fetchAgentAttachments(props.project.id, taskId),
-      ]);
+    const [nextStatus, nextActivity] = await Promise.all([
+      fetchAgentTaskStatus(props.project.id, taskId),
+      fetchAgentActivity(props.project.id, taskId),
+    ]);
     if (
       requestGeneration !== generation ||
       loadVersion !== taskLoadVersion ||
@@ -742,13 +759,8 @@ async function loadTask(
       );
     }
     if (snapshotResult === 'stale') return;
-    applyLoadedConversation(
-      nextConversation,
-      { projectId: props.project.id, taskId },
-      conversationSnapshotRevision,
-    );
-    applyLoadedAttachments(nextAttachments, props.project.id, taskId);
     connectTaskSocket(props.project.id, taskId);
+    loadTaskDetails();
   } catch (error) {
     if (
       requestGeneration !== generation ||
@@ -771,6 +783,7 @@ async function load(): Promise<void> {
   clearUsage();
   resetBudget();
   resetSupplementalData();
+  resetTaskDetails();
   resetHistory();
   resetCreation();
   invalidateArchive();
@@ -916,6 +929,7 @@ async function selectTask(taskId: string): Promise<void> {
   clearUsage();
   resetBudget();
   resetSupplementalData();
+  resetTaskDetails();
   status.value = null;
   activity.value = null;
   resetConversation();
@@ -1022,6 +1036,7 @@ onBeforeUnmount(() => {
   clearUsage();
   resetBudget();
   resetSupplementalData();
+  resetTaskDetails();
   resetHistory();
   resetCreation();
   invalidateArchive();
@@ -1982,7 +1997,17 @@ onBeforeUnmount(() => {
               <span class="agent-shortcut">Ctrl/⌘ + Enter</span>
             </div>
 
-            <p v-if="!conversationTurns.length" class="agent-hint">
+            <div v-if="detailWarning" class="agent-hint" role="status">
+              <p>{{ detailWarning }}</p>
+              <button
+                class="agent-history-show-all"
+                type="button"
+                @click="loadTaskDetails"
+              >
+                Recarregar conversa e anexos
+              </button>
+            </div>
+            <p v-if="!conversationTurns.length && !detailWarning" class="agent-hint">
               Ainda não há turnos persistidos nesta task.
             </p>
             <ol v-else class="agent-conversation-list">
@@ -2139,7 +2164,7 @@ onBeforeUnmount(() => {
               Até 8 arquivos, 1 MB cada. Texto, Markdown, JSON, PNG, JPEG e
               WebP. O conteúdo é tratado como dado não confiável.
             </p>
-            <p v-if="!attachments.length" class="agent-hint">
+            <p v-if="!attachments.length && !detailWarning" class="agent-hint">
               Nenhum anexo nesta task.
             </p>
             <div v-else class="agent-authorization-list">
