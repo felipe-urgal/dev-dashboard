@@ -32,6 +32,7 @@ import { useAgentTaskRealtime } from '../composables/useAgentTaskRealtime';
 import { useAgentTaskUsage } from '../composables/useAgentTaskUsage';
 import { useAgentTaskBudget } from '../composables/useAgentTaskBudget';
 import { useAgentTaskHistory } from '../composables/useAgentTaskHistory';
+import { useAgentTaskCreation } from '../composables/useAgentTaskCreation';
 import { useAgentTaskAttachments } from '../composables/useAgentTaskAttachments';
 import { useAgentTaskConversation } from '../composables/useAgentTaskConversation';
 import { useAgentTaskLifecycle } from '../composables/useAgentTaskLifecycle';
@@ -45,9 +46,7 @@ import {
   providerObservedAtLabel,
 } from '../agent-provider-doctor';
 import {
-  adoptAgentBacklog,
   archiveAgentTask,
-  createAgentTask,
   fetchAgentActivity,
   fetchAgentAttachments,
   fetchAgentConversation,
@@ -55,7 +54,6 @@ import {
   fetchAgentProviders,
   fetchAgentTaskStatus,
   type AgentActivity,
-  type AgentBacklogIssue,
   type AgentCapability,
   type AgentExecutionResult,
   type AgentProviderId,
@@ -147,22 +145,54 @@ const {
     errorMessage.value = message;
   },
 );
-const instruction = ref('');
-
-const backlogCandidates = ref<AgentBacklogIssue[]>([]);
-const backlogSelectionSource = ref('');
-const backlogAdoptionNotice = ref<{
-  source: string;
-  issue: AgentBacklogIssue;
-  reused: boolean;
-  taskContextId?: string;
-} | null>(null);
 const status = ref<AgentTaskStatus | null>(null);
 const activity = ref<AgentActivity | null>(null);
 const latestExecution = ref<AgentExecutionResult | null>(null);
 const loading = ref(false);
 const mutating = ref(false);
 const errorMessage = ref('');
+const {
+  instruction,
+  backlogCandidates,
+  backlogSelectionSource,
+  backlogAdoptionNotice,
+  invalidateCreation,
+  resetCreation,
+  chooseBacklogIssue,
+  createTask,
+} = useAgentTaskCreation(
+  () => ({
+    projectId: props.project.id,
+    environmentInstanceId:
+      selectedCreateTaskContext.value?.environmentInstanceId ??
+      props.environmentInstanceId,
+    ...(selectedTaskContextId.value
+      ? { taskContextId: selectedTaskContextId.value }
+      : {}),
+    requestedCapabilities: requestedCapabilities.value,
+  }),
+  mutating,
+  ({ record, contexts }) => {
+    replaceTask(record);
+    selectedTaskId.value = record.task.id;
+    if (contexts) {
+      taskContexts.value = contexts;
+      selectedTaskContextId.value = record.task.taskContextId ?? '';
+    }
+    resetAttachments();
+    resetConversation();
+    resetApprovals();
+    resetLifecycle();
+    latestExecution.value = null;
+  },
+  (taskId) => loadTask(taskId),
+  (message) => {
+    errorMessage.value = message;
+  },
+  () => {
+    errorMessage.value = '';
+  },
+);
 const {
   executing,
   resetLifecycle,
@@ -677,6 +707,7 @@ async function load(): Promise<void> {
   clearUsage();
   resetBudget();
   resetHistory();
+  resetCreation();
   resetExecutionProfiles();
   resetProviders();
   resetAttachments();
@@ -829,6 +860,7 @@ function expandHistory(): void {
 }
 
 async function selectTask(taskId: string): Promise<void> {
+  invalidateCreation();
   selectedTaskId.value = taskId;
   closeSocket();
   clearUsage();
@@ -842,111 +874,6 @@ async function selectTask(taskId: string): Promise<void> {
   latestExecution.value = null;
   errorMessage.value = '';
   await loadTask(taskId);
-}
-
-function parseBacklogInstruction(
-  value: string,
-): { issueNumber?: number } | null {
-  const normalized = value
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLocaleLowerCase('pt-BR');
-  if (
-    normalized === 'pegue a próxima atividade' ||
-    normalized === 'pegue a proxima atividade' ||
-    normalized === 'pegue a próxima issue' ||
-    normalized === 'pegue a proxima issue'
-  ) {
-    return {};
-  }
-
-  const specific = /^pegue a #(\d+)$/.exec(normalized);
-  if (!specific) return null;
-  const issueNumber = Number(specific[1]);
-  return Number.isSafeInteger(issueNumber) && issueNumber > 0
-    ? { issueNumber }
-    : null;
-}
-
-function chooseBacklogIssue(issue: AgentBacklogIssue): void {
-  instruction.value = 'pegue a #' + issue.number;
-}
-
-async function createTask(): Promise<void> {
-  if (!canCreate.value) return;
-  mutating.value = true;
-  errorMessage.value = '';
-
-  try {
-    const backlogIntent = parseBacklogInstruction(instruction.value);
-    if (backlogIntent) {
-      const environmentInstanceId =
-        selectedCreateTaskContext.value?.environmentInstanceId ??
-        props.environmentInstanceId;
-      const result = await adoptAgentBacklog(props.project.id, {
-        ...backlogIntent,
-        ...(environmentInstanceId ? { environmentInstanceId } : {}),
-        requestedCapabilities: [...requestedCapabilities.value],
-      });
-
-      if (result.status === 'ambiguous') {
-        backlogCandidates.value = result.candidates;
-        backlogSelectionSource.value = result.source;
-        backlogAdoptionNotice.value = null;
-        return;
-      }
-
-      backlogCandidates.value = [];
-      backlogSelectionSource.value = '';
-      backlogAdoptionNotice.value = {
-        source: result.source,
-        issue: result.issue,
-        reused: result.reused,
-        ...(result.task.task.taskContextId
-          ? { taskContextId: result.task.task.taskContextId }
-          : {}),
-      };
-      replaceTask(result.task);
-      selectedTaskId.value = result.task.task.id;
-      resetAttachments();
-      resetConversation();
-      resetApprovals();
-      resetLifecycle();
-      instruction.value = '';
-      latestExecution.value = null;
-      taskContexts.value = await fetchTaskContexts(props.project.id);
-      selectedTaskContextId.value = result.task.task.taskContextId ?? '';
-      await loadTask(result.task.task.id);
-      return;
-    }
-
-    backlogCandidates.value = [];
-    backlogSelectionSource.value = '';
-    backlogAdoptionNotice.value = null;
-    const record = await createAgentTask(props.project.id, {
-      summary: instruction.value.trim(),
-      ...(selectedTaskContextId.value
-        ? { taskContextId: selectedTaskContextId.value }
-        : props.environmentInstanceId
-          ? { environmentInstanceId: props.environmentInstanceId }
-          : {}),
-      requestedCapabilities: [...requestedCapabilities.value],
-    });
-    replaceTask(record);
-    selectedTaskId.value = record.task.id;
-    resetAttachments();
-    resetConversation();
-    resetApprovals();
-    resetLifecycle();
-    instruction.value = '';
-    latestExecution.value = null;
-    await loadTask(record.task.id);
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : 'Não foi possível criar a task.';
-  } finally {
-    mutating.value = false;
-  }
 }
 
 async function executeCurrent(): Promise<void> {
@@ -1038,6 +965,7 @@ onBeforeUnmount(() => {
   clearUsage();
   resetBudget();
   resetHistory();
+  resetCreation();
   resetExecutionProfiles();
   resetProviders();
   resetAttachments();
