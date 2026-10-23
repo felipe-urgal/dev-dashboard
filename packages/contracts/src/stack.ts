@@ -84,6 +84,12 @@ export interface Stack {
   dependencies: StackDependency[];
 }
 
+/** Browser-safe choices derived from backend-owned resources, never commands or paths. */
+export interface StackResource {
+  name: string;
+  target: StackNodeTarget;
+}
+
 export interface StackTopologyPlan {
   stackId: string;
   startOrder: string[];
