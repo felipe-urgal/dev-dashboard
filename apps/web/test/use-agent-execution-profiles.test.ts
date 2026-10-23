@@ -167,7 +167,8 @@ test('remove conserva outros perfis, rejeita request duplicado e reporta falha a
   );
   assert.equal(h.requests[0]!.input.defaultProfileId, 'b');
   h.requests[0]!.reject(new Error('API profile failure'));
-  await assert.rejects(pending, /API profile failure/);
+  await assert.doesNotReject(pending);
+  assert.deepEqual(h.messages, ['API profile failure']);
   assert.equal(h.state.profileSaving.value, false);
   assert.equal(h.state.selectedProfileId.value, 'a');
 });
