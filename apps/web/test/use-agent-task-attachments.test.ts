@@ -215,14 +215,13 @@ test('snapshot racing with upload response does not duplicate attachment IDs', a
   const pending = h.state.addAttachments(input(file('same.txt')));
   h.reads[0]!.resolve('c2FtZQ==');
   await Promise.resolve();
-  h.state.applyLoadedAttachments(
-    [attachment('same', 't-a')],
-    'p-a',
-    't-a',
-  );
+  h.state.applyLoadedAttachments([attachment('same', 't-a')], 'p-a', 't-a');
   h.state.selectedAttachmentIds.value = ['same'];
   h.writes[0]!.resolve(attachment('same', 't-a'));
   await pending;
-  assert.deepEqual(h.state.attachments.value.map((a) => a.id), ['same']);
+  assert.deepEqual(
+    h.state.attachments.value.map((a) => a.id),
+    ['same'],
+  );
   assert.deepEqual(h.state.selectedAttachmentIds.value, ['same']);
 });
