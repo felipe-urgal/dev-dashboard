@@ -4,11 +4,7 @@ import type { AgentConcreteProviderId } from '../api/agent-runtime';
 import type { IntegrationDiscoveryTarget } from './useAgentIntegrationDiscovery';
 
 type IntegrationMutationKind =
-  | 'install-mcp'
-  | 'install-plugin'
-  | 'authenticate'
-  | 'toggle'
-  | 'uninstall';
+  'install-mcp' | 'install-plugin' | 'authenticate' | 'toggle' | 'uninstall';
 
 interface MutationOptions<Result> {
   kind: IntegrationMutationKind;
@@ -90,7 +86,9 @@ export function useAgentIntegrationMutations(
       : null,
   );
 
-  async function mutate<Result>(options: MutationOptions<Result>): Promise<void> {
+  async function mutate<Result>(
+    options: MutationOptions<Result>,
+  ): Promise<void> {
     if (mutationBusy.value) return;
     const target = { ...currentTarget() };
     if (target.providerId !== options.providerId) return;
@@ -100,7 +98,9 @@ export function useAgentIntegrationMutations(
     mutationBusy.value = true;
     active.value = {
       kind: options.kind,
-      ...(options.integrationId ? { integrationId: options.integrationId } : {}),
+      ...(options.integrationId
+        ? { integrationId: options.integrationId }
+        : {}),
       target,
       generation: version,
     };
@@ -124,9 +124,7 @@ export function useAgentIntegrationMutations(
         }
       }
       if (current()) {
-        reportError(
-          error instanceof Error ? error.message : options.fallback,
-        );
+        reportError(error instanceof Error ? error.message : options.fallback);
       }
     } finally {
       // A stale request cannot release a newer request's lock because
