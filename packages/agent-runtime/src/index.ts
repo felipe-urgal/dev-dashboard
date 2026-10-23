@@ -249,41 +249,6 @@ export type {
 } from './budget-store.js';
 
 export {
-  AgentIntegrationDiscoveryError,
-  BrowserCapabilityIntegrationProvider,
-  ClaudePluginIntegrationProvider,
-  CodexMcpIntegrationProvider,
-  StaticAgentIntegrationCapabilityRegistry,
-  StaticAgentIntegrationProviderRegistry,
-  createDefaultAgentIntegrationCapabilityRegistry,
-  createDefaultAgentIntegrationProviderRegistry,
-} from './integrations.js';
-export type {
-  AgentIntegration,
-  AgentIntegrationAuthenticationHandoff,
-  AgentIntegrationAuthenticationRequest,
-  AgentIntegrationCapability,
-  AgentIntegrationCapabilityRegistry,
-  AgentIntegrationInstallRequest,
-  AgentIntegrationDetails,
-  AgentIntegrationInspectRequest,
-  AgentIntegrationIssue,
-  AgentIntegrationKind,
-  AgentIntegrationListRequest,
-  AgentIntegrationListResult,
-  AgentIntegrationMarketplaceSource,
-  AgentIntegrationOperation,
-  AgentIntegrationOrigin,
-  AgentIntegrationProvider,
-  AgentIntegrationProviderRegistry,
-  AgentIntegrationProviderCapabilities,
-  AgentIntegrationSetEnabledRequest,
-  AgentIntegrationUninstallRequest,
-  AgentIntegrationUninstallResult,
-  AgentIntegrationScope,
-} from './integrations.js';
-
-export {
   AgentProviderPreferenceStore,
   AgentProviderPreferenceStoreError,
   type AgentLocalProviderId,

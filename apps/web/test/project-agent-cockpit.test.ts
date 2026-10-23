@@ -16,25 +16,18 @@ describe('Project Agent cockpit', () => {
     const provider = panel.indexOf('class="agent-provider-panel agent-card"');
     const task = panel.indexOf('class="agent-card agent-task-overview"');
     const history = panel.indexOf('class="agent-card agent-recent-history"');
-    const integrations = panel.indexOf(
-      'class="agent-integrations-summary agent-card"',
-    );
 
     expect(header).toBeGreaterThan(-1);
     expect(create).toBeGreaterThan(header);
     expect(provider).toBeGreaterThan(create);
     expect(task).toBeGreaterThan(provider);
     expect(history).toBeGreaterThan(task);
-    expect(integrations).toBeGreaterThan(history);
   });
 
-  it('mantém criação de task como ação primária e integrações recolhidas', () => {
+  it('mantém criação de task como ação primária', () => {
     expect(panel).toContain('placeholder="Ex.: Adicionar um player de música');
     expect(panel).toContain('class="primary-button agent-create-button"');
     expect(panel).toContain('Criar task');
-    expect(panel).toContain('<details');
-    expect(panel).toContain('Gerenciar integrações');
-    expect(panel).toContain('<ArrowRightIcon aria-hidden="true" />');
   });
 
   it('mantém doctor e revalidação no painel operacional lateral', () => {
