@@ -24,7 +24,9 @@ const attachment = (id: string, taskId: string): AgentAttachment => ({
   createdAt: '2026-10-23T12:00:00Z',
 });
 
-function attachmentIds(state: ReturnType<typeof useAgentTaskAttachments>): string[] {
+function attachmentIds(
+  state: ReturnType<typeof useAgentTaskAttachments>,
+): string[] {
   return state.attachments.value.map((item) => item.id);
 }
 
@@ -106,10 +108,7 @@ test('in-flight server write stays on A; old result cannot pollute or unlock B',
   assert.equal(h.writes[1]?.taskId, 't-b');
   h.writes[1]!.resolve(attachment('new', 't-b'));
   await current;
-  assert.deepEqual(
-    attachmentIds(h.state),
-    ['new'],
-  );
+  assert.deepEqual(attachmentIds(h.state), ['new']);
   assert.deepEqual(h.state.selectedAttachmentIds.value, ['new']);
   assert.equal(h.state.uploadingAttachment.value, false);
 });
@@ -125,10 +124,7 @@ test('stale upload error after project change is ignored; current error can retr
   h.writes[0]!.reject(new Error('stale secret'));
   await old;
   assert.deepEqual(h.errors, []);
-  assert.deepEqual(
-    attachmentIds(h.state),
-    ['present'],
-  );
+  assert.deepEqual(attachmentIds(h.state), ['present']);
 
   const current = h.state.addAttachments(input(file('new.txt')));
   h.reads[1]!.resolve('bmV3');
@@ -142,10 +138,7 @@ test('stale upload error after project change is ignored; current error can retr
   await Promise.resolve();
   h.writes[2]!.resolve(attachment('retry', 't-a'));
   await retry;
-  assert.deepEqual(
-    attachmentIds(h.state),
-    ['present', 'retry'],
-  );
+  assert.deepEqual(attachmentIds(h.state), ['present', 'retry']);
 });
 
 test('validation enforces 8 attachments, 1 MB and accepted media types before API', async () => {
@@ -178,10 +171,7 @@ test('snapshot filters selection and refuses different task', () => {
   h.state.applyLoadedAttachments([attachment('b', 't-a')], 'p-a', 't-a');
   assert.deepEqual(h.state.selectedAttachmentIds.value, []);
   h.state.applyLoadedAttachments([attachment('other', 't-b')], 'p-a', 't-b');
-  assert.deepEqual(
-    attachmentIds(h.state),
-    ['b'],
-  );
+  assert.deepEqual(attachmentIds(h.state), ['b']);
   assert.equal(h.state.attachmentFor('b')?.filename, 'b.txt');
   h.state.resetAttachments();
   assert.equal(h.state.attachmentFor('b'), undefined);
@@ -223,9 +213,6 @@ test('snapshot racing with upload response does not duplicate attachment IDs', a
   h.state.selectedAttachmentIds.value = ['same'];
   h.writes[0]!.resolve(attachment('same', 't-a'));
   await pending;
-  assert.deepEqual(
-    attachmentIds(h.state),
-    ['same'],
-  );
+  assert.deepEqual(attachmentIds(h.state), ['same']);
   assert.deepEqual(h.state.selectedAttachmentIds.value, ['same']);
 });
