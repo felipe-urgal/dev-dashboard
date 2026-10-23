@@ -31,6 +31,7 @@ import { useAgentExecutionProfiles } from '../composables/useAgentExecutionProfi
 import { useAgentTaskRealtime } from '../composables/useAgentTaskRealtime';
 import { useAgentTaskUsage } from '../composables/useAgentTaskUsage';
 import { useAgentTaskBudget } from '../composables/useAgentTaskBudget';
+import { useAgentTaskSupplementalData } from '../composables/useAgentTaskSupplementalData';
 import { useAgentTaskHistory } from '../composables/useAgentTaskHistory';
 import { useAgentTaskCreation } from '../composables/useAgentTaskCreation';
 import { useAgentTaskDeepLink } from '../composables/useAgentTaskDeepLink';
@@ -410,6 +411,19 @@ const {
   formatCost,
 );
 const {
+  supplementalWarning,
+  failedSources,
+  resetSupplementalData,
+  loadSupplementalData,
+} = useAgentTaskSupplementalData(
+  () =>
+    selectedTaskId.value
+      ? { projectId: props.project.id, taskId: selectedTaskId.value }
+      : null,
+  reloadBudget,
+  reloadUsage,
+);
+const {
   tasks,
   historyLoading,
   historyLoaded,
@@ -693,9 +707,11 @@ async function loadTask(
     resetBudget();
     closeSocket();
     clearUsage();
+    resetSupplementalData();
     return;
   }
 
+  loadSupplementalData();
   try {
     const [nextStatus, nextActivity, nextConversation, nextAttachments] =
       await Promise.all([
@@ -703,8 +719,6 @@ async function loadTask(
         fetchAgentActivity(props.project.id, taskId),
         fetchAgentConversation(props.project.id, taskId),
         fetchAgentAttachments(props.project.id, taskId),
-        reloadBudget(),
-        reloadUsage(),
       ]);
     if (
       requestGeneration !== generation ||
@@ -742,6 +756,7 @@ async function load(): Promise<void> {
   closeSocket();
   clearUsage();
   resetBudget();
+  resetSupplementalData();
   resetHistory();
   resetCreation();
   invalidateArchive();
@@ -860,6 +875,7 @@ async function selectTask(taskId: string): Promise<void> {
   closeSocket();
   clearUsage();
   resetBudget();
+  resetSupplementalData();
   status.value = null;
   activity.value = null;
   resetConversation();
@@ -965,6 +981,7 @@ onBeforeUnmount(() => {
   closeSocket();
   clearUsage();
   resetBudget();
+  resetSupplementalData();
   resetHistory();
   resetCreation();
   invalidateArchive();
@@ -1708,6 +1725,9 @@ onBeforeUnmount(() => {
               </select>
             </div>
 
+            <p v-if="supplementalWarning" class="agent-hint" role="status">
+              {{ supplementalWarning }}
+            </p>
             <div class="agent-usage-strip">
               <span>
                 <small>Execuções medidas</small>
@@ -1794,7 +1814,7 @@ onBeforeUnmount(() => {
                   <button
                     class="secondary-button"
                     type="button"
-                    :disabled="mutating"
+                    :disabled="mutating || failedSources.includes('budget')"
                     @click="saveBudget"
                   >
                     Salvar limite
@@ -1803,7 +1823,7 @@ onBeforeUnmount(() => {
                     v-if="budget?.budget"
                     class="secondary-button"
                     type="button"
-                    :disabled="mutating"
+                    :disabled="mutating || failedSources.includes('budget')"
                     @click="clearBudget"
                   >
                     Remover
