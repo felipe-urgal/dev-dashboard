@@ -534,11 +534,13 @@ async function acceptSuggestion(
 
 async function confirmStop(stack: Stack): Promise<void> {
   const check = checkFor(stack.id);
-  if (!check) {
+  if (!check || JSON.stringify(check.stack) !== JSON.stringify(stack)) {
     errorMessage.value =
-      'Atualize a Stack antes de confirmar a parada; o Check está indisponível.';
+      'Atualize a Stack antes de confirmar a parada; o Check está indisponível ou desatualizado.';
     return;
   }
+  // Bind the confirmation to the revision actually presented, not a later load.
+  const confirmedRevision = expectedRevision(stack.id);
 
   const nodes = new Map(check.stack.nodes.map((node) => [node.id, node]));
   const affected = check.topology.stopOrder
@@ -568,7 +570,7 @@ async function confirmStop(stack: Stack): Promise<void> {
   if (!confirmed) return;
 
   void mutate(stack.id, `stop-${stack.id}`, 'stop', () =>
-    stopStack(stack.id, expectedRevision(stack.id)),
+    stopStack(stack.id, confirmedRevision),
   );
 }
 
