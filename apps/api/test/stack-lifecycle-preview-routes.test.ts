@@ -115,7 +115,10 @@ test('Stack lifecycle preview HTTP requires auth, validates params and never exp
   // Fastify sanitizes undeclared query properties; they never become targets.
   assert.equal(ignoredExtra.statusCode, 200);
   assert.equal(ignoredExtra.json<StackLifecyclePreview>().executable, false);
-  assert.equal(JSON.stringify(ignoredExtra.json()).includes('/tmp/arbitrary'), false);
+  assert.equal(
+    JSON.stringify(ignoredExtra.json()).includes('/tmp/arbitrary'),
+    false,
+  );
   const missing = await app.inject({
     method: 'GET',
     url: '/api/stacks/nonexistent/service-plan?action=start',
