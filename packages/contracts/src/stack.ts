@@ -184,3 +184,34 @@ export interface StackLogsSnapshot {
   readAt: string;
   nodes: StackNodeLog[];
 }
+
+/** Observational Stack-target lifecycle plan; never a dispatch capability. */
+export interface StackLifecyclePreview {
+  target: { kind: 'stack'; stackId: string };
+  action: 'start' | 'stop';
+  status: 'ready' | 'blocked';
+  expectedRevision: string;
+  planHash: string;
+  observedAt: string;
+  expiresAt: string;
+  order: string[];
+  nodes: Array<{
+    nodeId: string;
+    name: string;
+    kind: StackNodeKind;
+    state: StackNodeState;
+    disposition:
+      | 'willStart'
+      | 'willStop'
+      | 'alreadyReady'
+      | 'retained'
+      | 'blocked'
+      | 'unsupported';
+    dependencies: string[];
+    /** Other Stacks using this exact target (not all external consumers). */
+    otherStackConsumers: number;
+    diagnostic?: string;
+  }>;
+  diagnostics: string[];
+  executable: false;
+}
