@@ -72,7 +72,10 @@ export function useAgentTaskLifecycle(
     );
   }
 
-  function assertRecord(record: AgentTaskRecord, target: LifecycleTarget): void {
+  function assertRecord(
+    record: AgentTaskRecord,
+    target: LifecycleTarget,
+  ): void {
     if (
       record.task.id !== target.taskId ||
       record.task.projectId !== target.projectId
@@ -135,9 +138,7 @@ export function useAgentTaskLifecycle(
     }
   }
 
-  async function mutate(
-    kind: 'cancel' | 'retry' | 'recover',
-  ): Promise<void> {
+  async function mutate(kind: 'cancel' | 'retry' | 'recover'): Promise<void> {
     const target = currentTarget();
     if (!target || mutating.value) return;
     if (kind === 'cancel' && !target.activeExecution) return;
