@@ -219,11 +219,7 @@ test('snapshot racing with upload response does not duplicate attachment IDs', a
 test('attachment revision invalidates snapshots started before upload', async () => {
   const h = harness();
   const initial = h.state.attachmentsRevision();
-  h.state.applyLoadedAttachments(
-    [attachment('present', 't-a')],
-    'p-a',
-    't-a',
-  );
+  h.state.applyLoadedAttachments([attachment('present', 't-a')], 'p-a', 't-a');
   assert.equal(h.state.attachmentsRevision(), initial);
 
   const pending = h.state.addAttachments(input(file('new.txt')));

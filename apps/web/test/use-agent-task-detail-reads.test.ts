@@ -199,8 +199,14 @@ test('cockpit conecta realtime antes de disparar leituras auxiliares', () => {
   assert.match(panel, /useAgentTaskDetailReads\(/);
   assert.match(loadTask, /fetchAgentTaskStatus\(/);
   assert.match(loadTask, /fetchAgentActivity\(/);
-  assert.doesNotMatch(loadTask, /fetchAgentConversation\(|fetchAgentAttachments\(/);
-  assert.match(loadTask, /connectTaskSocket\(props\.project\.id, taskId\);\s*loadTaskDetails\(\)/);
+  assert.doesNotMatch(
+    loadTask,
+    /fetchAgentConversation\(|fetchAgentAttachments\(/,
+  );
+  assert.match(
+    loadTask,
+    /connectTaskSocket\(props\.project\.id, taskId\);\s*loadTaskDetails\(\)/,
+  );
   assert.match(panel, /resetTaskDetails\(\)/);
   assert.match(panel, /Recarregar conversa e anexos/);
 });
