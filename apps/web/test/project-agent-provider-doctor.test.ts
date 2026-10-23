@@ -90,7 +90,10 @@ describe('Agent provider doctor', () => {
   it('permite revalidar providers na mesma tela sem reiniciar o Dashboard', () => {
     expect(panel).toContain('Revalidar conexão');
     expect(panel).toContain('@click="refreshProviders"');
-    expect(panel).toContain('providers.value = await fetchAgentProviders()');
+    expect(panel).toContain('useAgentProviderStatus(');
+    expect(panel).toContain(
+      'applyLoadedProviders(nextProviders, props.project.id)',
+    );
   });
 
   it('distingue ausência, versão, autenticação e falha de runtime dos CLIs locais', () => {

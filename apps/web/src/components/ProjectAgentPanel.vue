@@ -26,6 +26,7 @@ import type { Project, TaskContext } from '@dev-dashboard/contracts';
 
 import { fetchTaskContexts } from '../api/task-contexts';
 import { useAgentNotifications } from '../composables/useAgentNotifications';
+import { useAgentProviderStatus } from '../composables/useAgentProviderStatus';
 import { useAgentExecutionProfiles } from '../composables/useAgentExecutionProfiles';
 import { useAgentTaskRealtime } from '../composables/useAgentTaskRealtime';
 import { useAgentTaskUsage } from '../composables/useAgentTaskUsage';
@@ -34,7 +35,6 @@ import { useAgentTaskHistory } from '../composables/useAgentTaskHistory';
 import {
   providerDiagnosticAction,
   providerDiagnosticSummary,
-  providerFallbackDiagnostic,
   providerObservedAtLabel,
 } from '../agent-provider-doctor';
 import {
@@ -124,13 +124,6 @@ const capabilities: Array<{
   },
 ];
 
-const providers = ref<AgentProviderStatus[]>([]);
-const providerIds: AgentProviderId[] = [
-  'automatic',
-  'codex',
-  'claude-code',
-  'chatgpt-browser',
-];
 const taskContexts = ref<TaskContext[]>([]);
 const selectedTaskContextId = ref('');
 const selectedTaskId = ref('');
@@ -178,10 +171,27 @@ const status = ref<AgentTaskStatus | null>(null);
 const activity = ref<AgentActivity | null>(null);
 const latestExecution = ref<AgentExecutionResult | null>(null);
 const loading = ref(false);
-const providerRefreshing = ref(false);
 const mutating = ref(false);
 const executing = ref(false);
 const errorMessage = ref('');
+const {
+  providerRefreshing,
+  providerOptions,
+  currentProvider,
+  availableProviderCount,
+  resetProviders,
+  applyLoadedProviders,
+  refreshProviders,
+} = useAgentProviderStatus(
+  () => props.project.id,
+  selectedProviderId,
+  (message) => {
+    errorMessage.value = message;
+  },
+  () => {
+    errorMessage.value = '';
+  },
+);
 const showAllHistory = ref(false);
 const providerConfig = ref<HTMLDetailsElement | null>(null);
 const integrationsSummary = ref<HTMLDetailsElement | null>(null);
@@ -278,41 +288,12 @@ const boundTaskContext = computed(
 
 const currentTask = computed(() => status.value?.task ?? selectedTask.value);
 
-const providerOptions = computed<AgentProviderStatus[]>(() =>
-  providerIds.map(
-    (providerId) =>
-      providers.value.find(
-        (provider) => provider.providerId === providerId,
-      ) ?? {
-        providerId,
-        availability: 'unavailable',
-        observedAt: '',
-        reason: 'Provider não configurado neste runtime.',
-        diagnostic: providerFallbackDiagnostic(providerId),
-      },
-  ),
-);
-
 const lastConcreteProviderId = computed(() => {
   const events = [...(activity.value?.events ?? [])].reverse();
   return events.find(
     (event) => event.type === 'execution-state' && event.providerId,
   )?.providerId;
 });
-
-const currentProvider = computed(
-  () =>
-    providerOptions.value.find(
-      (provider) => provider.providerId === selectedProviderId.value,
-    ) ?? null,
-);
-
-const availableProviderCount = computed(
-  () =>
-    providerOptions.value.filter(
-      (provider) => provider.availability === 'available',
-    ).length,
-);
 
 const currentTaskStage = computed(() => {
   switch (currentTask.value?.task.state) {
@@ -610,23 +591,6 @@ async function loadTask(
   }
 }
 
-async function refreshProviders(): Promise<void> {
-  if (providerRefreshing.value) return;
-  providerRefreshing.value = true;
-  errorMessage.value = '';
-
-  try {
-    providers.value = await fetchAgentProviders();
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível revalidar os providers.';
-  } finally {
-    providerRefreshing.value = false;
-  }
-}
-
 async function load(): Promise<void> {
   const requestGeneration = ++generation;
   loading.value = true;
@@ -636,6 +600,7 @@ async function load(): Promise<void> {
   resetBudget();
   resetHistory();
   resetExecutionProfiles();
+  resetProviders();
   showAllHistory.value = false;
   taskLoadVersion += 1;
   selectedTaskId.value = '';
@@ -651,7 +616,7 @@ async function load(): Promise<void> {
         fetchAgentExecutionProfiles(props.project.id),
       ]);
     if (requestGeneration !== generation) return;
-    providers.value = nextProviders;
+    applyLoadedProviders(nextProviders, props.project.id);
     taskContexts.value = nextTaskContexts;
     setLoadedExecutionProfiles(nextExecutionProfiles, props.project.id);
 
@@ -1237,6 +1202,7 @@ onBeforeUnmount(() => {
   resetBudget();
   resetHistory();
   resetExecutionProfiles();
+  resetProviders();
 });
 </script>
 
