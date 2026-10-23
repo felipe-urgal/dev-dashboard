@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, beforeEach, test, vi } from 'vitest';
 
 import type { AgentRealtimeSnapshot } from '../src/api/agent-runtime';
@@ -167,4 +169,60 @@ test('reconexão mantém um owner e ignora close tardio', () => {
   realtime.closeSocket();
   assert.equal(current.readyState, FakeWebSocket.CLOSED);
   assert.equal(realtime.socketState.value, 'idle');
+});
+
+test('reconectar fecha socket antigo e mantém a task atual', () => {
+  const selected = { projectId: 'project-1', taskId: 'task-a' };
+  const received: string[] = [];
+  const realtime = useAgentTaskRealtime(
+    () => selected,
+    (value) => received.push(value.status.task.task.id),
+    () => undefined,
+  );
+
+  realtime.connect('project-1', 'task-a');
+  const first = FakeWebSocket.instances[0]!;
+  first.open();
+  first.onerror?.();
+  assert.equal(realtime.socketState.value, 'disconnected');
+  assert.equal(first.readyState, 1, 'socket com erro ainda pode estar aberto');
+
+  realtime.connect('project-1', 'task-a');
+  const second = FakeWebSocket.instances[1]!;
+  assert.equal(first.readyState, FakeWebSocket.CLOSED);
+  assert.equal(realtime.socketState.value, 'connecting');
+  first.emit({ type: 'update', snapshot: snapshot('project-1', 'task-a') });
+  first.onclose?.();
+  assert.equal(realtime.socketState.value, 'connecting');
+  second.open();
+  second.emit({ type: 'ready', snapshot: snapshot('project-1', 'task-a') });
+  assert.deepEqual(received, ['task-a']);
+  assert.equal(realtime.socketState.value, 'connected');
+  assert.equal(FakeWebSocket.instances.length, 2);
+
+  realtime.closeSocket();
+  assert.equal(second.readyState, FakeWebSocket.CLOSED);
+  assert.equal(realtime.socketState.value, 'idle');
+});
+
+test('reconectar exige snapshot da task selecionada', () => {
+  const panel = readFileSync(
+    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
+    'utf8',
+  );
+  const reconnect = panel.slice(
+    panel.indexOf('function reconnectTaskRealtime(): void {'),
+    panel.indexOf('async function selectTask('),
+  );
+  assert.match(reconnect, /socketState\.value !== 'disconnected'/);
+  assert.match(reconnect, /task\?\.id !== taskId/);
+  assert.match(reconnect, /task\.projectId !== props\.project\.id/);
+  assert.match(reconnect, /connectTaskSocket\(props\.project\.id, taskId\)/);
+  assert.doesNotMatch(
+    reconnect,
+    /executeCurrent|continueCurrentConversation|loadTask/,
+  );
+  assert.match(panel, /@click="reconnectTaskRealtime"/);
+  assert.match(panel, /Reconectar realtime/);
+  assert.match(panel, /socketState === 'disconnected'/);
 });
