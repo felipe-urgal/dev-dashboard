@@ -30,6 +30,7 @@ import type { StackStartService } from '../services/stack-start-service.js';
 import type { StackStopService } from '../services/stack-stop-service.js';
 import { StackTopologyServiceError } from '../services/stack-topology-service.js';
 import { stackRevision } from '../services/stack-revision.js';
+import type { StackResourceCatalogService } from '../services/stack-resource-catalog-service.js';
 import type { StackOperationJournal } from '../services/stack-operation-journal.js';
 
 interface Options extends FastifyPluginOptions {
@@ -37,6 +38,7 @@ interface Options extends FastifyPluginOptions {
     StackDefinitionService,
     'list' | 'findById' | 'save' | 'delete'
   >;
+  stackResourceCatalogService: Pick<StackResourceCatalogService, 'list'>;
   stackDependencyDiscoveryService: Pick<
     StackDependencyDiscoveryService,
     'discover'
@@ -106,6 +108,16 @@ const stackTargetSchema = {
     processId: { type: 'string', minLength: 1, maxLength: 160 },
     service: { type: 'string', minLength: 1, maxLength: 160 },
     checkId: { type: 'string', minLength: 1, maxLength: 160 },
+  },
+} as const;
+
+const stackResourceSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'target'],
+  properties: {
+    name: { type: 'string' },
+    target: stackTargetSchema,
   },
 } as const;
 
@@ -547,6 +559,26 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
         ),
       };
     },
+  );
+
+  app.get(
+    '/stacks/resources',
+    {
+      schema: {
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['resources'],
+            properties: {
+              resources: { type: 'array', items: stackResourceSchema },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async () => ({ resources: await options.stackResourceCatalogService.list() }),
   );
 
   app.get<{ Params: StackParams }>(
