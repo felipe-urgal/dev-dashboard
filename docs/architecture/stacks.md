@@ -131,6 +131,9 @@ Instance; o health check de servidor é uma identidade conhecida; serviços
 Compose só são oferecidos quando a configuração estruturada coincide com o
 ownership do domínio Compose. Falhas de descoberta não inventam recursos.
 
+O catálogo não concede poderes sobre o host: disponibilidade de um target
+no seletor não substitui preflight e ownership no momento da execução.
+
 A interface permite criar a primeira Stack e editar a topologia existente
 usando exclusivamente targets escolhidos nesse catálogo. O browser cria apenas
 identidades locais de nodes e dependências explícitas: não envia path, command
