@@ -148,7 +148,15 @@ export function useAgentTaskCreation(
         if (adoption.task.task.projectId !== target.projectId) {
           throw new Error('A resposta não corresponde ao projeto selecionado.');
         }
-        const contexts = await client.fetchContexts(target.projectId);
+        let contexts: TaskContext[] | undefined;
+        let contextsUnavailable = false;
+        try {
+          contexts = await client.fetchContexts(target.projectId);
+        } catch {
+          // Adoption already succeeded; a failed context refresh must not
+          // hide the created task or encourage a duplicate submission.
+          contextsUnavailable = true;
+        }
         if (!isCurrent(target, version)) return;
         const notice: AdoptionNotice = {
           source: adoption.source,
@@ -158,11 +166,20 @@ export function useAgentTaskCreation(
             ? { taskContextId: adoption.task.task.taskContextId }
             : {}),
         };
-        onCreated({ record: adoption.task, adoption: notice, contexts });
+        onCreated({
+          record: adoption.task,
+          adoption: notice,
+          ...(contexts ? { contexts } : {}),
+        });
         backlogAdoptionNotice.value = notice;
         instruction.value = '';
         backlogCandidates.value = [];
         backlogSelectionSource.value = '';
+        if (contextsUnavailable) {
+          reportError(
+            'A task foi adotada, mas não foi possível atualizar os contextos.',
+          );
+        }
         await reloadTask(adoption.task.task.id);
         return;
       }
