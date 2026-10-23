@@ -33,6 +33,7 @@ import { useAgentTaskUsage } from '../composables/useAgentTaskUsage';
 import { useAgentTaskBudget } from '../composables/useAgentTaskBudget';
 import { useAgentTaskHistory } from '../composables/useAgentTaskHistory';
 import { useAgentTaskAttachments } from '../composables/useAgentTaskAttachments';
+import { useAgentTaskConversation } from '../composables/useAgentTaskConversation';
 import {
   providerDiagnosticAction,
   providerDiagnosticSummary,
@@ -43,7 +44,6 @@ import {
   archiveAgentTask,
   cancelAgentTask,
   createAgentTask,
-  executeAgentConversationTurn,
   executeAgentTask,
   fetchAgentActivity,
   fetchAgentAttachments,
@@ -60,7 +60,6 @@ import {
   type AgentAuthorizationScope,
   type AgentBacklogIssue,
   type AgentCapability,
-  type AgentConversationTurn,
   type AgentExecutionResult,
   type AgentProviderId,
   type AgentProviderStatus,
@@ -152,8 +151,6 @@ const {
   },
 );
 const instruction = ref('');
-const conversationInstruction = ref('');
-const conversationTurns = ref<AgentConversationTurn[]>([]);
 
 const backlogCandidates = ref<AgentBacklogIssue[]>([]);
 const backlogSelectionSource = ref('');
@@ -171,6 +168,27 @@ const loading = ref(false);
 const mutating = ref(false);
 const executing = ref(false);
 const errorMessage = ref('');
+const {
+  conversationInstruction,
+  conversationTurns,
+  conversationSending,
+  conversationRevision,
+  resetConversation,
+  applyLoadedConversation,
+  continueCurrentConversation: submitConversation,
+} = useAgentTaskConversation(
+  () => selectedTaskId.value
+    ? { projectId: props.project.id, taskId: selectedTaskId.value }
+    : null,
+  () => canContinue.value,
+  (result) => {
+    latestExecution.value = result;
+    replaceTask(result.task);
+  },
+  ({ taskId }) => loadTask(taskId),
+  (message) => { errorMessage.value = message; },
+  () => { errorMessage.value = ''; },
+);
 const {
   attachments,
   selectedAttachmentIds,
@@ -487,7 +505,9 @@ const canContinue = computed(
     currentTask.value?.task.state === 'review' &&
     conversationInstruction.value.trim().length > 0 &&
     !executing.value &&
+    !conversationSending.value &&
     !mutating.value &&
+    status.value?.task.task.id === selectedTaskId.value &&
     !status.value?.activeExecution &&
     currentProvider.value !== null &&
     currentProvider.value.availability === 'available' &&
@@ -557,12 +577,12 @@ async function loadTask(
   requestGeneration = generation,
 ): Promise<void> {
   const loadVersion = ++taskLoadVersion;
+  const conversationSnapshotRevision = conversationRevision();
   if (!taskId) {
     status.value = null;
     activity.value = null;
-    conversationTurns.value = [];
+    resetConversation();
     resetAttachments();
-    conversationInstruction.value = '';
     resetBudget();
     closeSocket();
     clearUsage();
@@ -587,7 +607,7 @@ async function loadTask(
       return;
     }
     applySnapshot({ status: nextStatus, activity: nextActivity });
-    conversationTurns.value = nextConversation;
+    applyLoadedConversation(nextConversation, { projectId: props.project.id, taskId }, conversationSnapshotRevision);
     applyLoadedAttachments(nextAttachments, props.project.id, taskId);
     connectTaskSocket(props.project.id, taskId);
   } catch (error) {
@@ -615,6 +635,7 @@ async function load(): Promise<void> {
   resetExecutionProfiles();
   resetProviders();
   resetAttachments();
+  resetConversation();
   showAllHistory.value = false;
   taskLoadVersion += 1;
   selectedTaskId.value = '';
@@ -767,9 +788,8 @@ async function selectTask(taskId: string): Promise<void> {
   resetBudget();
   status.value = null;
   activity.value = null;
-  conversationTurns.value = [];
+  resetConversation();
   resetAttachments();
-  conversationInstruction.value = '';
   latestExecution.value = null;
   errorMessage.value = '';
   await loadTask(taskId);
@@ -840,6 +860,7 @@ async function createTask(): Promise<void> {
       replaceTask(result.task);
       selectedTaskId.value = result.task.task.id;
       resetAttachments();
+      resetConversation();
       instruction.value = '';
       latestExecution.value = null;
       taskContexts.value = await fetchTaskContexts(props.project.id);
@@ -863,6 +884,7 @@ async function createTask(): Promise<void> {
     replaceTask(record);
     selectedTaskId.value = record.task.id;
     resetAttachments();
+    resetConversation();
     instruction.value = '';
     latestExecution.value = null;
     await loadTask(record.task.id);
@@ -903,47 +925,11 @@ async function executeCurrent(): Promise<void> {
 }
 
 async function continueCurrentConversation(): Promise<void> {
-  const record = currentTask.value;
-  const content = conversationInstruction.value.trim();
-  if (!record || !content || !canContinue.value) return;
-
-  executing.value = true;
-  errorMessage.value = '';
-
-  try {
-    const result = await executeAgentConversationTurn(
-      props.project.id,
-      record.task.id,
-      {
-        id: globalThis.crypto.randomUUID(),
-        content,
-        providerId: selectedProviderId.value,
-        ...(selectedAttachmentIds.value.length
-          ? { attachmentIds: [...selectedAttachmentIds.value] }
-          : {}),
-        ...(selectedProfileId.value
-          ? { profileId: selectedProfileId.value }
-          : {}),
-      },
-    );
-    latestExecution.value = result;
-    replaceTask(result.task);
-    conversationInstruction.value = '';
-    conversationTurns.value = [
-      ...conversationTurns.value,
-      result.userTurn,
-      result.agentTurn,
-    ];
-    await loadTask(record.task.id);
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível continuar a conversa da task.';
-    await loadTask(record.task.id);
-  } finally {
-    executing.value = false;
-  }
+  await submitConversation({
+    providerId: selectedProviderId.value,
+    attachmentIds: [...selectedAttachmentIds.value],
+    ...(selectedProfileId.value ? { profileId: selectedProfileId.value } : {}),
+  });
 }
 
 async function changeUsagePeriod(): Promise<void> {
@@ -1137,6 +1123,7 @@ onBeforeUnmount(() => {
   resetExecutionProfiles();
   resetProviders();
   resetAttachments();
+  resetConversation();
 });
 </script>
 
@@ -2097,7 +2084,7 @@ onBeforeUnmount(() => {
                 maxlength="16000"
                 placeholder="Continue a mesma task com uma nova instrução..."
                 aria-label="Instrução para continuar a task do Agente"
-                :disabled="executing || mutating"
+                :disabled="executing || conversationSending || mutating"
                 @keydown="handleConversationKeydown"
               />
               <div class="agent-composer-actions">
@@ -2112,7 +2099,7 @@ onBeforeUnmount(() => {
                   @click="continueCurrentConversation"
                 >
                   <BoltIcon aria-hidden="true" />
-                  {{ executing ? 'Executando…' : 'Enviar instrução' }}
+                  {{ conversationSending ? 'Executando…' : 'Enviar instrução' }}
                 </button>
               </div>
             </template>
