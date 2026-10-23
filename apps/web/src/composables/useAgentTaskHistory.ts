@@ -7,6 +7,7 @@ import {
 } from '../api/agent-runtime';
 
 const PAGE_SIZE = 20;
+const MAX_ARCHIVED_REVISIONS = 256;
 
 /**
  * Paginated task history for one project. Each request is capped by the API;
@@ -23,10 +24,21 @@ export function useAgentTaskHistory(
   const historyError = ref('');
   const showArchived = ref(false);
   let version = 0;
+  // Recently archived tasks stay hidden even if an older REST/socket snapshot
+  // arrives after removal. Bound this cache independently of pagination.
+  const archivedRevisions = new Map<string, number>();
+  let archiveProjectId = projectId();
+
+  function ensureArchiveProject(): void {
+    if (archiveProjectId === projectId()) return;
+    archiveProjectId = projectId();
+    archivedRevisions.clear();
+  }
 
   const historyHasMore = computed(() => nextCursor.value !== null);
 
   function resetHistory(): void {
+    ensureArchiveProject();
     version += 1;
     tasks.value = [];
     nextCursor.value = null;
@@ -36,22 +48,41 @@ export function useAgentTaskHistory(
   }
 
   function upsertTask(record: AgentTaskRecord): void {
+    ensureArchiveProject();
     if (record.task.projectId !== projectId()) return;
-    if (record.task.archivedAt && !showArchived.value) {
-      tasks.value = tasks.value.filter(
-        (item) => item.task.id !== record.task.id,
-      );
+
+    const taskId = record.task.id;
+    const current = tasks.value.find((item) => item.task.id === taskId);
+    if (current && record.version < current.version) return;
+
+    const archivedRevision = archivedRevisions.get(taskId);
+    if (archivedRevision !== undefined && record.version < archivedRevision) {
       return;
     }
-    const index = tasks.value.findIndex(
-      (item) => item.task.id === record.task.id,
-    );
-    if (index < 0) {
+    if (!record.task.archivedAt && archivedRevision !== undefined) {
+      // A stale pre-archive snapshot must not resurrect a hidden task.
+      if (record.version <= archivedRevision) return;
+      archivedRevisions.delete(taskId);
+    }
+    if (record.task.archivedAt) {
+      archivedRevisions.delete(taskId);
+      archivedRevisions.set(taskId, record.version);
+      if (archivedRevisions.size > MAX_ARCHIVED_REVISIONS) {
+        const oldest = archivedRevisions.keys().next().value;
+        if (oldest !== undefined) archivedRevisions.delete(oldest);
+      }
+      if (!showArchived.value) {
+        tasks.value = tasks.value.filter((item) => item.task.id !== taskId);
+        return;
+      }
+    }
+
+    if (!current) {
       tasks.value = [record, ...tasks.value];
       return;
     }
-    tasks.value = tasks.value.map((item, itemIndex) =>
-      itemIndex === index && record.version >= item.version ? record : item,
+    tasks.value = tasks.value.map((item) =>
+      item.task.id === taskId ? record : item,
     );
   }
 

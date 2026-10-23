@@ -39,6 +39,22 @@ function fakeTask(
   };
 }
 
+function archivedTask(
+  projectId: string,
+  taskId: string,
+  version: number,
+): AgentTaskRecord {
+  const record = fakeTask(projectId, taskId, version);
+  return {
+    ...record,
+    task: {
+      ...record.task,
+      state: 'completed',
+      archivedAt: '2026-10-23T14:00:00.000Z',
+    },
+  };
+}
+
 function client() {
   const requests: Request[] = [];
   const fetchPage: typeof fetchAgentTaskPage = (projectId, options = {}) =>
@@ -226,4 +242,85 @@ test('archive removes hidden task and toggling archived view uses paged query', 
   requests[2]!.resolve({ tasks: [], nextCursor: null });
   await hide;
   assert.equal(history.tasks.value.length, 0);
+});
+
+test('archive atrasado não remove task com versão canônica mais nova', () => {
+  const history = useAgentTaskHistory(() => 'project-a', client().fetchPage);
+  history.upsertTask(fakeTask('project-a', 'task-a', 6));
+  history.upsertTask(archivedTask('project-a', 'task-a', 5));
+  assert.equal(history.tasks.value[0]?.version, 6);
+  assert.equal(history.tasks.value[0]?.task.archivedAt, undefined);
+
+  history.upsertTask(archivedTask('project-a', 'task-a', 7));
+  assert.equal(history.tasks.value.length, 0);
+  history.upsertTask(fakeTask('project-a', 'task-a', 6));
+  history.upsertTask(fakeTask('project-a', 'task-a', 7));
+  assert.equal(
+    history.tasks.value.length,
+    0,
+    'snapshot antigo não ressuscita task arquivada',
+  );
+
+  history.upsertTask(fakeTask('project-a', 'task-a', 8));
+  assert.equal(history.tasks.value[0]?.version, 8);
+  assert.equal(history.tasks.value[0]?.task.archivedAt, undefined);
+});
+
+test('refresh e alternância de arquivadas preservam revisão mais recente', async () => {
+  const { fetchPage, requests } = client();
+  const history = useAgentTaskHistory(() => 'project-a', fetchPage);
+  history.upsertTask(archivedTask('project-a', 'task-a', 5));
+  assert.equal(history.tasks.value.length, 0);
+
+  const refresh = history.loadFirstPage();
+  requests[0]!.resolve({
+    tasks: [fakeTask('project-a', 'task-a', 4)],
+    nextCursor: null,
+  });
+  await refresh;
+  assert.equal(history.tasks.value.length, 0);
+
+  const show = history.setShowArchived(true);
+  assert.equal(requests[1]!.includeArchived, true);
+  requests[1]!.resolve({
+    tasks: [archivedTask('project-a', 'task-a', 5)],
+    nextCursor: null,
+  });
+  await show;
+  assert.equal(history.tasks.value[0]?.version, 5);
+  history.upsertTask(fakeTask('project-a', 'task-a', 4));
+  assert.equal(
+    history.tasks.value[0]?.task.archivedAt,
+    '2026-10-23T14:00:00.000Z',
+  );
+
+  const hide = history.setShowArchived(false);
+  requests[2]!.resolve({ tasks: [], nextCursor: null });
+  await hide;
+  history.upsertTask(fakeTask('project-a', 'task-a', 4));
+  assert.equal(history.tasks.value.length, 0);
+});
+
+test('registro de archives não atravessa projetos e tem tamanho limitado', () => {
+  const project = { id: 'project-a' };
+  const history = useAgentTaskHistory(() => project.id, client().fetchPage);
+  for (let i = 0; i < 257; i += 1) {
+    history.upsertTask(archivedTask('project-a', 'task-' + i, 2));
+  }
+  assert.equal(history.tasks.value.length, 0);
+  history.upsertTask(fakeTask('project-a', 'task-256', 1));
+  assert.equal(history.tasks.value.length, 0);
+
+  // Only recent archive revisions are held in the bounded cache.
+  history.upsertTask(fakeTask('project-a', 'task-0', 1));
+  assert.equal(history.tasks.value[0]?.task.id, 'task-0');
+
+  project.id = 'project-b';
+  history.resetHistory();
+  history.upsertTask(fakeTask('project-a', 'task-256', 3));
+  history.upsertTask(fakeTask('project-b', 'task-256', 1));
+  assert.deepEqual(
+    history.tasks.value.map((item) => item.task.id),
+    ['task-256'],
+  );
 });
