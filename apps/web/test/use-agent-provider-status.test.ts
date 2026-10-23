@@ -138,6 +138,31 @@ test('erro corrente é mostrado e erro após reset/unmount é descartado', async
   assert.equal(h.state.providerRefreshing.value, false);
 });
 
+test('falha de preflight conserva último snapshot e permite retry', async () => {
+  const h = harness();
+  h.state.applyLoadedProviders([provider('codex')], 'project-a');
+
+  const failed = h.state.refreshProviders();
+  h.pending[0]!.reject('network unavailable');
+  await failed;
+  assert.deepEqual(h.errors, ['Não foi possível revalidar os providers.']);
+  assert.equal(
+    h.state.providerOptions.value.find((p) => p.providerId === 'codex')
+      ?.availability,
+    'available',
+  );
+
+  const retry = h.state.refreshProviders();
+  assert.equal(h.pending.length, 2);
+  h.pending[1]!.resolve([provider('codex', 'degraded')]);
+  await retry;
+  assert.equal(
+    h.state.providerOptions.value.find((p) => p.providerId === 'codex')
+      ?.availability,
+    'degraded',
+  );
+});
+
 test('cockpit usa um owner de provider status e invalida ao trocar projeto', () => {
   const panel = readFileSync(
     resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
