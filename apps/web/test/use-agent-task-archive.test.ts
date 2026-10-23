@@ -132,7 +132,7 @@ test('não arquiva task não finalizada, já arquivada, ativa ou com outra muta�
   h.target.archived = false;
   h.mutating.value = true;
   await h.state.archiveCurrent();
-  assert.deepEqual(h.requests, []);
+  assert.equal(h.requests.length, 0);
   h.mutating.value = false;
   h.target.state = 'cancelled';
   const pending = h.state.archiveCurrent();
