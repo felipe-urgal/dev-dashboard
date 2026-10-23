@@ -334,13 +334,24 @@ const stackLifecyclePreviewSchema = {
           },
           state: {
             type: 'string',
-            enum: ['ready', 'starting', 'stopped', 'failed', 'blocked', 'unknown'],
+            enum: [
+              'ready',
+              'starting',
+              'stopped',
+              'failed',
+              'blocked',
+              'unknown',
+            ],
           },
           disposition: {
             type: 'string',
             enum: [
-              'willStart', 'willStop', 'alreadyReady',
-              'retained', 'blocked', 'unsupported',
+              'willStart',
+              'willStop',
+              'alreadyReady',
+              'retained',
+              'blocked',
+              'unsupported',
             ],
           },
           dependencies: { type: 'array', items: { type: 'string' } },

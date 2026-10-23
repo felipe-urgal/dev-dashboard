@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { Project, Stack, StackLifecyclePreview } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  Stack,
+  StackLifecyclePreview,
+} from '@dev-dashboard/contracts';
 
 import { buildApp } from '../src/app.js';
 import { createAppContext } from '../src/app-context.js';
@@ -66,8 +70,12 @@ test('Stack lifecycle preview HTTP requires auth, validates params and never exp
 
   const confirmed = await app.inject({
     method: 'GET',
-    url: endpoint + '&expectedPlanHash=' + plan.planHash +
-      '&expectedRevision=' + plan.expectedRevision,
+    url:
+      endpoint +
+      '&expectedPlanHash=' +
+      plan.planHash +
+      '&expectedRevision=' +
+      plan.expectedRevision,
     headers,
   });
   assert.equal(confirmed.statusCode, 200);

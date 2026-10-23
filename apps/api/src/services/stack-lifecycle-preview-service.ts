@@ -52,7 +52,8 @@ function conflict(): never {
   throw new ApiError({
     statusCode: 409,
     code: 'CONFLICT',
-    message: 'Stack lifecycle preview changed. Refresh before reviewing it again.',
+    message:
+      'Stack lifecycle preview changed. Refresh before reviewing it again.',
   });
 }
 
@@ -93,7 +94,9 @@ export class StackLifecyclePreviewService {
     } catch {
       // Partial or failed observation cannot authorize any candidate node.
     }
-    const knownTargets = new Set(resources.map((entry) => targetKey(entry.target)));
+    const knownTargets = new Set(
+      resources.map((entry) => targetKey(entry.target)),
+    );
     const otherStacks = this.dependencies.stacks
       .list()
       .filter((candidate) => candidate.id !== stackId);
@@ -136,7 +139,8 @@ export class StackLifecyclePreviewService {
       let diagnostic: string | undefined;
 
       if (!known) {
-        diagnostic = 'Target is not present in the current server resource catalog.';
+        diagnostic =
+          'Target is not present in the current server resource catalog.';
       } else if (
         state === 'unknown' ||
         state === 'starting' ||
@@ -148,7 +152,8 @@ export class StackLifecyclePreviewService {
         if (state === 'ready') {
           // Process Manager running is not independent application readiness.
           if (node.target.kind === 'process') {
-            diagnostic = 'Managed process status alone does not prove readiness.';
+            diagnostic =
+              'Managed process status alone does not prove readiness.';
           } else {
             disposition = 'alreadyReady';
           }
@@ -166,7 +171,8 @@ export class StackLifecyclePreviewService {
         node.target.kind === 'health-check'
       ) {
         disposition = 'retained';
-        diagnostic = 'Observational node or environment context is not stopped.';
+        diagnostic =
+          'Observational node or environment context is not stopped.';
       } else if (otherStackConsumers > 0) {
         disposition = 'retained';
         diagnostic = 'Another Stack references the same physical target.';
@@ -178,12 +184,10 @@ export class StackLifecyclePreviewService {
       if (
         action === 'start' &&
         disposition !== 'blocked' &&
-        dependencies
-          .get(nodeId)!
-          .some((dependency) => {
-            const state = dispositions.get(dependency);
-            return state !== 'alreadyReady' && state !== 'willStart';
-          })
+        dependencies.get(nodeId)!.some((dependency) => {
+          const state = dispositions.get(dependency);
+          return state !== 'alreadyReady' && state !== 'willStart';
+        })
       ) {
         disposition = 'blocked';
         diagnostic = 'A dependency cannot be safely started or proved ready.';
@@ -191,16 +195,11 @@ export class StackLifecyclePreviewService {
       if (
         action === 'stop' &&
         disposition === 'willStop' &&
-        dependents
-          .get(nodeId)!
-          .some((dependent) => {
-            const dependentState = nodeStates.get(dependent);
-            const planned = dispositions.get(dependent);
-            return (
-              dependentState !== 'stopped' &&
-              planned !== 'willStop'
-            );
-          })
+        dependents.get(nodeId)!.some((dependent) => {
+          const dependentState = nodeStates.get(dependent);
+          const planned = dispositions.get(dependent);
+          return dependentState !== 'stopped' && planned !== 'willStop';
+        })
       ) {
         disposition = 'retained';
         diagnostic = 'A dependent Stack node remains active or retained.';
@@ -263,9 +262,7 @@ export class StackLifecyclePreviewService {
       expectedRevision: revision,
       planHash,
       observedAt,
-      expiresAt: new Date(
-        Date.parse(observedAt) + PLAN_TTL_MS,
-      ).toISOString(),
+      expiresAt: new Date(Date.parse(observedAt) + PLAN_TTL_MS).toISOString(),
       order: [...order],
       nodes,
       diagnostics,

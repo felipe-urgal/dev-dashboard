@@ -125,10 +125,10 @@ test('Stack preview is dependency first on start, stable across timestamp polls 
   const h = harness();
   const start = await h.service.preview('stack-api', 'start');
   assert.deepEqual(start.order, ['db', 'api']);
-  assert.deepEqual(start.nodes.map((node) => node.disposition), [
-    'willStart',
-    'willStart',
-  ]);
+  assert.deepEqual(
+    start.nodes.map((node) => node.disposition),
+    ['willStart', 'willStart'],
+  );
   assert.equal(start.executable, false);
   assert.equal(start.target.kind, 'stack');
   assert.match(start.planHash, /^[a-f0-9]{64}$/);
@@ -176,7 +176,10 @@ test('Stack stop reverses order and conservatively retains service in another St
   assert.equal(stop.nodes[1]?.otherStackConsumers, 1);
   assert.match(stop.nodes[1]?.diagnostic ?? '', /Another Stack/);
   assert.equal(stop.executable, false);
-  assert.notEqual(stop.planHash, (await h.service.preview('stack-api', 'start')).planHash);
+  assert.notEqual(
+    stop.planHash,
+    (await h.service.preview('stack-api', 'start')).planHash,
+  );
 
   // An active dependent retained by policy keeps its dependency alive.
   h.stacks[0]!.nodes[1]!.target = {
@@ -184,12 +187,15 @@ test('Stack stop reverses order and conservatively retains service in another St
     projectId: 'api',
     environmentInstanceId: 'environment:primary:api',
   };
-  h.resources.push({ name: 'Environment', target: h.stacks[0]!.nodes[1]!.target });
+  h.resources.push({
+    name: 'Environment',
+    target: h.stacks[0]!.nodes[1]!.target,
+  });
   const retained = await h.service.preview('stack-api', 'stop');
-  assert.deepEqual(retained.nodes.map((node) => node.disposition), [
-    'retained',
-    'retained',
-  ]);
+  assert.deepEqual(
+    retained.nodes.map((node) => node.disposition),
+    ['retained', 'retained'],
+  );
 });
 
 test('Missing target, unknown health and catalog outage fail closed without leaking provider errors', async () => {
@@ -207,7 +213,10 @@ test('Missing target, unknown health and catalog outage fail closed without leak
   h.outage();
   const failure = await h.service.preview('stack-api', 'start');
   assert.equal(failure.status, 'blocked');
-  assert.equal(failure.nodes.every((node) => node.disposition === 'blocked'), true);
+  assert.equal(
+    failure.nodes.every((node) => node.disposition === 'blocked'),
+    true,
+  );
   assert.equal(JSON.stringify(failure).includes('SECRET_TOKEN'), false);
 });
 
