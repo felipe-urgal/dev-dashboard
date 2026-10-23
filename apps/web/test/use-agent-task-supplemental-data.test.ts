@@ -41,13 +41,19 @@ test('observações auxiliares são iniciadas sem bloquear e falhas são explíc
   h.budgets[0]!.reject(new Error('token sensível do provider'));
   await flush();
   assert.deepEqual(h.state.failedSources.value, ['budget']);
-  assert.match(h.state.supplementalWarning.value, /Não foi possível consultar o budget/);
+  assert.match(
+    h.state.supplementalWarning.value,
+    /Não foi possível consultar o budget/,
+  );
   assert.doesNotMatch(h.state.supplementalWarning.value, /token sensível/);
   // A requisição de usage continua pendente sem bloquear o diagnóstico.
   h.usages[0]!.reject(new Error('falha de usage'));
   await flush();
   assert.deepEqual(h.state.failedSources.value, ['budget', 'usage']);
-  assert.match(h.state.supplementalWarning.value, /Budget e usage indisponíveis/);
+  assert.match(
+    h.state.supplementalWarning.value,
+    /Budget e usage indisponíveis/,
+  );
 });
 
 test('falha apenas de usage não transforma dados ausentes em telemetria observada', async () => {
@@ -58,7 +64,10 @@ test('falha apenas de usage não transforma dados ausentes em telemetria observa
   h.usages[0]!.reject(new Error('métrica indisponível'));
   await flush();
   assert.deepEqual(h.state.failedSources.value, ['usage']);
-  assert.match(h.state.supplementalWarning.value, /Métricas da task indisponíveis/);
+  assert.match(
+    h.state.supplementalWarning.value,
+    /Métricas da task indisponíveis/,
+  );
 });
 
 test('sucesso de ambos mantém o aviso vazio', async () => {

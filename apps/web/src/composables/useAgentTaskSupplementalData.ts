@@ -62,8 +62,12 @@ export function useAgentTaskSupplementalData(
 
     // Deliberately not awaited: a failed or stalled observation must not
     // prevent status, conversation, attachments and WebSocket from loading.
-    void Promise.resolve().then(reloadBudget).catch(() => markFailure('budget'));
-    void Promise.resolve().then(reloadUsage).catch(() => markFailure('usage'));
+    void Promise.resolve()
+      .then(reloadBudget)
+      .catch(() => markFailure('budget'));
+    void Promise.resolve()
+      .then(reloadUsage)
+      .catch(() => markFailure('usage'));
   }
 
   return {
