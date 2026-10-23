@@ -1096,7 +1096,7 @@ onBeforeUnmount(() => {
                 socketState === 'disconnected' &&
                 selectedTaskId &&
                 status?.task.task.id === selectedTaskId &&
-                status.task.task.projectId === props.project.id
+                status?.task.task.projectId === props.project.id
               "
               class="agent-history-show-all"
               type="button"
