@@ -302,7 +302,7 @@ test('cockpit delega conversa e invalida estado na seleção, carga e unmount', 
     panel,
     /applyLoadedConversation\(nextConversation, target, revision\)/,
   );
-  assert.match(panel, /conversationSnapshotRevision/);
+  assert.match(panel, /conversationRevision,/);
   assert.match(panel, /resetConversation\(\)/);
   assert.doesNotMatch(panel, /conversationTurns\.value\s*=/);
   assert.doesNotMatch(panel, /executeAgentConversationTurn\(/);
