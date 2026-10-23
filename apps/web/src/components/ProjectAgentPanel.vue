@@ -29,6 +29,7 @@ import { useAgentNotifications } from '../composables/useAgentNotifications';
 import { useAgentProviderStatus } from '../composables/useAgentProviderStatus';
 import { useAgentExecutionProfiles } from '../composables/useAgentExecutionProfiles';
 import { useAgentTaskRealtime } from '../composables/useAgentTaskRealtime';
+import { useAgentTaskSnapshots } from '../composables/useAgentTaskSnapshots';
 import { useAgentTaskUsage } from '../composables/useAgentTaskUsage';
 import { useAgentTaskBudget } from '../composables/useAgentTaskBudget';
 import { useAgentTaskSupplementalData } from '../composables/useAgentTaskSupplementalData';
@@ -60,7 +61,6 @@ import {
   type AgentExecutionResult,
   type AgentProviderId,
   type AgentProviderStatus,
-  type AgentRealtimeSnapshot,
   type AgentTaskRecord,
   type AgentTaskStatus,
 } from '../api/agent-runtime';
@@ -375,6 +375,18 @@ const {
   publishAgentNotifications,
   toggleAgentNotificationGroup,
 } = useAgentNotifications(() => props.project);
+const { applySnapshot } = useAgentTaskSnapshots(
+  () =>
+    selectedTaskId.value
+      ? { projectId: props.project.id, taskId: selectedTaskId.value }
+      : null,
+  status,
+  activity,
+  (snapshot) => {
+    replaceTask(snapshot.status.task);
+    publishAgentNotifications(snapshot);
+  },
+);
 const {
   socketState,
   connect: connectTaskSocket,
@@ -684,13 +696,6 @@ function replaceTask(record: AgentTaskRecord): void {
   upsertTask(record);
 }
 
-function applySnapshot(snapshot: AgentRealtimeSnapshot): void {
-  status.value = snapshot.status;
-  activity.value = snapshot.activity;
-  replaceTask(snapshot.status.task);
-  publishAgentNotifications(snapshot);
-}
-
 async function loadTask(
   taskId: string,
   requestGeneration = generation,
@@ -727,7 +732,16 @@ async function loadTask(
     ) {
       return;
     }
-    applySnapshot({ status: nextStatus, activity: nextActivity });
+    const snapshotResult = applySnapshot({
+      status: nextStatus,
+      activity: nextActivity,
+    });
+    if (snapshotResult === 'invalid') {
+      throw new Error(
+        'Resposta de status inconsistente para a task selecionada.',
+      );
+    }
+    if (snapshotResult === 'stale') return;
     applyLoadedConversation(
       nextConversation,
       { projectId: props.project.id, taskId },
