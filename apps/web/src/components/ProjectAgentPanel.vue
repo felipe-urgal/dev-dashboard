@@ -892,6 +892,22 @@ function expandHistory(): void {
   }
 }
 
+function reconnectTaskRealtime(): void {
+  // Restore observation only for the canonical task currently displayed.
+  // No execution or conversation request is replayed on reconnect.
+  const taskId = selectedTaskId.value;
+  const task = status.value?.task.task;
+  if (
+    socketState.value !== 'disconnected' ||
+    !taskId ||
+    task?.id !== taskId ||
+    task.projectId !== props.project.id
+  ) {
+    return;
+  }
+  connectTaskSocket(props.project.id, taskId);
+}
+
 async function selectTask(taskId: string): Promise<void> {
   invalidateCreation();
   invalidateArchive();
@@ -1075,6 +1091,19 @@ onBeforeUnmount(() => {
             <span>{{
               socketState === 'connected' ? 'Pronto para uso' : 'Sem tempo real'
             }}</span>
+            <button
+              v-if="
+                socketState === 'disconnected' &&
+                selectedTaskId &&
+                status?.task.task.id === selectedTaskId &&
+                status.task.task.projectId === props.project.id
+              "
+              class="agent-history-show-all"
+              type="button"
+              @click="reconnectTaskRealtime"
+            >
+              Reconectar realtime
+            </button>
           </div>
         </article>
         <article>
