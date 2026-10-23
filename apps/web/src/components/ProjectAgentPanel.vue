@@ -61,7 +61,6 @@ import {
   type AgentExecutionResult,
   type AgentProviderId,
   type AgentProviderStatus,
-  type AgentRealtimeSnapshot,
   type AgentTaskRecord,
   type AgentTaskStatus,
 } from '../api/agent-runtime';
