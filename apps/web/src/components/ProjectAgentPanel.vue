@@ -32,6 +32,7 @@ import { useAgentTaskRealtime } from '../composables/useAgentTaskRealtime';
 import { useAgentTaskUsage } from '../composables/useAgentTaskUsage';
 import { useAgentTaskBudget } from '../composables/useAgentTaskBudget';
 import { useAgentTaskHistory } from '../composables/useAgentTaskHistory';
+import { useAgentTaskAttachments } from '../composables/useAgentTaskAttachments';
 import {
   providerDiagnosticAction,
   providerDiagnosticSummary,
@@ -41,7 +42,6 @@ import {
   adoptAgentBacklog,
   archiveAgentTask,
   cancelAgentTask,
-  createAgentAttachment,
   createAgentTask,
   executeAgentConversationTurn,
   executeAgentTask,
@@ -56,7 +56,6 @@ import {
   retryAgentTask,
   setAgentAuthorization,
   type AgentActivity,
-  type AgentAttachment,
   type AgentAuthorization,
   type AgentAuthorizationScope,
   type AgentBacklogIssue,
@@ -155,9 +154,7 @@ const {
 const instruction = ref('');
 const conversationInstruction = ref('');
 const conversationTurns = ref<AgentConversationTurn[]>([]);
-const attachments = ref<AgentAttachment[]>([]);
-const selectedAttachmentIds = ref<string[]>([]);
-const uploadingAttachment = ref(false);
+
 const backlogCandidates = ref<AgentBacklogIssue[]>([]);
 const backlogSelectionSource = ref('');
 const backlogAdoptionNotice = ref<{
@@ -174,6 +171,26 @@ const loading = ref(false);
 const mutating = ref(false);
 const executing = ref(false);
 const errorMessage = ref('');
+const {
+  attachments,
+  selectedAttachmentIds,
+  uploadingAttachment,
+  resetAttachments,
+  applyLoadedAttachments,
+  attachmentFor,
+  addAttachments,
+} = useAgentTaskAttachments(
+  () =>
+    selectedTaskId.value
+      ? { projectId: props.project.id, taskId: selectedTaskId.value }
+      : null,
+  (message) => {
+    errorMessage.value = message;
+  },
+  () => {
+    errorMessage.value = '';
+  },
+);
 const {
   providerRefreshing,
   providerOptions,
@@ -544,8 +561,7 @@ async function loadTask(
     status.value = null;
     activity.value = null;
     conversationTurns.value = [];
-    attachments.value = [];
-    selectedAttachmentIds.value = [];
+    resetAttachments();
     conversationInstruction.value = '';
     resetBudget();
     closeSocket();
@@ -572,10 +588,7 @@ async function loadTask(
     }
     applySnapshot({ status: nextStatus, activity: nextActivity });
     conversationTurns.value = nextConversation;
-    attachments.value = nextAttachments;
-    selectedAttachmentIds.value = selectedAttachmentIds.value.filter((id) =>
-      nextAttachments.some((attachment) => attachment.id === id),
-    );
+    applyLoadedAttachments(nextAttachments, props.project.id, taskId);
     connectTaskSocket(props.project.id, taskId);
   } catch (error) {
     if (
@@ -601,6 +614,7 @@ async function load(): Promise<void> {
   resetHistory();
   resetExecutionProfiles();
   resetProviders();
+  resetAttachments();
   showAllHistory.value = false;
   taskLoadVersion += 1;
   selectedTaskId.value = '';
@@ -754,8 +768,7 @@ async function selectTask(taskId: string): Promise<void> {
   status.value = null;
   activity.value = null;
   conversationTurns.value = [];
-  attachments.value = [];
-  selectedAttachmentIds.value = [];
+  resetAttachments();
   conversationInstruction.value = '';
   latestExecution.value = null;
   errorMessage.value = '';
@@ -826,6 +839,7 @@ async function createTask(): Promise<void> {
       };
       replaceTask(result.task);
       selectedTaskId.value = result.task.task.id;
+      resetAttachments();
       instruction.value = '';
       latestExecution.value = null;
       taskContexts.value = await fetchTaskContexts(props.project.id);
@@ -848,6 +862,7 @@ async function createTask(): Promise<void> {
     });
     replaceTask(record);
     selectedTaskId.value = record.task.id;
+    resetAttachments();
     instruction.value = '';
     latestExecution.value = null;
     await loadTask(record.task.id);
@@ -929,88 +944,6 @@ async function continueCurrentConversation(): Promise<void> {
   } finally {
     executing.value = false;
   }
-}
-
-function attachmentMediaType(file: File): AgentAttachment['mediaType'] | null {
-  const type = file.type || (file.name.endsWith('.md') ? 'text/markdown' : '');
-  if (
-    type === 'text/plain' ||
-    type === 'text/markdown' ||
-    type === 'application/json' ||
-    type === 'image/png' ||
-    type === 'image/jpeg' ||
-    type === 'image/webp'
-  ) {
-    return type;
-  }
-  return null;
-}
-
-async function fileBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Não foi possível ler o anexo.'));
-    reader.onload = () => {
-      const value = String(reader.result ?? '');
-      const separator = value.indexOf(',');
-      if (separator < 0) {
-        reject(new Error('Conteúdo do anexo inválido.'));
-        return;
-      }
-      resolve(value.slice(separator + 1));
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-async function addAttachments(event: Event): Promise<void> {
-  const task = currentTask.value?.task;
-  const input = event.target as HTMLInputElement;
-  const files = [...(input.files ?? [])];
-  input.value = '';
-  if (!task || files.length === 0 || uploadingAttachment.value) return;
-
-  uploadingAttachment.value = true;
-  errorMessage.value = '';
-  try {
-    for (const file of files) {
-      if (attachments.value.length >= 8) {
-        throw new Error('A task aceita no máximo 8 anexos.');
-      }
-      if (file.size > 1024 * 1024) {
-        throw new Error('Cada anexo pode ter no máximo 1 MB.');
-      }
-      const mediaType = attachmentMediaType(file);
-      if (!mediaType) {
-        throw new Error('Tipo de anexo não suportado.');
-      }
-      const attachment = await createAgentAttachment(
-        props.project.id,
-        task.id,
-        {
-          filename: file.name,
-          mediaType,
-          contentBase64: await fileBase64(file),
-        },
-      );
-      attachments.value = [...attachments.value, attachment];
-      selectedAttachmentIds.value = [
-        ...selectedAttachmentIds.value,
-        attachment.id,
-      ];
-    }
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível anexar o arquivo.';
-  } finally {
-    uploadingAttachment.value = false;
-  }
-}
-
-function attachmentFor(id: string): AgentAttachment | undefined {
-  return attachments.value.find((attachment) => attachment.id === id);
 }
 
 async function changeUsagePeriod(): Promise<void> {
@@ -1203,6 +1136,7 @@ onBeforeUnmount(() => {
   resetHistory();
   resetExecutionProfiles();
   resetProviders();
+  resetAttachments();
 });
 </script>
 
