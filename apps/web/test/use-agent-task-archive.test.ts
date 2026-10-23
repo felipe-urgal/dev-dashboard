@@ -112,7 +112,14 @@ test('arquiva somente task concluída e atual, sem fazer segunda requisição', 
 
 test('não arquiva task não finalizada, já arquivada, ativa ou com outra mutação', async () => {
   const h = harness();
-  for (const state of ['queued', 'running', 'review', 'checkpoint', 'failed', 'blocked'] as AgentTaskState[]) {
+  for (const state of [
+    'queued',
+    'running',
+    'review',
+    'checkpoint',
+    'failed',
+    'blocked',
+  ] as AgentTaskState[]) {
     h.target.state = state;
     await h.state.archiveCurrent();
   }
@@ -142,7 +149,11 @@ test('seleção A → B → A invalida sucesso antigo e mantém lock até termin
   h.target.taskId = 'task-a';
   h.state.invalidateArchive();
   await h.state.archiveCurrent();
-  assert.equal(h.requests.length, 1, 'nenhum segundo archive durante primeiro voo');
+  assert.equal(
+    h.requests.length,
+    1,
+    'nenhum segundo archive durante primeiro voo',
+  );
   h.requests[0]!.resolve(record());
   await old;
   assert.deepEqual(h.applied, []);
@@ -178,7 +189,11 @@ test('erro antigo após troca de projeto e unmount não contamina seleção', as
 
 test('resposta de outra task, outro projeto ou sem archive confirmado falha fechado', async () => {
   const h = harness();
-  const malformed = [record('project-b'), record('project-a', 'task-b'), record('project-a', 'task-a', false)];
+  const malformed = [
+    record('project-b'),
+    record('project-a', 'task-b'),
+    record('project-a', 'task-a', false),
+  ];
   for (const response of malformed) {
     const pending = h.state.archiveCurrent();
     h.requests.at(-1)!.resolve(response);
@@ -188,7 +203,11 @@ test('resposta de outra task, outro projeto ou sem archive confirmado falha fech
   assert.deepEqual(h.refreshes, []);
   assert.equal(h.errors.length, 3);
   assert.deepEqual(h.reloads, ['task-a', 'task-a', 'task-a']);
-  assert.equal(h.requests.length, 3, 'resposta inconsistente não dispara retry');
+  assert.equal(
+    h.requests.length,
+    3,
+    'resposta inconsistente não dispara retry',
+  );
 });
 
 test('falha ambígua reconcilia a task canônica sem repetir POST', async () => {
