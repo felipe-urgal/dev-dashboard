@@ -34,6 +34,7 @@ import { useAgentTaskBudget } from '../composables/useAgentTaskBudget';
 import { useAgentTaskHistory } from '../composables/useAgentTaskHistory';
 import { useAgentTaskAttachments } from '../composables/useAgentTaskAttachments';
 import { useAgentTaskConversation } from '../composables/useAgentTaskConversation';
+import { useAgentTaskLifecycle } from '../composables/useAgentTaskLifecycle';
 import {
   useAgentTaskApprovals,
   authorizationScopeLabel,
@@ -46,17 +47,13 @@ import {
 import {
   adoptAgentBacklog,
   archiveAgentTask,
-  cancelAgentTask,
   createAgentTask,
-  executeAgentTask,
   fetchAgentActivity,
   fetchAgentAttachments,
   fetchAgentConversation,
   fetchAgentExecutionProfiles,
   fetchAgentProviders,
   fetchAgentTaskStatus,
-  recoverAgentTask,
-  retryAgentTask,
   type AgentActivity,
   type AgentBacklogIssue,
   type AgentCapability,
@@ -165,8 +162,46 @@ const activity = ref<AgentActivity | null>(null);
 const latestExecution = ref<AgentExecutionResult | null>(null);
 const loading = ref(false);
 const mutating = ref(false);
-const executing = ref(false);
 const errorMessage = ref('');
+const {
+  executing,
+  resetLifecycle,
+  executeCurrent: submitExecution,
+  cancelCurrent,
+  retryCurrent,
+  recoverCurrent,
+} = useAgentTaskLifecycle(
+  () => {
+    const record = currentTask.value;
+    if (
+      !record ||
+      record.task.id !== selectedTaskId.value ||
+      record.task.projectId !== props.project.id ||
+      status.value?.task.task.id !== record.task.id
+    )
+      return null;
+    return {
+      projectId: props.project.id,
+      taskId: record.task.id,
+      state: record.task.state,
+      runtimeState: status.value.runtime.state,
+      activeExecution: Boolean(status.value.activeExecution),
+    };
+  },
+  () => canExecute.value,
+  mutating,
+  (result) => {
+    latestExecution.value = result;
+  },
+  replaceTask,
+  ({ taskId }) => loadTask(taskId),
+  (message) => {
+    errorMessage.value = message;
+  },
+  () => {
+    errorMessage.value = '';
+  },
+);
 const {
   checkpointInstruction,
   pendingCheckpoint,
@@ -490,7 +525,10 @@ const providerAvailabilityLabel = (provider: AgentProviderStatus): string => {
 const canExecute = computed(
   () =>
     currentTask.value?.task.state === 'queued' &&
+    status.value?.task.task.id === selectedTaskId.value &&
+    !status.value?.activeExecution &&
     !executing.value &&
+    !conversationSending.value &&
     !mutating.value &&
     currentProvider.value !== null &&
     currentProvider.value.availability === 'available' &&
@@ -585,6 +623,7 @@ async function loadTask(
     resetConversation();
     resetAttachments();
     resetApprovals();
+    resetLifecycle();
     resetBudget();
     closeSocket();
     clearUsage();
@@ -643,6 +682,7 @@ async function load(): Promise<void> {
   resetAttachments();
   resetConversation();
   resetApprovals();
+  resetLifecycle();
   showAllHistory.value = false;
   taskLoadVersion += 1;
   selectedTaskId.value = '';
@@ -798,6 +838,7 @@ async function selectTask(taskId: string): Promise<void> {
   resetConversation();
   resetAttachments();
   resetApprovals();
+  resetLifecycle();
   latestExecution.value = null;
   errorMessage.value = '';
   await loadTask(taskId);
@@ -870,6 +911,7 @@ async function createTask(): Promise<void> {
       resetAttachments();
       resetConversation();
       resetApprovals();
+      resetLifecycle();
       instruction.value = '';
       latestExecution.value = null;
       taskContexts.value = await fetchTaskContexts(props.project.id);
@@ -895,6 +937,7 @@ async function createTask(): Promise<void> {
     resetAttachments();
     resetConversation();
     resetApprovals();
+    resetLifecycle();
     instruction.value = '';
     latestExecution.value = null;
     await loadTask(record.task.id);
@@ -907,31 +950,11 @@ async function createTask(): Promise<void> {
 }
 
 async function executeCurrent(): Promise<void> {
-  const record = currentTask.value;
-  if (!record || !canExecute.value) return;
-  executing.value = true;
-  errorMessage.value = '';
-
-  try {
-    const result = await executeAgentTask(
-      props.project.id,
-      record.task.id,
-      selectedProviderId.value,
-      [...selectedAttachmentIds.value],
-      selectedProfileId.value || undefined,
-    );
-    latestExecution.value = result;
-    replaceTask(result.task);
-    await loadTask(record.task.id);
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'A execução do Agente não foi concluída.';
-    await loadTask(record.task.id);
-  } finally {
-    executing.value = false;
-  }
+  await submitExecution({
+    providerId: selectedProviderId.value,
+    attachmentIds: [...selectedAttachmentIds.value],
+    ...(selectedProfileId.value ? { profileId: selectedProfileId.value } : {}),
+  });
 }
 
 async function continueCurrentConversation(): Promise<void> {
@@ -987,65 +1010,6 @@ async function clearBudget(): Promise<void> {
   }
 }
 
-async function cancelCurrent(): Promise<void> {
-  const record = currentTask.value;
-  if (!record) return;
-  mutating.value = true;
-  errorMessage.value = '';
-  try {
-    applySnapshot({
-      status: await cancelAgentTask(props.project.id, record.task.id),
-      activity:
-        activity.value ??
-        (await fetchAgentActivity(props.project.id, record.task.id)),
-    });
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : 'Não foi possível parar a task.';
-  } finally {
-    mutating.value = false;
-  }
-}
-
-async function retryCurrent(): Promise<void> {
-  const record = currentTask.value;
-  if (!record) return;
-  mutating.value = true;
-  errorMessage.value = '';
-  try {
-    const next = await retryAgentTask(props.project.id, record.task.id);
-    replaceTask(next);
-    await loadTask(next.task.id);
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível tentar novamente.';
-  } finally {
-    mutating.value = false;
-  }
-}
-
-async function recoverCurrent(): Promise<void> {
-  const record = currentTask.value;
-  if (!record) return;
-  mutating.value = true;
-  errorMessage.value = '';
-  try {
-    const next = await recoverAgentTask(props.project.id, record.task.id);
-    status.value = next;
-    replaceTask(next.task);
-    activity.value = await fetchAgentActivity(props.project.id, record.task.id);
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível recuperar a task.';
-  } finally {
-    mutating.value = false;
-  }
-}
-
 function handleComposerKeydown(event: KeyboardEvent): void {
   if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
     event.preventDefault();
@@ -1079,6 +1043,7 @@ onBeforeUnmount(() => {
   resetAttachments();
   resetConversation();
   resetApprovals();
+  resetLifecycle();
 });
 </script>
 
