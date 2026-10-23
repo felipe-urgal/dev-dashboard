@@ -9,8 +9,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import=tsx --test test/*.test.ts",
-    "test:coverage": "node --import=tsx --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test test/*.test.ts"
+    "test": "node --import=tsx --import=./test/setup-state-dir.ts --test test/*.test.ts",
+    "test:coverage": "node --import=tsx --import=./test/setup-state-dir.ts --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test test/*.test.ts"
   },
   "dependencies": {
     "@dev-dashboard/agent-runtime": "0.1.0",
