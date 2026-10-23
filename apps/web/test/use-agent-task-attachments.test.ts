@@ -197,3 +197,15 @@ test('cockpit delegates attachment ownership and clears it on project and task c
   assert.doesNotMatch(panel, /async function addAttachments\(/);
   assert.doesNotMatch(panel, /attachments\.value\s*=/);
 });
+
+test('stale read error after task change is discarded', async () => {
+  const h = harness();
+  const pending = h.state.addAttachments(input(file('abandoned.txt')));
+  h.target.taskId = 't-b';
+  h.state.resetAttachments();
+  h.reads[0]!.reject(new Error('old private file error'));
+  await pending;
+  assert.deepEqual(h.errors, []);
+  assert.equal(h.state.uploadingAttachment.value, false);
+  assert.equal(h.writes.length, 0);
+});
