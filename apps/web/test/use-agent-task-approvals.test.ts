@@ -33,10 +33,7 @@ function checkpoint(
   };
 }
 
-function authorization(
-  taskId: string,
-  granted: boolean,
-): AgentAuthorization {
+function authorization(taskId: string, granted: boolean): AgentAuthorization {
   return {
     taskId,
     capability: 'git:push',
@@ -64,9 +61,10 @@ function harness() {
     requestedCapabilities: ['git:push'] as Array<'git:push'>,
   };
   const activity = ref<AgentActivity | null>(
-    activityFor([checkpoint('cp-a', 'task-a')], [
-      authorization('task-a', false),
-    ]),
+    activityFor(
+      [checkpoint('cp-a', 'task-a')],
+      [authorization('task-a', false)],
+    ),
   );
   const mutating = ref(false);
   let ready = true;
@@ -88,7 +86,10 @@ function harness() {
     checkpointId: string;
     decision: string;
     instruction: string | undefined;
-    resolve: (result: { task: AgentTaskRecord; checkpoint: AgentCheckpoint }) => void;
+    resolve: (result: {
+      task: AgentTaskRecord;
+      checkpoint: AgentCheckpoint;
+    }) => void;
     reject: (error: Error) => void;
   }> = [];
   const pendingActivity: Array<{
@@ -102,34 +103,67 @@ function harness() {
     taskId,
     capability,
     granted,
-  ) => new Promise((resolve, reject) => {
-    pendingAuthorizations.push({ projectId, taskId, capability, granted, resolve, reject });
-  });
-  const resolveCheckpoint: typeof resolveAgentCheckpoint = (
-    projectId, taskId, checkpointId, decision, instruction,
-  ) => new Promise((resolve, reject) => {
-    pendingResolutions.push({
-      projectId, taskId, checkpointId, decision, instruction, resolve, reject,
+  ) =>
+    new Promise((resolve, reject) => {
+      pendingAuthorizations.push({
+        projectId,
+        taskId,
+        capability,
+        granted,
+        resolve,
+        reject,
+      });
     });
-  });
+  const resolveCheckpoint: typeof resolveAgentCheckpoint = (
+    projectId,
+    taskId,
+    checkpointId,
+    decision,
+    instruction,
+  ) =>
+    new Promise((resolve, reject) => {
+      pendingResolutions.push({
+        projectId,
+        taskId,
+        checkpointId,
+        decision,
+        instruction,
+        resolve,
+        reject,
+      });
+    });
   const fetchActivity: typeof fetchAgentActivity = (projectId, taskId) =>
     new Promise((resolve, reject) => {
       pendingActivity.push({ projectId, taskId, resolve, reject });
     });
   const state = useAgentTaskApprovals(
-    () => ready ? selected : null,
+    () => (ready ? selected : null),
     activity,
     mutating,
     (record) => replaced.push(record.task.id),
-    async (target) => { reloads.push(target.taskId); },
+    async (target) => {
+      reloads.push(target.taskId);
+    },
     (message) => errors.push(message),
-    () => { clears += 1; },
+    () => {
+      clears += 1;
+    },
     { authorize, resolve: resolveCheckpoint, fetchActivity },
   );
   return {
-    selected, activity, mutating, errors, replaced, reloads, state,
-    pendingAuthorizations, pendingResolutions, pendingActivity,
-    setReady: (value: boolean) => { ready = value; },
+    selected,
+    activity,
+    mutating,
+    errors,
+    replaced,
+    reloads,
+    state,
+    pendingAuthorizations,
+    pendingResolutions,
+    pendingActivity,
+    setReady: (value: boolean) => {
+      ready = value;
+    },
     clears: () => clears,
   };
 }
@@ -139,7 +173,9 @@ test('exibe apenas autorização e checkpoint da task selecionada sem derivar gr
   assert.equal(h.state.pendingCheckpoint.value?.id, 'cp-a');
   assert.equal(h.state.authorizationGranted('git:push'), false);
   assert.equal(
-    authorizationScopeLabel(h.state.authorizationByCapability.value.get('git:push')?.scope),
+    authorizationScopeLabel(
+      h.state.authorizationByCapability.value.get('git:push')?.scope,
+    ),
     'Branch · main',
   );
 
@@ -201,7 +237,10 @@ test('autorização captura contexto, serializa mutações e mostra apenas grant
   assert.equal(h.pendingActivity.length, 1);
   assert.equal(h.state.authorizationGranted('git:push'), false);
   h.pendingActivity[0]!.resolve(
-    activityFor([checkpoint('cp-a', 'task-a')], [authorization('task-a', true)]),
+    activityFor(
+      [checkpoint('cp-a', 'task-a')],
+      [authorization('task-a', true)],
+    ),
   );
   await pending;
   assert.equal(h.state.authorizationGranted('git:push'), true);
@@ -259,15 +298,26 @@ test('aprovação captura checkpoint e instrução; decisão não é reenviada',
   const h = harness();
   h.state.checkpointInstruction.value = '  Verifique o diff primeiro.  ';
   const pending = h.state.resolveCheckpoint('approved');
-  assert.deepEqual(h.pendingResolutions.map(({projectId,taskId,checkpointId,decision,instruction}) => ({
-    projectId,taskId,checkpointId,decision,instruction,
-  })), [{
-    projectId: 'project-a',
-    taskId: 'task-a',
-    checkpointId: 'cp-a',
-    decision: 'approved',
-    instruction: '  Verifique o diff primeiro.  ',
-  }]);
+  assert.deepEqual(
+    h.pendingResolutions.map(
+      ({ projectId, taskId, checkpointId, decision, instruction }) => ({
+        projectId,
+        taskId,
+        checkpointId,
+        decision,
+        instruction,
+      }),
+    ),
+    [
+      {
+        projectId: 'project-a',
+        taskId: 'task-a',
+        checkpointId: 'cp-a',
+        decision: 'approved',
+        instruction: '  Verifique o diff primeiro.  ',
+      },
+    ],
+  );
   await h.state.resolveCheckpoint('rejected');
   assert.equal(h.pendingResolutions.length, 1);
   h.pendingResolutions[0]!.resolve({
