@@ -391,7 +391,7 @@ test('retry de paginação mantém lista visível no cockpit', () => {
   assert.match(panel, /@retry="retryHistory"/);
   assert.match(historyCardSource(), /@click="\$emit\('retry'\)"/);
   assert.match(historyCardSource(), /Tentar novamente/);
-  assert.match(panel, /Atualizar histórico/);
+  assert.match(historyCardSource(), /Atualizar histórico/);
   assert.match(historyCardSource(), /<template v-if="tasks\.length">/);
   assert.match(
     historyCardSource(),
