@@ -216,7 +216,7 @@ test('snapshot racing with upload response does not duplicate attachment IDs', a
   assert.deepEqual(h.state.selectedAttachmentIds.value, ['same']);
 });
 
-test('attachment revision invalidates snapshots started before upload', async () => {
+test('attachment revision rejects stale reads before upload', async () => {
   const h = harness();
   const initial = h.state.attachmentsRevision();
   h.state.applyLoadedAttachments([attachment('present', 't-a')], 'p-a', 't-a');
