@@ -100,10 +100,7 @@ export function useAgentTaskCreation(
     instruction.value = 'pegue a #' + issue.number;
   }
 
-  function isCurrent(
-    target: CreationTarget,
-    version: number,
-  ): boolean {
+  function isCurrent(target: CreationTarget, version: number): boolean {
     const selected = currentTarget();
     return (
       generation === version &&
@@ -166,8 +163,7 @@ export function useAgentTaskCreation(
         instruction.value = '';
         backlogCandidates.value = [];
         backlogSelectionSource.value = '';
-        if (isCurrent(target, version))
-          await reloadTask(adoption.task.task.id);
+        if (isCurrent(target, version)) await reloadTask(adoption.task.task.id);
         return;
       }
 
@@ -193,7 +189,9 @@ export function useAgentTaskCreation(
     } catch (error) {
       if (!isCurrent(target, version)) return;
       reportError(
-        error instanceof Error ? error.message : 'Não foi possível criar a task.',
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível criar a task.',
       );
     } finally {
       mutating.value = false;
