@@ -33,6 +33,7 @@ import { useAgentTaskUsage } from '../composables/useAgentTaskUsage';
 import { useAgentTaskBudget } from '../composables/useAgentTaskBudget';
 import { useAgentTaskHistory } from '../composables/useAgentTaskHistory';
 import { useAgentTaskCreation } from '../composables/useAgentTaskCreation';
+import { useAgentTaskArchive } from '../composables/useAgentTaskArchive';
 import { useAgentTaskAttachments } from '../composables/useAgentTaskAttachments';
 import { useAgentTaskConversation } from '../composables/useAgentTaskConversation';
 import { useAgentTaskLifecycle } from '../composables/useAgentTaskLifecycle';
@@ -46,7 +47,6 @@ import {
   providerObservedAtLabel,
 } from '../agent-provider-doctor';
 import {
-  archiveAgentTask,
   fetchAgentActivity,
   fetchAgentAttachments,
   fetchAgentConversation,
@@ -185,6 +185,41 @@ const {
     resetLifecycle();
     latestExecution.value = null;
   },
+  (taskId) => loadTask(taskId),
+  (message) => {
+    errorMessage.value = message;
+  },
+  () => {
+    errorMessage.value = '';
+  },
+);
+const { archiveCurrent, invalidateArchive } = useAgentTaskArchive(
+  () => {
+    const record = currentTask.value;
+    if (
+      !record ||
+      record.task.id !== selectedTaskId.value ||
+      record.task.projectId !== props.project.id ||
+      (status.value && status.value.task.task.id !== record.task.id)
+    )
+      return null;
+    return {
+      projectId: props.project.id,
+      taskId: record.task.id,
+      state: record.task.state,
+      archived: Boolean(record.task.archivedAt),
+      activeExecution: Boolean(status.value?.activeExecution),
+    };
+  },
+  mutating,
+  (archived) => {
+    replaceTask(archived);
+    if (status.value?.task.task.id === archived.task.id) {
+      status.value = { ...status.value, task: archived };
+    }
+    closeSocket();
+  },
+  () => refreshHistory(),
   (taskId) => loadTask(taskId),
   (message) => {
     errorMessage.value = message;
@@ -708,6 +743,7 @@ async function load(): Promise<void> {
   resetBudget();
   resetHistory();
   resetCreation();
+  invalidateArchive();
   resetExecutionProfiles();
   resetProviders();
   resetAttachments();
@@ -806,52 +842,6 @@ async function toggleArchivedHistory(): Promise<void> {
   }
 }
 
-async function archiveCurrent(): Promise<void> {
-  const record = currentTask.value;
-  if (
-    !record ||
-    record.task.archivedAt ||
-    !['completed', 'cancelled'].includes(record.task.state) ||
-    status.value?.activeExecution ||
-    mutating.value
-  )
-    return;
-
-  const requestProject = props.project.id;
-  const taskId = record.task.id;
-  const requestGeneration = generation;
-  mutating.value = true;
-  errorMessage.value = '';
-  try {
-    const archived = await archiveAgentTask(requestProject, taskId);
-    if (
-      requestGeneration !== generation ||
-      requestProject !== props.project.id ||
-      selectedTaskId.value !== taskId
-    )
-      return;
-    replaceTask(archived);
-    if (status.value?.task.task.id === taskId) {
-      status.value = { ...status.value, task: archived };
-    }
-    closeSocket();
-    await refreshHistory();
-  } catch (error) {
-    if (
-      requestGeneration === generation &&
-      requestProject === props.project.id &&
-      selectedTaskId.value === taskId
-    ) {
-      errorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível arquivar a task.';
-    }
-  } finally {
-    mutating.value = false;
-  }
-}
-
 function expandHistory(): void {
   showAllHistory.value = true;
   if (sortedTasks.value.length <= 5 && historyHasMore.value) {
@@ -861,6 +851,7 @@ function expandHistory(): void {
 
 async function selectTask(taskId: string): Promise<void> {
   invalidateCreation();
+  invalidateArchive();
   selectedTaskId.value = taskId;
   closeSocket();
   clearUsage();
@@ -966,6 +957,7 @@ onBeforeUnmount(() => {
   resetBudget();
   resetHistory();
   resetCreation();
+  invalidateArchive();
   resetExecutionProfiles();
   resetProviders();
   resetAttachments();
