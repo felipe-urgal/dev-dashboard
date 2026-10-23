@@ -62,6 +62,7 @@ function harness() {
   const contexts: Array<{
     projectId: string;
     resolve: (value: Awaited<ReturnType<typeof fetchTaskContexts>>) => void;
+    reject: (error: Error) => void;
   }> = [];
   const committed: string[] = [];
   const notices: string[] = [];
@@ -95,7 +96,9 @@ function harness() {
           adoptions.push({ projectId, input, resolve, reject }),
         ),
       fetchContexts: (projectId) =>
-        new Promise((resolve) => contexts.push({ projectId, resolve })),
+        new Promise((resolve, reject) =>
+          contexts.push({ projectId, resolve, reject }),
+        ),
     },
   );
   return {
@@ -199,6 +202,28 @@ test('adoção ambígua não cria seleção; issue escolhida usa ambiente e busc
   assert.deepEqual(h.notices, ['123:0']);
   assert.equal(h.state.backlogAdoptionNotice.value?.reused, true);
   assert.deepEqual(h.state.backlogCandidates.value, []);
+});
+
+test('adoção concluída permanece visível mesmo se a leitura de contextos falhar', async () => {
+  const h = harness();
+  h.state.instruction.value = 'pegue a #123';
+  const pending = h.state.createTask();
+  h.adoptions[0]!.resolve({
+    status: 'adopted',
+    source: 'specific-issue',
+    issue,
+    candidates: [],
+    reused: false,
+    task: record('project-a'),
+  });
+  await Promise.resolve();
+  h.contexts[0]!.reject(new Error('internal secret diagnostic'));
+  await pending;
+  assert.deepEqual(h.committed, ['task-1']);
+  assert.deepEqual(h.reloaded, ['task-1']);
+  assert.equal(h.state.backlogAdoptionNotice.value?.issue.number, 123);
+  assert.match(h.errors[0] ?? '', /foi adotada/);
+  assert.doesNotMatch(h.errors[0] ?? '', /internal secret/);
 });
 
 test('A → B → A descarta resposta tardia sem liberar lock ou sobrescrever draft', async () => {
