@@ -33,7 +33,9 @@ export function useAgentProviderStatus(
   const providerOptions = computed<AgentProviderStatus[]>(() =>
     providerIds.map(
       (providerId) =>
-        providers.value.find((provider) => provider.providerId === providerId) ?? {
+        providers.value.find(
+          (provider) => provider.providerId === providerId,
+        ) ?? {
           providerId,
           availability: 'unavailable',
           observedAt: '',

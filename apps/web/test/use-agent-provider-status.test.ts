@@ -33,7 +33,9 @@ function harness() {
     () => project.id,
     selected,
     (message) => errors.push(message),
-    () => { clears += 1; },
+    () => {
+      clears += 1;
+    },
     loader,
   );
   return { project, selected, errors, pending, state, clears: () => clears };
@@ -43,7 +45,10 @@ test('provider doctor conserva fallback e seleção apenas observacional', () =>
   const h = harness();
   assert.equal(h.state.providerOptions.value.length, 4);
   assert.equal(h.state.currentProvider.value?.availability, 'unavailable');
-  assert.equal(h.state.currentProvider.value?.diagnostic?.code, 'automatic-unavailable');
+  assert.equal(
+    h.state.currentProvider.value?.diagnostic?.code,
+    'automatic-unavailable',
+  );
   h.state.applyLoadedProviders([provider('codex')], 'project-a');
   assert.equal(h.state.availableProviderCount.value, 1);
   assert.equal(h.state.currentProvider.value?.availability, 'unavailable');
@@ -55,7 +60,10 @@ test('provider doctor conserva fallback e seleção apenas observacional', () =>
 
 test('refresh revalida sem duplicar requests e mantém providers até resposta', async () => {
   const h = harness();
-  h.state.applyLoadedProviders([provider('automatic', 'degraded')], 'project-a');
+  h.state.applyLoadedProviders(
+    [provider('automatic', 'degraded')],
+    'project-a',
+  );
   const request = h.state.refreshProviders();
   await h.state.refreshProviders();
   assert.equal(h.pending.length, 1);
@@ -83,12 +91,20 @@ test('troca A → B → A invalida refresh antigo e libera novo refresh', async 
   h.pending[0]!.resolve([provider('automatic')]);
   await stale;
   assert.equal(h.state.availableProviderCount.value, 1);
-  assert.equal(h.state.providerOptions.value.find((p) => p.providerId === 'automatic')?.availability, 'unavailable');
+  assert.equal(
+    h.state.providerOptions.value.find((p) => p.providerId === 'automatic')
+      ?.availability,
+    'unavailable',
+  );
   assert.equal(h.state.providerRefreshing.value, true);
 
   h.pending[1]!.resolve([provider('codex')]);
   await latest;
-  assert.equal(h.state.providerOptions.value.find((p) => p.providerId === 'codex')?.availability, 'available');
+  assert.equal(
+    h.state.providerOptions.value.find((p) => p.providerId === 'codex')
+      ?.availability,
+    'available',
+  );
   assert.equal(h.state.providerRefreshing.value, false);
 });
 
@@ -98,7 +114,11 @@ test('load novo invalida refresh pendente mesmo no mesmo projeto', async () => {
   h.state.applyLoadedProviders([provider('claude-code')], 'project-a');
   h.pending[0]!.resolve([provider('automatic')]);
   await stale;
-  assert.equal(h.state.providerOptions.value.find((p) => p.providerId === 'claude-code')?.availability, 'available');
+  assert.equal(
+    h.state.providerOptions.value.find((p) => p.providerId === 'claude-code')
+      ?.availability,
+    'available',
+  );
   assert.equal(h.state.providerRefreshing.value, false);
 });
 
@@ -124,7 +144,10 @@ test('cockpit usa um owner de provider status e invalida ao trocar projeto', () 
     'utf8',
   );
   assert.match(panel, /useAgentProviderStatus\(/);
-  assert.match(panel, /applyLoadedProviders\(nextProviders, props\.project\.id\)/);
+  assert.match(
+    panel,
+    /applyLoadedProviders\(nextProviders, props\.project\.id\)/,
+  );
   assert.match(panel, /resetProviders\(\)/);
   assert.doesNotMatch(panel, /providers\.value\s*=/);
   assert.doesNotMatch(panel, /providerRefreshing\.value\s*=/);

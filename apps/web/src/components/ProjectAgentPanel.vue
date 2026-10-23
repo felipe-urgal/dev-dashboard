@@ -185,8 +185,12 @@ const {
 } = useAgentProviderStatus(
   () => props.project.id,
   selectedProviderId,
-  (message) => { errorMessage.value = message; },
-  () => { errorMessage.value = ''; },
+  (message) => {
+    errorMessage.value = message;
+  },
+  () => {
+    errorMessage.value = '';
+  },
 );
 const showAllHistory = ref(false);
 const providerConfig = ref<HTMLDetailsElement | null>(null);

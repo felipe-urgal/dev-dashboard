@@ -91,7 +91,9 @@ describe('Agent provider doctor', () => {
     expect(panel).toContain('Revalidar conexão');
     expect(panel).toContain('@click="refreshProviders"');
     expect(panel).toContain('useAgentProviderStatus(');
-    expect(panel).toContain('applyLoadedProviders(nextProviders, props.project.id)');
+    expect(panel).toContain(
+      'applyLoadedProviders(nextProviders, props.project.id)',
+    );
   });
 
   it('distingue ausência, versão, autenticação e falha de runtime dos CLIs locais', () => {
