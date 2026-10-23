@@ -163,7 +163,7 @@ export function useAgentTaskCreation(
         instruction.value = '';
         backlogCandidates.value = [];
         backlogSelectionSource.value = '';
-        if (isCurrent(target, version)) await reloadTask(adoption.task.task.id);
+        await reloadTask(adoption.task.task.id);
         return;
       }
 
@@ -185,7 +185,7 @@ export function useAgentTaskCreation(
       backlogCandidates.value = [];
       backlogSelectionSource.value = '';
       backlogAdoptionNotice.value = null;
-      if (isCurrent(target, version)) await reloadTask(record.task.id);
+      await reloadTask(record.task.id);
     } catch (error) {
       if (!isCurrent(target, version)) return;
       reportError(
