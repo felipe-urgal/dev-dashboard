@@ -77,7 +77,9 @@ function harness() {
     () => conversationRevision,
     () => attachmentsRevision,
     (turns) => appliedConversation.push(...turns.map((item) => item.taskId)),
-    (records) => appliedAttachments.push(...records.map((item) => item.taskId)),
+    (records) => {
+      appliedAttachments.push(...records.map((item) => item.taskId));
+    },
     { conversation, attachments },
   );
   return {
@@ -96,7 +98,7 @@ function harness() {
   };
 }
 
-test('leitura auxiliar pendente não impede outra fonte de completar', async () => {
+test('leitura pendente não bloqueia a outra fonte', async () => {
   const h = harness();
   h.state.loadTaskDetails();
   await flush();
@@ -125,7 +127,7 @@ test('leitura auxiliar pendente não impede outra fonte de completar', async () 
   assert.deepEqual(h.state.failedDetailSources.value, []);
 });
 
-test('troca A → B → A descarta respostas tardias e erros privados', async () => {
+test('A → B → A descarta dados e erros antigos', async () => {
   const h = harness();
   h.state.loadTaskDetails();
   await flush();
@@ -155,7 +157,7 @@ test('troca A → B → A descarta respostas tardias e erros privados', async ()
   assert.equal(h.state.detailWarning.value, '');
 });
 
-test('mutação local impede snapshot auxiliar antigo de sobrescrever dados', async () => {
+test('mutação local descarta snapshot auxiliar antigo', async () => {
   const h = harness();
   h.state.loadTaskDetails();
   await flush();
@@ -169,7 +171,7 @@ test('mutação local impede snapshot auxiliar antigo de sobrescrever dados', as
   assert.equal(h.state.detailWarning.value, '');
 });
 
-test('conteúdo com taskId divergente ou item nulo falha fechado por fonte', async () => {
+test('dados auxiliares inválidos são rejeitados por fonte', async () => {
   const h = harness();
   h.state.loadTaskDetails();
   await flush();
