@@ -83,7 +83,9 @@ export function useAgentTaskArchive(
         archived.task.id !== target.taskId ||
         !archived.task.archivedAt
       ) {
-        throw new Error('A resposta de arquivamento não corresponde à task selecionada.');
+        throw new Error(
+          'A resposta de arquivamento não corresponde à task selecionada.',
+        );
       }
 
       applyArchived(archived);
@@ -91,7 +93,9 @@ export function useAgentTaskArchive(
     } catch (error) {
       if (!isCurrent(target, version)) return;
       reportError(
-        error instanceof Error ? error.message : 'Não foi possível arquivar a task.',
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível arquivar a task.',
       );
       await reloadIfCurrent(target, version);
     } finally {
