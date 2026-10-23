@@ -46,7 +46,7 @@ export function useAgentTaskDetailReads(
   const failedDetailSources = ref<DetailSource[]>([]);
   const detailWarning = computed(() => {
     if (failedDetailSources.value.length === 2) {
-      return 'Conversa e anexos indisponíveis. O estado da task continua acessível.';
+      return 'Conversa e anexos indisponíveis. O estado da task está acessível.';
     }
     if (failedDetailSources.value.includes('conversation')) {
       return 'Não foi possível carregar a conversa persistida da task.';
