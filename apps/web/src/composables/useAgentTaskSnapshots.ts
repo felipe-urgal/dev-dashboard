@@ -51,7 +51,9 @@ export function useAgentTaskSnapshots(
       !Array.isArray(nextActivity.authorizations) ||
       !Array.isArray(nextActivity.checkpoints) ||
       !Array.isArray(nextActivity.evidence) ||
-      !nextActivity.events.every((entry) => entry?.taskId === selected.taskId) ||
+      !nextActivity.events.every(
+        (entry) => entry?.taskId === selected.taskId,
+      ) ||
       !nextActivity.authorizations.every(
         (entry) => entry?.taskId === selected.taskId,
       ) ||

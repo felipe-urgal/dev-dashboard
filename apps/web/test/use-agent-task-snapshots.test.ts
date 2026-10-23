@@ -291,7 +291,9 @@ test('qualquer item de Activity de outra task rejeita todo snapshot e suas notif
 test('itens nulos ou incompletos em Activity também falham fechado', () => {
   const h = harness();
   const invalid = snapshotWithActivity(1);
-  invalid.activity.events.push(null as unknown as AgentRealtimeSnapshot['activity']['events'][number]);
+  invalid.activity.events.push(
+    null as unknown as AgentRealtimeSnapshot['activity']['events'][number],
+  );
   assert.equal(h.controller.applySnapshot(invalid), 'invalid');
   const missingTaskId = snapshotWithActivity(2);
   delete (missingTaskId.activity.evidence[0] as { taskId?: string }).taskId;
