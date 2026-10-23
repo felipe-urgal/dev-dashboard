@@ -43,6 +43,7 @@ export type {
   StackNodeState,
   StackNodeTarget,
   StackProcessTarget,
+  StackResource,
   StackRestartResult,
   StackRestartState,
   StackStartResult,
