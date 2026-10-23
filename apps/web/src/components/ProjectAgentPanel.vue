@@ -180,11 +180,16 @@ const {
   attachmentFor,
   addAttachments,
 } = useAgentTaskAttachments(
-  () => selectedTaskId.value
-    ? { projectId: props.project.id, taskId: selectedTaskId.value }
-    : null,
-  (message) => { errorMessage.value = message; },
-  () => { errorMessage.value = ''; },
+  () =>
+    selectedTaskId.value
+      ? { projectId: props.project.id, taskId: selectedTaskId.value }
+      : null,
+  (message) => {
+    errorMessage.value = message;
+  },
+  () => {
+    errorMessage.value = '';
+  },
 );
 const {
   providerRefreshing,
