@@ -218,7 +218,10 @@ test('cockpit só oferece reconexão para snapshot canônico da task selecionada
   assert.match(reconnect, /task\?\.id !== taskId/);
   assert.match(reconnect, /task\.projectId !== props\.project\.id/);
   assert.match(reconnect, /connectTaskSocket\(props\.project\.id, taskId\)/);
-  assert.doesNotMatch(reconnect, /executeCurrent|continueCurrentConversation|loadTask/);
+  assert.doesNotMatch(
+    reconnect,
+    /executeCurrent|continueCurrentConversation|loadTask/,
+  );
   assert.match(panel, /@click="reconnectTaskRealtime"/);
   assert.match(panel, /Reconectar realtime/);
   assert.match(panel, /socketState === 'disconnected'/);
