@@ -94,7 +94,9 @@ function harness() {
         kind,
         projectId,
         taskId,
-        resolve: resolve as unknown as (value: AgentTaskRecord | AgentTaskStatus) => void,
+        resolve: resolve as unknown as (
+          value: AgentTaskRecord | AgentTaskStatus,
+        ) => void,
         reject,
       });
     });
