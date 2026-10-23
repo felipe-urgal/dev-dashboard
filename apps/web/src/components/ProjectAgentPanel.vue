@@ -182,7 +182,8 @@ const {
       !record ||
       record.task.id !== selectedTaskId.value ||
       status.value?.task.task.id !== selectedTaskId.value
-    ) return null;
+    )
+      return null;
     return {
       projectId: props.project.id,
       taskId: record.task.id,
@@ -193,8 +194,12 @@ const {
   mutating,
   replaceTask,
   ({ taskId }) => loadTask(taskId),
-  (message) => { errorMessage.value = message; },
-  () => { errorMessage.value = ''; },
+  (message) => {
+    errorMessage.value = message;
+  },
+  () => {
+    errorMessage.value = '';
+  },
 );
 const {
   conversationInstruction,
@@ -415,7 +420,6 @@ const openIntegrations = (): void => {
     block: 'start',
   });
 };
-
 
 const providerLabel = (providerId: AgentProviderId): string => {
   switch (providerId) {
