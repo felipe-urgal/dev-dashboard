@@ -37,7 +37,7 @@ export function useAgentIntegrationMutations(
 ) {
   const mutationBusy = ref(false);
   const active = ref<ActiveMutation | null>(null);
-  let generation = 0;
+  const generation = ref(0);
 
   function sameScope(target: IntegrationDiscoveryTarget): boolean {
     const current = currentTarget();
@@ -49,14 +49,14 @@ export function useAgentIntegrationMutations(
   }
 
   function resetMutations(): void {
-    generation += 1;
+    generation.value += 1;
     // Do not unlock a request already submitted to the backend.
   }
 
   const visibleOperation = computed(() => {
     const operation = active.value;
     return operation &&
-      operation.generation === generation &&
+      operation.generation === generation.value &&
       sameScope(operation.target)
       ? operation
       : null;
@@ -93,8 +93,8 @@ export function useAgentIntegrationMutations(
     const target = { ...currentTarget() };
     if (target.providerId !== options.providerId) return;
 
-    const version = generation;
-    const current = () => version === generation && sameScope(target);
+    const version = generation.value;
+    const current = () => version === generation.value && sameScope(target);
     mutationBusy.value = true;
     active.value = {
       kind: options.kind,
