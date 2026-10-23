@@ -11,7 +11,7 @@ import {
 export interface IntegrationDiscoveryTarget {
   projectId: string;
   providerId: AgentConcreteProviderId;
-  environmentInstanceId?: string;
+  environmentInstanceId?: string | undefined;
 }
 
 interface DiscoveryClient {
