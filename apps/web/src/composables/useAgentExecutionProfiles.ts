@@ -120,7 +120,13 @@ export function useAgentExecutionProfiles(
       selectedProfileId.value = selectedId;
       applySelectedProfile();
     } catch (error) {
-      if (isCurrent(request)) throw error;
+      if (isCurrent(request)) {
+        onInvalid(
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível salvar o perfil.',
+        );
+      }
     } finally {
       if (isCurrent(request)) profileSaving.value = false;
     }
