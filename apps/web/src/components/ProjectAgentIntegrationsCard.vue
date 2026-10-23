@@ -324,7 +324,7 @@ async function installClaudePlugin(
           : {}),
         kind: 'plugin',
         name: entry.name,
-        marketplace: entry.marketplace,
+        ...(entry.marketplace ? { marketplace: entry.marketplace } : {}),
         scope,
         confirmed: true,
       }),
