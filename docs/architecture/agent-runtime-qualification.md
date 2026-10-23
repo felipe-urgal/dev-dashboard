@@ -4,6 +4,35 @@ Issue de origem: #777.
 
 Este documento separa **provas automatizadas do control plane** de **qualificação real com providers externos**. CI verde não é suficiente para declarar paridade.
 
+## Política operacional de histórico — #1073
+
+O histórico canônico de Agent Tasks não tem TTL nem exclusão automática. A
+retenção é **indefinida até uma política de descarte separada, explícita e
+autorizada**, ainda inexistente. A UI carrega inicialmente uma página limitada,
+prioriza tasks não terminais (incluindo `review`, `blocked`, `checkpoint` e
+`failed`) e solicita páginas adicionais somente por ação do usuário. A
+indexação por revisão Git é auxiliar e não substitui a task canônica.
+
+Tasks `completed` ou `cancelled` sem execução ativa podem ser arquivadas
+explicitamente. Archive grava `archivedAt` no registro canônico por CAS e apenas
+retira a task da listagem operacional `order=priority` por padrão. A task e sua
+conversa, auditoria, attachments e evidence **não são apagadas**. Uma task
+arquivada pode ser consultada por ID ou exibida com
+`includeArchived=true` para auditoria; archive não reexecuta um provider
+nem concede permissão para execução. Archive de task em execução falha fechado.
+
+A paginação priorizada retorna um lote limitado e cursor versionado; `Ver
+mais` expande apenas os registros já carregados e `Carregar mais` solicita
+a página seguinte. `Atualizar histórico` reinicia a consulta quando necessário;
+uma falha ao obter a página seguinte preserva itens e cursor já disponíveis para
+retry. Não há compactação automática, deleção silenciosa nem mudança nos stores
+de conversation/audit/attachments por causa da política visual.
+
+O card `ProjectAgentTaskHistoryCard` é somente apresentação. A identidade,
+a seleção, a geração de requests, o histórico incremental e o realtime
+permanecem nos owners do cockpit e seus composables; o card apenas emite
+intenções de navegação e carregamento.
+
 ## Gates
 
 | Gate | Tipo | Estado atual | Evidência |

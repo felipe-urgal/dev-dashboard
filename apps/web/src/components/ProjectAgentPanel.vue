@@ -7,7 +7,6 @@ import {
   AtSymbolIcon,
   BoltIcon,
   CheckCircleIcon,
-  ClockIcon,
   ComputerDesktopIcon,
   CubeIcon,
   DocumentIcon,
@@ -65,6 +64,7 @@ import {
 } from '../api/agent-runtime';
 import EmptyState from './EmptyState.vue';
 import ProjectAgentIntegrationsCard from './ProjectAgentIntegrationsCard.vue';
+import ProjectAgentTaskHistoryCard from './ProjectAgentTaskHistoryCard.vue';
 import ProjectTaskContextSummary from './ProjectTaskContextSummary.vue';
 import StatusBadge from './StatusBadge.vue';
 import type { StatusBadgeTone } from './status-badge-types';
@@ -524,29 +524,6 @@ const currentTaskStage = computed(() => {
       return 0;
   }
 });
-
-const taskStateSummary = (state: string): string => {
-  switch (state) {
-    case 'queued':
-      return 'Criada';
-    case 'running':
-      return 'Executando';
-    case 'checkpoint':
-      return 'Checkpoint';
-    case 'review':
-      return 'Em review';
-    case 'blocked':
-      return 'Bloqueada';
-    case 'failed':
-      return 'Falhou';
-    case 'completed':
-      return 'Concluída';
-    case 'cancelled':
-      return 'Cancelada';
-    default:
-      return state;
-  }
-};
 
 const openProviderDiagnostics = (): void => {
   if (providerConfig.value) providerConfig.value.open = true;
@@ -1571,100 +1548,23 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <section class="agent-card agent-recent-history">
-        <div class="agent-section-heading agent-history-heading">
-          <div>
-            <ClockIcon class="agent-section-icon" aria-hidden="true" />
-            <strong>Histórico recente</strong>
-          </div>
-          <button
-            class="agent-history-show-all"
-            type="button"
-            :disabled="historyLoading"
-            @click="toggleArchivedHistory"
-          >
-            {{ showArchived ? 'Ocultar arquivadas' : 'Mostrar arquivadas' }}
-          </button>
-          <button
-            v-if="!showAllHistory && (sortedTasks.length > 5 || historyHasMore)"
-            class="agent-history-show-all"
-            type="button"
-            @click="expandHistory"
-          >
-            Ver mais
-          </button>
-          <button
-            v-if="showAllHistory && historyHasMore && !historyError"
-            class="agent-history-show-all"
-            type="button"
-            :disabled="historyLoading"
-            @click="loadNextPage"
-          >
-            {{ historyLoading ? 'Carregando...' : 'Carregar mais' }}
-          </button>
-          <button
-            v-if="showAllHistory"
-            class="agent-history-show-all"
-            type="button"
-            @click="showAllHistory = false"
-          >
-            Ver menos
-          </button>
-        </div>
-
-        <p v-if="historyLoading && !historyLoaded" class="agent-hint">
-          Carregando histórico de tasks...
-        </p>
-        <p v-else-if="!sortedTasks.length && !historyError" class="agent-hint">
-          {{
-            historyHasMore
-              ? 'Nenhuma task encontrada nesta página. Carregue a próxima.'
-              : 'Nenhuma task criada neste projeto.'
-          }}
-        </p>
-        <p v-if="historyError" class="agent-hint" role="alert">
-          {{ historyError }}
-        </p>
-        <button
-          v-if="historyError"
-          class="agent-history-show-all"
-          type="button"
-          :disabled="historyLoading"
-          @click="retryHistory"
-        >
-          {{
-            historyLoaded && historyHasMore
-              ? 'Tentar novamente'
-              : 'Atualizar histórico'
-          }}
-        </button>
-        <template v-if="sortedTasks.length">
-          <button
-            v-for="record in showAllHistory
-              ? sortedTasks
-              : sortedTasks.slice(0, 5)"
-            :key="record.task.id"
-            class="agent-history-item"
-            :class="{ 'is-selected': record.task.id === selectedTaskId }"
-            type="button"
-            @click="selectTask(record.task.id)"
-          >
-            <span
-              class="agent-history-state"
-              :class="'state-' + record.task.state"
-              aria-hidden="true"
-            />
-            <div>
-              <strong>{{ record.task.summary }}</strong>
-              <small>
-                {{ taskStateSummary(record.task.state) }} ·
-                {{ new Date(record.task.updatedAt).toLocaleString() }}
-                <template v-if="record.task.archivedAt"> · Arquivada </template>
-              </small>
-            </div>
-          </button>
-        </template>
-      </section>
+      <ProjectAgentTaskHistoryCard
+        class="agent-card agent-recent-history"
+        :tasks="sortedTasks"
+        :selected-task-id="selectedTaskId"
+        :show-archived="showArchived"
+        :show-all-history="showAllHistory"
+        :history-has-more="historyHasMore"
+        :history-loading="historyLoading"
+        :history-loaded="historyLoaded"
+        :history-error="historyError"
+        @toggle-archived="toggleArchivedHistory"
+        @expand="expandHistory"
+        @load-more="loadNextPage"
+        @collapse="showAllHistory = false"
+        @retry="retryHistory"
+        @select="selectTask"
+      />
 
       <details
         ref="integrationsSummary"
@@ -3786,102 +3686,6 @@ onBeforeUnmount(() => {
   align-content: start;
   gap: 2px;
   min-height: 238px;
-}
-
-.agent-history-heading > div {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.agent-history-heading strong {
-  font-size: var(--font-sm);
-}
-
-.agent-history-show-all {
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--text-muted);
-  background: transparent;
-  font-size: 9px;
-  cursor: pointer;
-}
-
-.agent-history-show-all:hover {
-  color: var(--text);
-  background: var(--surface-2);
-}
-
-.agent-history-item {
-  display: grid;
-  grid-template-columns: 18px 1fr;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  min-width: 0;
-  padding: 8px 0;
-  border: 0;
-  border-top: 1px solid var(--border);
-  color: var(--text);
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-
-.agent-history-item:first-of-type {
-  border-top: 0;
-}
-
-.agent-history-item > div {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.agent-history-item strong {
-  overflow: hidden;
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.agent-history-item small {
-  overflow: hidden;
-  color: var(--text-dim);
-  font-size: 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.agent-history-item.is-selected {
-  color: var(--accent);
-}
-
-.agent-history-state {
-  width: 13px;
-  height: 13px;
-  border-radius: 999px;
-  background: var(--text-dim);
-}
-
-.agent-history-state.state-completed {
-  background: var(--success-text);
-}
-
-.agent-history-state.state-failed,
-.agent-history-state.state-cancelled {
-  background: var(--danger-text);
-}
-
-.agent-history-state.state-review,
-.agent-history-state.state-checkpoint,
-.agent-history-state.state-blocked {
-  background: var(--warning-text);
-}
-
-.agent-history-state.state-running {
-  background: var(--accent);
 }
 
 .agent-integrations-summary {
