@@ -181,6 +181,125 @@ test('seleção de outro projeto e retorno A → B → A não contamina a task',
   assert.deepEqual(h.recorded, [5]);
 });
 
+function snapshotWithActivity(version: number): AgentRealtimeSnapshot {
+  const result = snapshot('project-a', 'task-a', version);
+  result.activity.authorizations = [
+    {
+      taskId: 'task-a',
+      capability: 'workspace:write',
+      granted: true,
+      observedAt: '2026-10-23T14:01:00.000Z',
+    },
+  ];
+  result.activity.checkpoints = [
+    {
+      id: 'checkpoint-1',
+      taskId: 'task-a',
+      status: 'pending',
+      summary: 'Precisa de autorização',
+      requiredCapabilities: [],
+      createdAt: '2026-10-23T14:02:00.000Z',
+    },
+  ];
+  result.activity.events = [
+    {
+      id: 'event-1',
+      taskId: 'task-a',
+      type: 'checkpoint',
+      summary: 'Checkpoint criado',
+      occurredAt: '2026-10-23T14:03:00.000Z',
+    },
+  ];
+  result.activity.evidence = [
+    {
+      id: 'evidence-1',
+      taskId: 'task-a',
+      kind: 'test',
+      summary: 'Teste concluído',
+      observedAt: '2026-10-23T14:04:00.000Z',
+    },
+  ];
+  return result;
+}
+
+test('activity integralmente vinculada à task selecionada é aplicada', () => {
+  const h = harness();
+  const current = snapshotWithActivity(5);
+  assert.equal(h.controller.applySnapshot(current), 'applied');
+  assert.equal(h.activity.value?.authorizations.length, 1);
+  assert.equal(h.activity.value?.checkpoints.length, 1);
+  assert.equal(h.activity.value?.events.length, 1);
+  assert.equal(h.activity.value?.evidence.length, 1);
+  assert.deepEqual(h.recorded, [5]);
+});
+
+test('qualquer item de Activity de outra task rejeita todo snapshot e suas notificações', () => {
+  const corruptions: Array<{
+    kind: string;
+    apply: (value: AgentRealtimeSnapshot) => void;
+  }> = [
+    {
+      kind: 'authorizations',
+      apply: (value) => {
+        value.activity.authorizations[0]!.taskId = 'task-b';
+      },
+    },
+    {
+      kind: 'checkpoints',
+      apply: (value) => {
+        value.activity.checkpoints[0]!.taskId = 'task-b';
+      },
+    },
+    {
+      kind: 'events',
+      apply: (value) => {
+        value.activity.events[0]!.taskId = 'task-b';
+      },
+    },
+    {
+      kind: 'evidence',
+      apply: (value) => {
+        value.activity.evidence[0]!.taskId = 'task-b';
+      },
+    },
+  ];
+
+  for (const { kind, apply } of corruptions) {
+    const h = harness();
+    assert.equal(
+      h.controller.applySnapshot(snapshotWithActivity(5)),
+      'applied',
+    );
+    const lastStatus = h.status.value;
+    const lastActivity = h.activity.value;
+    const wrong = snapshotWithActivity(6);
+    apply(wrong);
+    assert.equal(h.controller.applySnapshot(wrong), 'invalid', kind);
+    assert.equal(h.status.value, lastStatus, kind);
+    assert.equal(h.activity.value, lastActivity, kind);
+    assert.deepEqual(h.recorded, [5], kind);
+
+    // A malformed update cannot poison the owner for the next good version.
+    assert.equal(
+      h.controller.applySnapshot(snapshotWithActivity(7)),
+      'applied',
+    );
+    assert.deepEqual(h.recorded, [5, 7], kind);
+  }
+});
+
+test('itens nulos ou incompletos em Activity também falham fechado', () => {
+  const h = harness();
+  const invalid = snapshotWithActivity(1);
+  invalid.activity.events.push(null as unknown as AgentRealtimeSnapshot['activity']['events'][number]);
+  assert.equal(h.controller.applySnapshot(invalid), 'invalid');
+  const missingTaskId = snapshotWithActivity(2);
+  delete (missingTaskId.activity.evidence[0] as { taskId?: string }).taskId;
+  assert.equal(h.controller.applySnapshot(missingTaskId), 'invalid');
+  assert.equal(h.status.value, null);
+  assert.deepEqual(h.recorded, []);
+});
+
 test('cockpit compartilha guard de snapshots entre REST e WebSocket', () => {
   const panel = readFileSync(
     resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
