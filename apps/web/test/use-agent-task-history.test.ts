@@ -185,7 +185,7 @@ test('cockpit não faz GET legado do histórico inteiro', () => {
   assert.match(panel, /Carregar mais/);
   assert.match(panel, /compareTaskPriority/);
   assert.match(panel, /Atualizar histórico/);
-  assert.match(panel, /archiveAgentTask/);
+  assert.match(panel, /useAgentTaskArchive/);
   assert.match(panel, /Mostrar arquivadas/);
   assert.match(panel, /Arquivar task/);
   assert.doesNotMatch(panel, /fetchAgentTasks/);
