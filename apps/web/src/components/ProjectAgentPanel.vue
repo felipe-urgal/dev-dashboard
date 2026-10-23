@@ -178,7 +178,8 @@ const {
       record.task.id !== selectedTaskId.value ||
       record.task.projectId !== props.project.id ||
       status.value?.task.task.id !== record.task.id
-    ) return null;
+    )
+      return null;
     return {
       projectId: props.project.id,
       taskId: record.task.id,
@@ -189,11 +190,17 @@ const {
   },
   () => canExecute.value,
   mutating,
-  (result) => { latestExecution.value = result; },
+  (result) => {
+    latestExecution.value = result;
+  },
   replaceTask,
   ({ taskId }) => loadTask(taskId),
-  (message) => { errorMessage.value = message; },
-  () => { errorMessage.value = ''; },
+  (message) => {
+    errorMessage.value = message;
+  },
+  () => {
+    errorMessage.value = '';
+  },
 );
 const {
   checkpointInstruction,
