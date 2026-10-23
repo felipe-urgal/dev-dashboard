@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ref } from 'vue';
+import { reactive, ref } from 'vue';
 import { test } from 'vitest';
 
 import {
@@ -55,11 +55,11 @@ function taskRecord(taskId: string): AgentTaskRecord {
 }
 
 function harness() {
-  const selected = {
+  const selected = reactive({
     projectId: 'project-a',
     taskId: 'task-a',
     requestedCapabilities: ['git:push'] as Array<'git:push'>,
-  };
+  });
   const activity = ref<AgentActivity | null>(
     activityFor(
       [checkpoint('cp-a', 'task-a')],
@@ -67,7 +67,7 @@ function harness() {
     ),
   );
   const mutating = ref(false);
-  let ready = true;
+  const ready = ref(true);
   const errors: string[] = [];
   let clears = 0;
   const replaced: string[] = [];
@@ -137,7 +137,7 @@ function harness() {
       pendingActivity.push({ projectId, taskId, resolve, reject });
     });
   const state = useAgentTaskApprovals(
-    () => (ready ? selected : null),
+    () => (ready.value ? selected : null),
     activity,
     mutating,
     (record) => replaced.push(record.task.id),
@@ -162,7 +162,7 @@ function harness() {
     pendingResolutions,
     pendingActivity,
     setReady: (value: boolean) => {
-      ready = value;
+      ready.value = value;
     },
     clears: () => clears,
   };
