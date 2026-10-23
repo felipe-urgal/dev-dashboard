@@ -10,7 +10,6 @@ import type {
 } from '@dev-dashboard/core';
 
 import {
-  AgentIntegrationDiscoveryError,
   GitAgentTaskStoreError,
   sameAgentAuthorizationScope,
 } from '@dev-dashboard/agent-runtime';
@@ -20,26 +19,12 @@ import type {
   AgentAuditSnapshot,
   AgentAuthorization,
   AgentAuthorizationScope,
-  AgentConcreteProviderId,
   AgentConversationTurn,
   AgentEffectiveExecutionConfiguration,
   AgentEvidence,
   AgentExecutionProfile,
   AgentExecutionProfileConfiguration,
-  AgentIntegration,
-  AgentIntegrationAuthenticationHandoff,
-  AgentIntegrationAuthenticationRequest,
-  AgentIntegrationCapabilityRegistry,
-  AgentIntegrationDetails,
-  AgentIntegrationInspectRequest,
-  AgentIntegrationInstallRequest,
-  AgentIntegrationListResult,
-  AgentIntegrationSetEnabledRequest,
-  AgentIntegrationUninstallRequest,
-  AgentIntegrationUninstallResult,
-  AgentIntegrationProviderCapabilities,
   AgentGitRefAdoptionRequest,
-  AgentIntegrationProviderRegistry,
   AgentTaskBudget,
   AgentAttachmentStore,
   AgentAuditStore,
@@ -237,42 +222,6 @@ export interface AgentRuntimeApiServicePort {
     input: AgentProviderPreferenceInput,
   ): Promise<AgentProviderPreference>;
   clearProviderPreference(projectId: string): Promise<void>;
-  listIntegrationCapabilities(): AgentIntegrationProviderCapabilities[];
-  listIntegrations(
-    projectId: string,
-    providerId: AgentConcreteProviderId,
-    environmentInstanceId?: string,
-  ): Promise<AgentIntegrationListResult>;
-  inspectIntegration(
-    projectId: string,
-    providerId: AgentConcreteProviderId,
-    input: Omit<AgentIntegrationInspectRequest, 'cwd'>,
-    environmentInstanceId?: string,
-  ): Promise<AgentIntegrationDetails>;
-  installIntegration(
-    projectId: string,
-    providerId: AgentConcreteProviderId,
-    input: Omit<AgentIntegrationInstallRequest, 'cwd'>,
-    environmentInstanceId?: string,
-  ): Promise<AgentIntegration>;
-  prepareIntegrationAuthentication(
-    projectId: string,
-    providerId: AgentConcreteProviderId,
-    input: Omit<AgentIntegrationAuthenticationRequest, 'cwd'>,
-    environmentInstanceId?: string,
-  ): Promise<AgentIntegrationAuthenticationHandoff>;
-  setIntegrationEnabled(
-    projectId: string,
-    providerId: AgentConcreteProviderId,
-    input: Omit<AgentIntegrationSetEnabledRequest, 'cwd'>,
-    environmentInstanceId?: string,
-  ): Promise<AgentIntegration>;
-  uninstallIntegration(
-    projectId: string,
-    providerId: AgentConcreteProviderId,
-    input: Omit<AgentIntegrationUninstallRequest, 'cwd'>,
-    environmentInstanceId?: string,
-  ): Promise<AgentIntegrationUninstallResult>;
   listTasks(projectId: string): Promise<AgentTaskRecord[]>;
   listTasksPage?(
     projectId: string,
@@ -384,8 +333,6 @@ export interface AgentRuntimeApiServiceOptions {
     set(preference: AgentProviderPreference): Promise<AgentProviderPreference>;
     clear(projectId: string): Promise<void>;
   };
-  integrationCapabilityRegistry?: AgentIntegrationCapabilityRegistry;
-  integrationProviderRegistry?: AgentIntegrationProviderRegistry;
   workflowRuntime: Pick<
     AgentWorkflowRuntime,
     | 'status'
@@ -680,306 +627,6 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
   public async clearProviderPreference(projectId: string): Promise<void> {
     this.requireProject(projectId);
     await this.options.providerPreferenceStore?.clear(projectId);
-  }
-
-  public listIntegrationCapabilities(): AgentIntegrationProviderCapabilities[] {
-    return this.options.integrationCapabilityRegistry?.list() ?? [];
-  }
-
-  public async listIntegrations(
-    projectId: string,
-    providerId: AgentConcreteProviderId,
-    environmentInstanceId?: string,
-  ): Promise<AgentIntegrationListResult> {
-    this.requireProject(projectId);
-    const provider = this.options.integrationProviderRegistry?.get(providerId);
-    if (!provider) {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE',
-        'Agent integration discovery is unavailable for this provider.',
-      );
-    }
-
-    const executionContext =
-      this.options.developmentEnvironmentInstanceStore.resolveForProject(
-        projectId,
-        environmentInstanceId,
-      );
-    if (!executionContext || executionContext.runtime !== 'host') {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_ENVIRONMENT_NOT_FOUND',
-        'Development environment instance was not found for this project.',
-      );
-    }
-
-    try {
-      return await provider.list({ cwd: executionContext.cwd });
-    } catch (error) {
-      if (error instanceof AgentIntegrationDiscoveryError) {
-        throw new AgentRuntimeApiServiceError(
-          error.code === 'provider-unavailable'
-            ? 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
-            : 'AGENT_API_INTEGRATION_DISCOVERY_FAILED',
-          error.message,
-        );
-      }
-      throw error;
-    }
-  }
-
-  public async inspectIntegration(
-    projectId: string,
-    providerId: AgentConcreteProviderId,
-    input: Omit<AgentIntegrationInspectRequest, 'cwd'>,
-    environmentInstanceId?: string,
-  ): Promise<AgentIntegrationDetails> {
-    this.requireProject(projectId);
-    const provider = this.options.integrationProviderRegistry?.get(providerId);
-    if (!provider?.inspect) {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE',
-        'Agent integration inspection is unavailable for this provider.',
-      );
-    }
-
-    const executionContext =
-      this.options.developmentEnvironmentInstanceStore.resolveForProject(
-        projectId,
-        environmentInstanceId,
-      );
-    if (!executionContext || executionContext.runtime !== 'host') {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_ENVIRONMENT_NOT_FOUND',
-        'Development environment instance was not found for this project.',
-      );
-    }
-
-    try {
-      return await provider.inspect({
-        ...input,
-        cwd: executionContext.cwd,
-      });
-    } catch (error) {
-      if (error instanceof AgentIntegrationDiscoveryError) {
-        if (error.code === 'invalid-request') {
-          throw new AgentRuntimeApiServiceError(
-            'AGENT_API_INVALID_REQUEST',
-            error.message,
-          );
-        }
-        throw new AgentRuntimeApiServiceError(
-          error.code === 'provider-unavailable'
-            ? 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
-            : 'AGENT_API_INTEGRATION_DISCOVERY_FAILED',
-          error.message,
-        );
-      }
-      throw error;
-    }
-  }
-
-  public async installIntegration(
-    projectId: string,
-    providerId: AgentConcreteProviderId,
-    input: Omit<AgentIntegrationInstallRequest, 'cwd'>,
-    environmentInstanceId?: string,
-  ): Promise<AgentIntegration> {
-    this.requireProject(projectId);
-    const provider = this.options.integrationProviderRegistry?.get(providerId);
-    if (!provider?.install) {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE',
-        'Agent integration installation is unavailable for this provider.',
-      );
-    }
-
-    const executionContext =
-      this.options.developmentEnvironmentInstanceStore.resolveForProject(
-        projectId,
-        environmentInstanceId,
-      );
-    if (!executionContext || executionContext.runtime !== 'host') {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_ENVIRONMENT_NOT_FOUND',
-        'Development environment instance was not found for this project.',
-      );
-    }
-
-    try {
-      return await provider.install({
-        ...input,
-        cwd: executionContext.cwd,
-      });
-    } catch (error) {
-      if (error instanceof AgentIntegrationDiscoveryError) {
-        if (error.code === 'invalid-request') {
-          throw new AgentRuntimeApiServiceError(
-            'AGENT_API_INVALID_REQUEST',
-            error.message,
-          );
-        }
-        throw new AgentRuntimeApiServiceError(
-          error.code === 'provider-unavailable'
-            ? 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
-            : 'AGENT_API_INTEGRATION_DISCOVERY_FAILED',
-          error.message,
-        );
-      }
-      throw error;
-    }
-  }
-
-  public async prepareIntegrationAuthentication(
-    projectId: string,
-    providerId: AgentConcreteProviderId,
-    input: Omit<AgentIntegrationAuthenticationRequest, 'cwd'>,
-    environmentInstanceId?: string,
-  ): Promise<AgentIntegrationAuthenticationHandoff> {
-    this.requireProject(projectId);
-    const provider = this.options.integrationProviderRegistry?.get(providerId);
-    if (!provider?.prepareAuthentication) {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE',
-        'Agent integration authentication is unavailable for this provider.',
-      );
-    }
-
-    const executionContext =
-      this.options.developmentEnvironmentInstanceStore.resolveForProject(
-        projectId,
-        environmentInstanceId,
-      );
-    if (!executionContext || executionContext.runtime !== 'host') {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_ENVIRONMENT_NOT_FOUND',
-        'Development environment instance was not found for this project.',
-      );
-    }
-
-    try {
-      return await provider.prepareAuthentication({
-        ...input,
-        cwd: executionContext.cwd,
-      });
-    } catch (error) {
-      if (error instanceof AgentIntegrationDiscoveryError) {
-        if (error.code === 'invalid-request') {
-          throw new AgentRuntimeApiServiceError(
-            'AGENT_API_INVALID_REQUEST',
-            error.message,
-          );
-        }
-        throw new AgentRuntimeApiServiceError(
-          error.code === 'provider-unavailable'
-            ? 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
-            : 'AGENT_API_INTEGRATION_DISCOVERY_FAILED',
-          error.message,
-        );
-      }
-      throw error;
-    }
-  }
-
-  public async setIntegrationEnabled(
-    projectId: string,
-    providerId: AgentConcreteProviderId,
-    input: Omit<AgentIntegrationSetEnabledRequest, 'cwd'>,
-    environmentInstanceId?: string,
-  ): Promise<AgentIntegration> {
-    this.requireProject(projectId);
-    const provider = this.options.integrationProviderRegistry?.get(providerId);
-    if (!provider?.setEnabled) {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE',
-        'Agent integration enablement is unavailable for this provider.',
-      );
-    }
-
-    const executionContext =
-      this.options.developmentEnvironmentInstanceStore.resolveForProject(
-        projectId,
-        environmentInstanceId,
-      );
-    if (!executionContext || executionContext.runtime !== 'host') {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_ENVIRONMENT_NOT_FOUND',
-        'Development environment instance was not found for this project.',
-      );
-    }
-
-    try {
-      return await provider.setEnabled({
-        ...input,
-        cwd: executionContext.cwd,
-      });
-    } catch (error) {
-      if (error instanceof AgentIntegrationDiscoveryError) {
-        if (error.code === 'invalid-request') {
-          throw new AgentRuntimeApiServiceError(
-            'AGENT_API_INVALID_REQUEST',
-            error.message,
-          );
-        }
-        throw new AgentRuntimeApiServiceError(
-          error.code === 'provider-unavailable'
-            ? 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
-            : 'AGENT_API_INTEGRATION_DISCOVERY_FAILED',
-          error.message,
-        );
-      }
-      throw error;
-    }
-  }
-
-  public async uninstallIntegration(
-    projectId: string,
-    providerId: AgentConcreteProviderId,
-    input: Omit<AgentIntegrationUninstallRequest, 'cwd'>,
-    environmentInstanceId?: string,
-  ): Promise<AgentIntegrationUninstallResult> {
-    this.requireProject(projectId);
-    const provider = this.options.integrationProviderRegistry?.get(providerId);
-    if (!provider?.uninstall) {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE',
-        'Agent integration uninstall is unavailable for this provider.',
-      );
-    }
-
-    const executionContext =
-      this.options.developmentEnvironmentInstanceStore.resolveForProject(
-        projectId,
-        environmentInstanceId,
-      );
-    if (!executionContext || executionContext.runtime !== 'host') {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_ENVIRONMENT_NOT_FOUND',
-        'Development environment instance was not found for this project.',
-      );
-    }
-
-    try {
-      return await provider.uninstall({
-        ...input,
-        cwd: executionContext.cwd,
-      });
-    } catch (error) {
-      if (error instanceof AgentIntegrationDiscoveryError) {
-        if (error.code === 'invalid-request') {
-          throw new AgentRuntimeApiServiceError(
-            'AGENT_API_INVALID_REQUEST',
-            error.message,
-          );
-        }
-        throw new AgentRuntimeApiServiceError(
-          error.code === 'provider-unavailable'
-            ? 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
-            : 'AGENT_API_INTEGRATION_DISCOVERY_FAILED',
-          error.message,
-        );
-      }
-      throw error;
-    }
   }
 
   public async listTasks(projectId: string): Promise<AgentTaskRecord[]> {

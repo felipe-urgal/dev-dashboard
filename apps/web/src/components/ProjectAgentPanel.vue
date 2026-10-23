@@ -10,14 +10,12 @@ import {
   ComputerDesktopIcon,
   CubeIcon,
   DocumentIcon,
-  LinkIcon,
   NoSymbolIcon,
   PaperClipIcon,
   PauseCircleIcon,
   PencilSquareIcon,
   PlayIcon,
   PowerIcon,
-  PuzzlePieceIcon,
   StopIcon,
 } from '@heroicons/vue/24/outline';
 
@@ -63,7 +61,6 @@ import {
   type AgentTaskStatus,
 } from '../api/agent-runtime';
 import EmptyState from './EmptyState.vue';
-import ProjectAgentIntegrationsCard from './ProjectAgentIntegrationsCard.vue';
 import ProjectAgentTaskHistoryCard from './ProjectAgentTaskHistoryCard.vue';
 import ProjectTaskContextSummary from './ProjectTaskContextSummary.vue';
 import StatusBadge from './StatusBadge.vue';
@@ -382,7 +379,6 @@ const {
 );
 const showAllHistory = ref(false);
 const providerConfig = ref<HTMLDetailsElement | null>(null);
-const integrationsSummary = ref<HTMLDetailsElement | null>(null);
 const {
   agentNotificationPreferences,
   publishAgentNotifications,
@@ -527,15 +523,6 @@ const currentTaskStage = computed(() => {
 
 const openProviderDiagnostics = (): void => {
   if (providerConfig.value) providerConfig.value.open = true;
-};
-
-const openIntegrations = (): void => {
-  if (!integrationsSummary.value) return;
-  integrationsSummary.value.open = true;
-  integrationsSummary.value.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start',
-  });
 };
 
 const providerLabel = (providerId: AgentProviderId): string => {
@@ -1424,15 +1411,6 @@ onBeforeUnmount(() => {
         <button
           class="agent-provider-action"
           type="button"
-          @click="openIntegrations"
-        >
-          <PuzzlePieceIcon aria-hidden="true" />
-          Ver integrações (MCP)
-          <span aria-hidden="true">›</span>
-        </button>
-        <button
-          class="agent-provider-action"
-          type="button"
           @click="openProviderDiagnostics"
         >
           <ComputerDesktopIcon aria-hidden="true" />
@@ -1565,58 +1543,6 @@ onBeforeUnmount(() => {
         @retry="retryHistory"
         @select="selectTask"
       />
-
-      <details
-        ref="integrationsSummary"
-        class="agent-integrations-summary agent-card"
-      >
-        <summary>
-          <div class="agent-integrations-copy">
-            <PuzzlePieceIcon
-              class="agent-integrations-icon"
-              aria-hidden="true"
-            />
-            <div>
-              <strong>Integrações e MCP</strong>
-              <small>
-                Conecte ferramentas, plugins e skills para expandir as
-                capacidades do agente.
-              </small>
-            </div>
-          </div>
-          <div class="agent-integration-stats">
-            <span>
-              <LinkIcon aria-hidden="true" />
-              <span>
-                <strong>Integrações</strong>
-                <small>conectadas</small>
-              </span>
-            </span>
-            <span>
-              <PuzzlePieceIcon aria-hidden="true" />
-              <span>
-                <strong>Plugins</strong>
-                <small>disponíveis</small>
-              </span>
-            </span>
-            <span>
-              <CubeIcon aria-hidden="true" />
-              <span>
-                <strong>MCP</strong>
-                <small>{{ availableProviderCount }} provider(s)</small>
-              </span>
-            </span>
-            <b>
-              Gerenciar integrações
-              <ArrowRightIcon aria-hidden="true" />
-            </b>
-          </div>
-        </summary>
-        <ProjectAgentIntegrationsCard
-          :project="project"
-          v-bind="environmentInstanceId ? { environmentInstanceId } : {}"
-        />
-      </details>
 
       <div class="agent-detail-area">
         <template v-if="currentTask">
@@ -3245,7 +3171,6 @@ onBeforeUnmount(() => {
     'error error error'
     'create create provider'
     'task history provider'
-    'integrations integrations integrations'
     'details details details';
   align-items: start;
   gap: 14px;
@@ -3688,114 +3613,6 @@ onBeforeUnmount(() => {
   min-height: 238px;
 }
 
-.agent-integrations-summary {
-  grid-area: integrations;
-  padding: 0;
-  overflow: hidden;
-}
-
-.agent-integrations-summary > summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 13px 16px;
-  cursor: pointer;
-  list-style: none;
-}
-
-.agent-integrations-summary > summary::-webkit-details-marker {
-  display: none;
-}
-
-.agent-integrations-copy {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 12px;
-}
-
-.agent-integrations-copy > div {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.agent-integrations-copy strong {
-  font-size: var(--font-sm);
-}
-
-.agent-integrations-copy small {
-  overflow: hidden;
-  color: var(--text-dim);
-  font-size: 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.agent-integrations-icon {
-  width: 24px;
-  height: 24px;
-  color: var(--accent);
-}
-
-.agent-integration-stats {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.agent-integration-stats > span {
-  display: flex;
-  min-width: 118px;
-  align-items: center;
-  gap: 9px;
-  padding: 8px 11px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-0);
-}
-
-.agent-integration-stats > span > svg {
-  width: 17px;
-  height: 17px;
-  color: var(--text-muted);
-}
-
-.agent-integration-stats > span > span {
-  display: grid;
-  gap: 1px;
-}
-
-.agent-integration-stats strong {
-  font-size: 10px;
-}
-
-.agent-integration-stats small {
-  color: var(--text-dim);
-  font-size: 9px;
-}
-
-.agent-integration-stats b {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
-  border-radius: var(--radius-sm);
-  color: var(--accent);
-  font-size: 10px;
-}
-
-.agent-integration-stats b svg {
-  width: 15px;
-  height: 15px;
-}
-
-.agent-integrations-summary[open] > summary {
-  border-bottom: 1px solid var(--border);
-}
-
 .agent-detail-area {
   display: grid;
   grid-area: details;
@@ -3814,7 +3631,6 @@ onBeforeUnmount(() => {
       'create provider'
       'task provider'
       'history provider'
-      'integrations integrations'
       'details details';
   }
 
@@ -3851,21 +3667,11 @@ onBeforeUnmount(() => {
       'provider'
       'task'
       'history'
-      'integrations'
       'details';
   }
 
   .agent-provider-panel {
     position: static;
-  }
-
-  .agent-integrations-summary > summary {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .agent-integration-stats {
-    flex-wrap: wrap;
   }
 }
 
@@ -3912,15 +3718,6 @@ onBeforeUnmount(() => {
 
   .agent-provider-metrics span:last-child {
     border-bottom: 0;
-  }
-
-  .agent-integration-stats {
-    display: grid;
-    width: 100%;
-  }
-
-  .agent-integration-stats > span {
-    min-width: 0;
   }
 }
 </style>

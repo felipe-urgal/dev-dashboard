@@ -16,8 +16,6 @@ import {
   BrowserBridge,
   GitAgentTaskStore,
   HttpBrowserBridgeClient,
-  createDefaultAgentIntegrationCapabilityRegistry,
-  createDefaultAgentIntegrationProviderRegistry,
   createLocalAgentProviderRegistry,
   readBrowserBridgeToken,
   type AgentProviderExecutionRequest,
@@ -692,10 +690,6 @@ function createAgentRuntimeApiService(
     attachmentStore,
     executionProfileStore,
     providerPreferenceStore,
-    integrationCapabilityRegistry:
-      createDefaultAgentIntegrationCapabilityRegistry(),
-    integrationProviderRegistry:
-      createDefaultAgentIntegrationProviderRegistry(),
     workflowRuntime,
     projectStore: context.projectStore,
     worktreeLifecycle: context.gitWorktreeLifecycleService,
