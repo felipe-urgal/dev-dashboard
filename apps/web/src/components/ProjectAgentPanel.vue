@@ -177,17 +177,22 @@ const {
   applyLoadedConversation,
   continueCurrentConversation: submitConversation,
 } = useAgentTaskConversation(
-  () => selectedTaskId.value
-    ? { projectId: props.project.id, taskId: selectedTaskId.value }
-    : null,
+  () =>
+    selectedTaskId.value
+      ? { projectId: props.project.id, taskId: selectedTaskId.value }
+      : null,
   () => canContinue.value,
   (result) => {
     latestExecution.value = result;
     replaceTask(result.task);
   },
   ({ taskId }) => loadTask(taskId),
-  (message) => { errorMessage.value = message; },
-  () => { errorMessage.value = ''; },
+  (message) => {
+    errorMessage.value = message;
+  },
+  () => {
+    errorMessage.value = '';
+  },
 );
 const {
   attachments,
@@ -607,7 +612,11 @@ async function loadTask(
       return;
     }
     applySnapshot({ status: nextStatus, activity: nextActivity });
-    applyLoadedConversation(nextConversation, { projectId: props.project.id, taskId }, conversationSnapshotRevision);
+    applyLoadedConversation(
+      nextConversation,
+      { projectId: props.project.id, taskId },
+      conversationSnapshotRevision,
+    );
     applyLoadedAttachments(nextAttachments, props.project.id, taskId);
     connectTaskSocket(props.project.id, taskId);
   } catch (error) {

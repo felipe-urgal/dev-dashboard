@@ -74,10 +74,13 @@ export function useAgentTaskConversation(
     conversationTurns.value = turns;
   }
 
-  async function continueCurrentConversation(input: ConversationInput): Promise<void> {
+  async function continueCurrentConversation(
+    input: ConversationInput,
+  ): Promise<void> {
     const target = currentTarget();
     const content = conversationInstruction.value.trim();
-    if (!target || !content || conversationSending.value || !canSubmit()) return;
+    if (!target || !content || conversationSending.value || !canSubmit())
+      return;
 
     const requestGeneration = ++generation;
     // Snapshots started before this submission cannot overwrite its turns.
