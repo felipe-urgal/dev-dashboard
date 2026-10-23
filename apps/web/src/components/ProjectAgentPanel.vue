@@ -157,7 +157,9 @@ const {
   selectedProviderId,
   requestedCapabilities,
   (id) => providerLabel(id),
-  (message) => { errorMessage.value = message; },
+  (message) => {
+    errorMessage.value = message;
+  },
 );
 const instruction = ref('');
 const conversationInstruction = ref('');

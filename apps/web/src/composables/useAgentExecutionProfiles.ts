@@ -101,10 +101,7 @@ export function useAgentExecutionProfiles(
     return { projectId, version: ++requestVersion };
   }
 
-  function isCurrent(request: {
-    projectId: string;
-    version: number;
-  }): boolean {
+  function isCurrent(request: { projectId: string; version: number }): boolean {
     return (
       request.version === requestVersion &&
       request.projectId === currentProjectId()
