@@ -581,7 +581,11 @@ async function uninstallIntegration(
 async function inspectIntegration(
   integration: AgentIntegration,
 ): Promise<void> {
-  if (!canInspectSelectedProvider.value || integration.providerId !== selectedProviderId.value) return;
+  if (
+    !canInspectSelectedProvider.value ||
+    integration.providerId !== selectedProviderId.value
+  )
+    return;
   const scope = captureScope();
 
   if (expandedIntegrationId.value === integration.id) {
@@ -596,13 +600,17 @@ async function inspectIntegration(
   errorMessage.value = '';
   try {
     const details = await fetchAgentIntegrationDetails(
-        scope.projectId,
-        integration.providerId,
-        integration.kind,
-        integration.name,
-        scope.environmentInstanceId,
-      );
-    if (!isCurrentScope(scope) || expandedIntegrationId.value !== integration.id) return;
+      scope.projectId,
+      integration.providerId,
+      integration.kind,
+      integration.name,
+      scope.environmentInstanceId,
+    );
+    if (
+      !isCurrentScope(scope) ||
+      expandedIntegrationId.value !== integration.id
+    )
+      return;
     integrationDetails.value[integration.id] = details;
   } catch (error) {
     if (!isCurrentScope(scope)) return;
@@ -666,7 +674,6 @@ async function installMcp(): Promise<void> {
     installing.value = false;
   }
 }
-
 
 watch(selectedProviderId, () => {
   selectedIntegrationView.value = 'all';

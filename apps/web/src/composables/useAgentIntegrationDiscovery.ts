@@ -85,7 +85,9 @@ export function useAgentIntegrationDiscovery(
         );
         if (!current()) return;
         integrations.value = discovery.integrations;
-        integrationIssues.value = discovery.issues.map((issue) => issue.message);
+        integrationIssues.value = discovery.issues.map(
+          (issue) => issue.message,
+        );
       } catch (error) {
         if (!current()) return;
         integrations.value = [];
