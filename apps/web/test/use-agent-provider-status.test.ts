@@ -25,7 +25,7 @@ function harness() {
   let clears = 0;
   const pending: Array<{
     resolve: (value: AgentProviderStatus[]) => void;
-    reject: (reason: Error) => void;
+    reject: (reason: unknown) => void;
   }> = [];
   const loader: typeof fetchAgentProviders = () =>
     new Promise((resolve, reject) => pending.push({ resolve, reject }));
