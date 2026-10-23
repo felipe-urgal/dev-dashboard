@@ -6,6 +6,7 @@ import type {
   StackDependencySuggestion,
   StackLogsSnapshot,
   StackNode,
+  StackResource,
   StackNodeLog,
   StackNodeHealth,
   StackNodeState,
@@ -27,6 +28,7 @@ import {
   fetchStackCheck,
   fetchStackDependencySuggestions,
   fetchStackLogs,
+  fetchStackResources,
   fetchStacks,
   restartStackNode,
   saveStack,
@@ -34,6 +36,7 @@ import {
   stopStack,
 } from '../api/stacks';
 import EmptyState from '../components/EmptyState.vue';
+import StackDefinitionEditor from '../components/StackDefinitionEditor.vue';
 import StatusBadge from '../components/StatusBadge.vue';
 import type { StatusBadgeTone } from '../components/status-badge-types';
 import { dashboardStore } from '../stores/dashboard';
@@ -123,33 +126,66 @@ async function submitClone(stack: Stack): Promise<void> {
   }
 }
 
+const resources = ref<StackResource[]>([]);
+const resourceError = ref('');
+const creating = ref(false);
+const creatingBusy = ref(false);
 const editingStackId = ref('');
-const editingName = ref('');
+const editingRevision = ref('');
+
+async function loadResources(): Promise<void> {
+  try {
+    resources.value = await fetchStackResources();
+    resourceError.value = '';
+  } catch (error) {
+    resources.value = [];
+    resourceError.value = diagnostic(error);
+  }
+}
+
+function beginCreate(): void {
+  creating.value = true;
+  editingStackId.value = '';
+  void loadResources();
+}
+
+async function submitCreate(definition: Stack): Promise<void> {
+  if (creatingBusy.value) return;
+  creatingBusy.value = true;
+  errorMessage.value = '';
+  try {
+    await saveStack(definition);
+    creating.value = false;
+    await load();
+  } catch (error) {
+    errorMessage.value = diagnostic(error);
+  } finally {
+    creatingBusy.value = false;
+  }
+}
 
 function beginEdit(stack: Stack): void {
   if (isStackBusy(stack.id)) return;
+  editingRevision.value = expectedRevision(stack.id);
   editingStackId.value = stack.id;
-  editingName.value = stack.name;
+  creating.value = false;
+  void loadResources();
 }
 
-async function submitEdit(stack: Stack): Promise<void> {
-  if (isStackBusy(stack.id) || editingStackId.value !== stack.id) return;
-  const name = editingName.value.trim();
-  if (!name || name.length > 240) {
-    errorMessage.value = 'Informe um nome entre 1 e 240 caracteres.';
-    return;
-  }
-  actions.value = { ...actions.value, [stack.id]: 'edit' };
+async function submitEdit(definition: Stack): Promise<void> {
+  const stackId = editingStackId.value;
+  if (!stackId || definition.id !== stackId || isStackBusy(stackId)) return;
+  actions.value = { ...actions.value, [stackId]: 'edit' };
   errorMessage.value = '';
   try {
-    await saveStack({ ...stack, name }, expectedRevision(stack.id));
+    await saveStack(definition, editingRevision.value);
     editingStackId.value = '';
     await load();
   } catch (error) {
     errorMessage.value = diagnostic(error);
   } finally {
     const next = { ...actions.value };
-    delete next[stack.id];
+    delete next[stackId];
     actions.value = next;
   }
 }
@@ -631,6 +667,10 @@ onMounted(() => {
         <p>Topologia, estado e lifecycle coordenado entre projetos.</p>
       </div>
 
+      <div class="stack-actions">
+        <button class="stack-button stack-button-primary" type="button" @click="beginCreate">
+          Criar Stack
+        </button>
       <button
         class="stack-button"
         type="button"
@@ -640,11 +680,24 @@ onMounted(() => {
         <ArrowPathIcon :class="{ 'is-spinning': loading }" aria-hidden="true" />
         Atualizar
       </button>
+      </div>
     </header>
 
     <p v-if="errorMessage" class="stacks-error" role="alert">
       {{ errorMessage }}
     </p>
+
+    <p v-if="resourceError" class="stacks-error" role="alert">
+      Catálogo indisponível: {{ resourceError }}. Os recursos já configurados ainda podem ser revisados.
+    </p>
+
+    <StackDefinitionEditor
+      v-if="creating"
+      :resources="resources"
+      :disabled="creatingBusy"
+      @save="submitCreate"
+      @cancel="creating = false"
+    />
 
     <EmptyState
       v-if="loading && stacks.length === 0"
@@ -654,7 +707,7 @@ onMounted(() => {
     />
 
     <EmptyState
-      v-else-if="stacks.length === 0"
+      v-else-if="stacks.length === 0 && !creating"
       icon="◇"
       title="Nenhuma Stack definida"
       description="As Stacks confirmadas no backend aparecerão aqui para inspeção e lifecycle."
@@ -951,34 +1004,15 @@ onMounted(() => {
           </article>
         </section>
 
-        <form
+        <StackDefinitionEditor
           v-if="editingStackId === stack.id"
-          class="stack-edit-form"
-          @submit.prevent="submitEdit(stack)"
-        >
-          <label :for="`stack-name-${stack.id}`">Nome da Stack</label>
-          <input
-            :id="`stack-name-${stack.id}`"
-            v-model="editingName"
-            required
-            maxlength="240"
-            :disabled="isStackBusy(stack.id)"
-          />
-          <button
-            class="stack-button stack-button-primary"
-            type="submit"
-            :disabled="isStackBusy(stack.id)"
-          >
-            Salvar
-          </button>
-          <button
-            class="stack-button"
-            type="button"
-            @click="editingStackId = ''"
-          >
-            Cancelar
-          </button>
-        </form>
+          :key="stack.id"
+          :initial="stack"
+          :resources="resources"
+          :disabled="isStackBusy(stack.id)"
+          @save="submitEdit"
+          @cancel="editingStackId = ''"
+        />
         <div class="stack-node-list">
           <article
             v-for="node in stack.nodes"
