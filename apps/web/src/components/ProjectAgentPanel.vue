@@ -146,12 +146,10 @@ const {
   profileMaxCost,
   profileBudgetMode,
   profileSaving,
-  effectiveProfileSummary,
   resetExecutionProfiles,
   setLoadedExecutionProfiles,
   applySelectedProfile,
   saveCurrentExecutionProfile,
-  removeSelectedExecutionProfile,
 } = useAgentExecutionProfiles(
   () => props.project.id,
   selectedProviderId,
