@@ -44,7 +44,7 @@ jobs:
   terminal-e2e:
     name: Terminal E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -62,8 +62,10 @@ jobs:
       - name: Prepare native dependencies
         run: npm rebuild esbuild node-pty
 
+      # ubuntu-latest already supplies Chromium's runtime libraries; --with-deps
+      # runs apt-get against external mirrors and can exhaust the E2E timeout.
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Build
         run: npm run build
