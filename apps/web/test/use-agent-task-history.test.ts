@@ -189,6 +189,13 @@ test('task selecionada pode ser incluída sem paginação e isolada por projeto'
   assert.equal(history.historyLoaded.value, false);
 });
 
+function historyCardSource(): string {
+  return readFileSync(
+    resolve(import.meta.dirname, '../src/components/ProjectAgentTaskHistoryCard.vue'),
+    'utf8',
+  );
+}
+
 test('cockpit não faz GET legado do histórico inteiro', () => {
   const panel = readFileSync(
     resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
@@ -198,11 +205,13 @@ test('cockpit não faz GET legado do histórico inteiro', () => {
   assert.match(panel, /loadFirstPage\(\)/);
   assert.match(panel, /loadNextPage\(\)/);
   assert.match(panel, /props\.initialTaskId \|\| active\?\.task\.id/);
-  assert.match(panel, /Carregar mais/);
+  assert.match(panel, /ProjectAgentTaskHistoryCard/);
+  assert.match(panel, /:tasks="sortedTasks"/);
+  assert.match(historyCardSource(), /Carregar mais/);
   assert.match(panel, /compareTaskPriority/);
-  assert.match(panel, /Atualizar histórico/);
+  assert.match(historyCardSource(), /Atualizar histórico/);
   assert.match(panel, /useAgentTaskArchive/);
-  assert.match(panel, /Mostrar arquivadas/);
+  assert.match(historyCardSource(), /Mostrar arquivadas/);
   assert.match(panel, /Arquivar task/);
   assert.doesNotMatch(panel, /fetchAgentTasks/);
 });
@@ -379,16 +388,17 @@ test('retry de paginação mantém lista visível no cockpit', () => {
   assert.match(retry, /historyLoaded\.value && historyHasMore\.value/);
   assert.match(retry, /await loadNextPage\(\)/);
   assert.match(retry, /await refreshHistory\(\)/);
-  assert.match(panel, /@click="retryHistory"/);
-  assert.match(panel, /Tentar novamente/);
+  assert.match(panel, /@retry="retryHistory"/);
+  assert.match(historyCardSource(), /@click="\$emit\('retry'\)"/);
+  assert.match(historyCardSource(), /Tentar novamente/);
   assert.match(panel, /Atualizar histórico/);
-  assert.match(panel, /<template v-if="sortedTasks\.length">/);
+  assert.match(historyCardSource(), /<template v-if="tasks\.length">/);
   assert.match(
-    panel,
+    historyCardSource(),
     /v-if="showAllHistory && historyHasMore && !historyError"/,
   );
   assert.doesNotMatch(
-    panel,
+    historyCardSource(),
     /<template v-else>\s*<button\s*v-for="record in showAllHistory/,
   );
 });
