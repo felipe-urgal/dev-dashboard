@@ -48,7 +48,16 @@ export function useAgentTaskRealtime(
     if (!isCurrent()) return;
 
     socketState.value = 'connecting';
-    const next = new WebSocket(agentRuntimeWebSocketUrl(projectId, taskId));
+    let next: WebSocket;
+    try {
+      next = new WebSocket(agentRuntimeWebSocketUrl(projectId, taskId));
+    } catch {
+      // A synchronous URL/security/constructor failure must remain retryable.
+      // Never surface browser/provider exception details in the cockpit.
+      socketState.value = 'disconnected';
+      onError('Não foi possível conectar ao realtime da task.');
+      return;
+    }
     socket = next;
 
     next.onopen = () => {
