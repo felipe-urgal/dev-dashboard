@@ -49,10 +49,16 @@ test('captures exact project/provider/environment through a write and reconciles
     fallback: 'Não foi possível instalar.',
     submit: async (scope) => {
       submissions += 1;
-      submittedScope = [scope.projectId, scope.providerId, scope.environmentInstanceId].join('/');
+      submittedScope = [
+        scope.projectId,
+        scope.providerId,
+        scope.environmentInstanceId,
+      ].join('/');
       return request.promise;
     },
-    apply: (value) => { h.applied.push(value); },
+    apply: (value) => {
+      h.applied.push(value);
+    },
   });
   assert.equal(h.state.installing.value, true);
   assert.equal(h.state.mutationBusy.value, true);
@@ -67,7 +73,9 @@ test('captures exact project/provider/environment through a write and reconciles
   await pending;
   assert.equal(submittedScope, 'project-a/codex/environment-a');
   assert.deepEqual(h.applied, ['installed']);
-  assert.deepEqual(h.refreshRequests, [{ project: 'project-a', provider: 'codex' }]);
+  assert.deepEqual(h.refreshRequests, [
+    { project: 'project-a', provider: 'codex' },
+  ]);
   assert.equal(h.state.mutationBusy.value, false);
   assert.equal(h.state.installing.value, false);
 });
@@ -82,7 +90,10 @@ test('confirmation resumed after a provider switch never dispatches a privileged
     integrationId: 'mcp-1',
     confirm: () => confirmation.promise,
     fallback: 'Falha ao remover.',
-    submit: async () => { submissions += 1; return 'deleted'; },
+    submit: async () => {
+      submissions += 1;
+      return 'deleted';
+    },
   });
   assert.equal(h.state.uninstallingIntegrationId.value, 'mcp-1');
   h.target.providerId = 'claude-code';
@@ -104,7 +115,9 @@ test('A → B → A ignores late success, and keeps the serialized lock until HT
     integrationId: 'plugin-1',
     fallback: 'Falha ao instalar.',
     submit: () => response.promise,
-    apply: (result) => { h.applied.push(result); },
+    apply: (result) => {
+      h.applied.push(result);
+    },
   });
   h.target.projectId = 'project-b';
   h.state.resetMutations();
@@ -116,7 +129,10 @@ test('A → B → A ignores late success, and keeps the serialized lock until HT
     kind: 'install-plugin',
     providerId: 'codex',
     fallback: 'duplicate',
-    submit: async () => { duplicate = true; return 'dup'; },
+    submit: async () => {
+      duplicate = true;
+      return 'dup';
+    },
   });
   assert.equal(duplicate, false);
   response.resolve('old');
@@ -159,13 +175,18 @@ test('ambiguous HTTP failure re-reads canonical inventory without replaying the 
     },
   });
   assert.equal(writes, 1);
-  assert.deepEqual(h.refreshRequests, [{ project: 'project-a', provider: 'codex' }]);
+  assert.deepEqual(h.refreshRequests, [
+    { project: 'project-a', provider: 'codex' },
+  ]);
   assert.deepEqual(h.errors, ['Lost response']);
   assert.equal(h.state.mutationBusy.value, false);
 });
 
 test('failed canonical refresh preserves original mutation error and never retries', async () => {
-  const target = { projectId: 'p', providerId: 'codex' as AgentConcreteProviderId };
+  const target = {
+    projectId: 'p',
+    providerId: 'codex' as AgentConcreteProviderId,
+  };
   const errors: string[] = [];
   let refreshes = 0;
   let submissions = 0;
@@ -199,7 +220,9 @@ test('mismatched provider and rejected confirmation are fail-closed', async () =
     providerId: 'claude-code',
     refresh: false,
     fallback: 'Falha.',
-    submit: async () => { dispatched = true; },
+    submit: async () => {
+      dispatched = true;
+    },
   });
   assert.equal(h.state.mutationBusy.value, false);
   await h.state.mutate({
@@ -207,7 +230,9 @@ test('mismatched provider and rejected confirmation are fail-closed', async () =
     providerId: 'codex',
     confirm: async () => false,
     fallback: 'Falha.',
-    submit: async () => { dispatched = true; },
+    submit: async () => {
+      dispatched = true;
+    },
   });
   assert.equal(dispatched, false);
   assert.deepEqual(h.refreshRequests, []);
@@ -223,7 +248,9 @@ test('authentication result applies only while current and does not refresh disc
     fallback: 'Falha.',
     refresh: false,
     submit: () => response.promise,
-    apply: (result) => { h.applied.push(result); },
+    apply: (result) => {
+      h.applied.push(result);
+    },
   });
   assert.equal(h.state.authenticatingIntegrationId.value, 'auth-1');
   response.resolve('terminal handoff');
@@ -235,7 +262,10 @@ test('authentication result applies only while current and does not refresh disc
 
 test('component routes all privileged integration actions through scoped mutations', () => {
   const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentIntegrationsCard.vue'),
+    resolve(
+      import.meta.dirname,
+      '../src/components/ProjectAgentIntegrationsCard.vue',
+    ),
     'utf8',
   );
   assert.match(panel, /useAgentIntegrationMutations\(/);
@@ -248,6 +278,12 @@ test('component routes all privileged integration actions through scoped mutatio
   assert.match(panel, /async function installMcp\(/);
   assert.equal((panel.match(/await mutate\(\{/g) ?? []).length, 5);
   assert.match(panel, /:disabled="mutationBusy"/);
-  assert.doesNotMatch(panel, /await installAgentIntegration\(props\.project\.id/);
-  assert.doesNotMatch(panel, /await uninstallAgentIntegration\(props\.project\.id/);
+  assert.doesNotMatch(
+    panel,
+    /await installAgentIntegration\(props\.project\.id/,
+  );
+  assert.doesNotMatch(
+    panel,
+    /await uninstallAgentIntegration\(props\.project\.id/,
+  );
 });
