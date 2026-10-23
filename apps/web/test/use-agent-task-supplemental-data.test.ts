@@ -152,5 +152,7 @@ test('cockpit não aguarda budget e usage antes de mostrar task e conectar socke
   assert.doesNotMatch(loader, /reloadUsage\(\)/);
   assert.match(panel, /resetSupplementalData\(\)/);
   assert.match(panel, /v-if="supplementalWarning"/);
+  assert.match(panel, /@click="loadSupplementalData"/);
+  assert.match(panel, /Recarregar métricas/);
   assert.match(panel, /mutating \|\| failedSources\.includes\('budget'\)/);
 });
