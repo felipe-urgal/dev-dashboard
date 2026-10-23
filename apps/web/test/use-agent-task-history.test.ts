@@ -252,7 +252,7 @@ test('archive atrasado não remove task com versão canônica mais nova', () => 
   assert.equal(history.tasks.value[0]?.task.archivedAt, undefined);
 
   history.upsertTask(archivedTask('project-a', 'task-a', 7));
-  assert.deepEqual(history.tasks.value, []);
+  assert.equal(history.tasks.value.length, 0);
   history.upsertTask(fakeTask('project-a', 'task-a', 6));
   history.upsertTask(fakeTask('project-a', 'task-a', 7));
   assert.deepEqual(
@@ -278,7 +278,7 @@ test('refresh e alternância de arquivadas preservam revisão mais recente', asy
     nextCursor: null,
   });
   await refresh;
-  assert.deepEqual(history.tasks.value, []);
+  assert.equal(history.tasks.value.length, 0);
 
   const show = history.setShowArchived(true);
   assert.equal(requests[1]!.includeArchived, true);
@@ -298,7 +298,7 @@ test('refresh e alternância de arquivadas preservam revisão mais recente', asy
   requests[2]!.resolve({ tasks: [], nextCursor: null });
   await hide;
   history.upsertTask(fakeTask('project-a', 'task-a', 4));
-  assert.deepEqual(history.tasks.value, []);
+  assert.equal(history.tasks.value.length, 0);
 });
 
 test('registro de archives não atravessa projetos e tem tamanho limitado', () => {
