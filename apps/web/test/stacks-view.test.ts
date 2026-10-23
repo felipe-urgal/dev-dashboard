@@ -87,6 +87,9 @@ describe('Stacks multi-projeto', () => {
     expect(viewSource).toContain('@click="confirmStop(stack)"');
     expect(viewSource).toContain('function confirmStop(stack: Stack)');
     expect(viewSource).toContain('check.topology.stopOrder');
+    expect(viewSource).toContain('JSON.stringify(check.stack)');
+    expect(viewSource).toContain('const confirmedRevision = expectedRevision(stack.id)');
+    expect(viewSource).toContain('stopStack(stack.id, confirmedRevision)');
     expect(viewSource).toContain("node.target.kind === 'environment'");
     expect(viewSource).toContain("node.target.kind === 'health-check'");
     expect(viewSource).toContain('await confirmDialog({');
