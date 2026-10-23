@@ -349,26 +349,19 @@ const {
     errorMessage.value = '';
   },
 );
-const {
-  detailWarning,
-  resetTaskDetails,
-  loadTaskDetails,
-} = useAgentTaskDetailReads(
-  () =>
-    selectedTaskId.value
-      ? { projectId: props.project.id, taskId: selectedTaskId.value }
-      : null,
-  conversationRevision,
-  attachmentsRevision,
-  (nextConversation, target, revision) =>
-    applyLoadedConversation(nextConversation, target, revision),
-  (nextAttachments, target) =>
-    applyLoadedAttachments(
-      nextAttachments,
-      target.projectId,
-      target.taskId,
-    ),
-);
+const { detailWarning, resetTaskDetails, loadTaskDetails } =
+  useAgentTaskDetailReads(
+    () =>
+      selectedTaskId.value
+        ? { projectId: props.project.id, taskId: selectedTaskId.value }
+        : null,
+    conversationRevision,
+    attachmentsRevision,
+    (nextConversation, target, revision) =>
+      applyLoadedConversation(nextConversation, target, revision),
+    (nextAttachments, target) =>
+      applyLoadedAttachments(nextAttachments, target.projectId, target.taskId),
+  );
 const {
   providerRefreshing,
   providerOptions,
@@ -2007,7 +2000,10 @@ onBeforeUnmount(() => {
                 Recarregar conversa e anexos
               </button>
             </div>
-            <p v-if="!conversationTurns.length && !detailWarning" class="agent-hint">
+            <p
+              v-if="!conversationTurns.length && !detailWarning"
+              class="agent-hint"
+            >
               Ainda não há turnos persistidos nesta task.
             </p>
             <ol v-else class="agent-conversation-list">
