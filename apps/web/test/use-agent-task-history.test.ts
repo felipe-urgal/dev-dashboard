@@ -255,9 +255,9 @@ test('archive atrasado não remove task com versão canônica mais nova', () => 
   assert.equal(history.tasks.value.length, 0);
   history.upsertTask(fakeTask('project-a', 'task-a', 6));
   history.upsertTask(fakeTask('project-a', 'task-a', 7));
-  assert.deepEqual(
-    history.tasks.value,
-    [],
+  assert.equal(
+    history.tasks.value.length,
+    0,
     'snapshot antigo não ressuscita task arquivada',
   );
 
