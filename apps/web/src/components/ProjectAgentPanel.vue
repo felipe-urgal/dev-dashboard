@@ -737,7 +737,9 @@ async function loadTask(
       activity: nextActivity,
     });
     if (snapshotResult === 'invalid') {
-      throw new Error('Resposta de status inconsistente para a task selecionada.');
+      throw new Error(
+        'Resposta de status inconsistente para a task selecionada.',
+      );
     }
     if (snapshotResult === 'stale') return;
     applyLoadedConversation(
