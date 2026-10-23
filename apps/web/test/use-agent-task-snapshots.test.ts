@@ -233,7 +233,7 @@ test('activity integralmente vinculada à task selecionada é aplicada', () => {
   assert.deepEqual(h.recorded, [5]);
 });
 
-test('qualquer item de Activity de outra task rejeita todo snapshot e suas notificações', () => {
+test('Activity de outra task é rejeitada sem alterar estado ou notificar', () => {
   const corruptions: Array<{
     kind: string;
     apply: (value: AgentRealtimeSnapshot) => void;
@@ -266,10 +266,7 @@ test('qualquer item de Activity de outra task rejeita todo snapshot e suas notif
 
   for (const { kind, apply } of corruptions) {
     const h = harness();
-    assert.equal(
-      h.controller.applySnapshot(snapshotWithActivity(5)),
-      'applied',
-    );
+    assert.equal(h.controller.applySnapshot(snapshotWithActivity(5)), 'applied');
     const lastStatus = h.status.value;
     const lastActivity = h.activity.value;
     const wrong = snapshotWithActivity(6);
@@ -280,10 +277,7 @@ test('qualquer item de Activity de outra task rejeita todo snapshot e suas notif
     assert.deepEqual(h.recorded, [5], kind);
 
     // A malformed update cannot poison the owner for the next good version.
-    assert.equal(
-      h.controller.applySnapshot(snapshotWithActivity(7)),
-      'applied',
-    );
+    assert.equal(h.controller.applySnapshot(snapshotWithActivity(7)), 'applied');
     assert.deepEqual(h.recorded, [5, 7], kind);
   }
 });
