@@ -13,8 +13,8 @@ import {
 
 interface CreationTarget {
   projectId: string;
-  environmentInstanceId?: string;
-  taskContextId?: string;
+  environmentInstanceId?: string | undefined;
+  taskContextId?: string | undefined;
   requestedCapabilities: AgentCapability[];
 }
 
