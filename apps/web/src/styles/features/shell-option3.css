@@ -177,15 +177,13 @@
 
 .git-diff-page,
 .git-history-page,
-.git-pr-card,
-.git-undo-card {
+.git-pr-card {
   background: var(--surface-1);
 }
 
 .git-command-card,
 .git-table-card,
 .git-history-table-wrapper,
-.git-undo-card,
 .git-pr-card {
   border-color: var(--border);
   border-radius: 10px;

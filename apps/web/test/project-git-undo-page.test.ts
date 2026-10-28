@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { beforeEach, test, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
+import { NDropdown } from 'naive-ui';
 
 import type { ProjectGitOverview } from '@dev-dashboard/contracts';
 
@@ -178,38 +179,97 @@ test('separa unstage, descarte e exclusão de arquivo não rastreado', async () 
     },
   });
   await flushPromises();
-  await wrapper.findAll('[role="tab"]')[1]!.trigger('click');
 
-  assert.match(wrapper.text(), /Tirar do staged/);
-  assert.match(wrapper.text(), /Descartar alterações/);
-  assert.match(wrapper.text(), /Excluir arquivo/);
+  const row = (path: string) => wrapper.get(`[data-path="${path}"]`);
 
-  const stagedRow = wrapper
-    .findAll('.git-undo-files article')
-    .find((row) => row.text().includes('staged.txt'))!;
-  await stagedRow.get('button').trigger('click');
+  // A ação segura fica à vista; só o staged é tirado, sem apagar nada.
+  await row('staged.txt')
+    .findAll('button')
+    .find((button) => button.text() === 'Tirar do staged')!
+    .trigger('click');
   await flushPromises();
   assert.deepEqual(api.unstageProjectGitFile.mock.calls[0], [
     'p1',
     'staged.txt',
   ]);
 
-  const mixedRow = wrapper
-    .findAll('.git-undo-files article')
-    .find((row) => row.text().includes('mixed.txt'))!;
-  const discard = mixedRow
-    .findAll('button')
-    .find((button) => button.text().includes('Descartar alterações'))!;
-  await discard.trigger('click');
+  // As ações destrutivas ficam no menu e pedem confirmação.
+  row('mixed.txt').findComponent(NDropdown).vm.$emit('select', 'discard');
   await flushPromises();
   assert.equal(api.discardProjectGitFile.mock.calls.length, 1);
 
-  const untrackedRow = wrapper
-    .findAll('.git-undo-files article')
-    .find((row) => row.text().includes('novo.txt'))!;
-  await untrackedRow.get('button').trigger('click');
+  assert.equal(
+    row('novo.txt')
+      .findAll('button')
+      .some((button) => button.text() === 'Tirar do staged'),
+    false,
+  );
+  row('novo.txt').findComponent(NDropdown).vm.$emit('select', 'remove');
   await flushPromises();
   assert.equal(api.removeProjectGitUntrackedFile.mock.calls.length, 1);
+});
+
+test('"Tirar tudo do staged" remove cada arquivo staged, um por um, sem apagar conteúdo', async () => {
+  api.unstageProjectGitFile.mockResolvedValue('ok');
+  const staged = (path: string) => ({
+    path,
+    indexStatus: 'M',
+    worktreeStatus: '.',
+    status: 'modified' as const,
+  });
+
+  const wrapper = mount(ProjectGitUndoPage, {
+    props: {
+      projectId: 'p1',
+      overview: overview({
+        clean: false,
+        files: [
+          staged('a.txt'),
+          staged('b.txt'),
+          {
+            path: 'c.txt',
+            indexStatus: '.',
+            worktreeStatus: 'M',
+            status: 'modified',
+          },
+        ],
+      }),
+      busy: false,
+    },
+  });
+  await flushPromises();
+
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Tirar tudo do staged')!
+    .trigger('click');
+  await flushPromises();
+
+  assert.deepEqual(
+    api.unstageProjectGitFile.mock.calls.map((call) => call[1]),
+    ['a.txt', 'b.txt'],
+  );
+  assert.match(wrapper.text(), /2 arquivos removidos do staged/);
+});
+
+test('o bloqueio por alterações locais leva aos arquivos e o de sincronização abre a aba', async () => {
+  api.getProjectGitUndoStatus.mockResolvedValue({
+    available: false,
+    branch: 'feature/git-undo',
+    reason: 'behind',
+    reference: 'origin/feature/git-undo',
+  });
+
+  const wrapper = mount(ProjectGitUndoPage, {
+    props: { projectId: 'p1', overview: overview(), busy: false },
+  });
+  await flushPromises();
+
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Ir para Sincronização')!
+    .trigger('click');
+  assert.equal(wrapper.emitted('open-sync')?.length, 1);
 });
 
 test('rename mostra os dois paths e oferece restauração completa', async () => {
@@ -240,14 +300,13 @@ test('rename mostra os dois paths e oferece restauração completa', async () =>
     },
   });
   await flushPromises();
-  await wrapper.findAll('[role="tab"]')[1]!.trigger('click');
 
   assert.match(wrapper.text(), /antigo\.ts → novo\.ts/);
   assert.match(wrapper.text(), /Tirar do staged/);
-  const restore = wrapper
-    .findAll('button')
-    .find((button) => button.text().includes('Restaurar rename'))!;
-  await restore.trigger('click');
+  wrapper
+    .get('[data-path="novo.ts"]')
+    .findComponent(NDropdown)
+    .vm.$emit('select', 'restore');
   await flushPromises();
 
   assert.deepEqual(api.undoProjectGitFile.mock.calls[0], [

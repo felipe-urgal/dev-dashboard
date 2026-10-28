@@ -4,7 +4,8 @@
     'git-modern-panel-flat':
       activeTab === 'sync' ||
       activeTab === 'branches' ||
-      activeTab === 'commit',
+      activeTab === 'commit' ||
+      activeTab === 'undo',
   }"
 >
   <div class="git-navigation-bar">
@@ -103,6 +104,9 @@
       :overview="overview"
       :busy="mutationRunning"
       @changed="reloadGitData"
+      @open-sync="openTab('sync')"
+      @open-history="openTab('history')"
+      @open-diff="openTab('diff')"
     />
 
     <ProjectGitIssuesPage
