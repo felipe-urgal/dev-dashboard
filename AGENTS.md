@@ -9,8 +9,7 @@ Trabalhe de forma autônoma, incremental e verificável. Prefira a menor soluç�
 - O workflow, os papéis globais e as tasks operacionais canônicas ficam em `felipe-urgal/agent-workflow-browser`.
 - Este repositório não mantém cópias locais dos papéis; regras específicas do Dev Dashboard vivem neste `AGENTS.md`.
 - A task central registra estado/handoff da execução; backlog permanece em issues e documentação viva do projeto.
-- CLI Bash e Dashboard Vue são interfaces independentes; não force paridade sem requisito explícito.
-- Preserve os owners entre `apps/api`, `apps/web`, `packages/contracts`, `packages/core`, `packages/project-discovery`, `packages/process-manager` e `lib/`.
+- Preserve os owners entre `apps/api`, `apps/web`, `packages/contracts`, `packages/core`, `packages/project-discovery` e `packages/process-manager`.
 - O browser envia intenção estruturada: não aceite shell livre, path de autoridade ou credenciais vindos da UI.
 - Capacidade local não concede push, PR, merge, deploy, release ou self-update.
 
@@ -48,7 +47,6 @@ Quando aplicável:
 
     npm run typecheck
     npm run test:e2e
-    npm run test:cli
 
 ## Documentação
 

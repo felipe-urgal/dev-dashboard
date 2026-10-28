@@ -345,7 +345,7 @@ try {
 
 // Regressão: uma gem cujo nome só contém "rails" como substring (ex.
 // rails-html-sanitizer) não deve ser confundida com a gem "rails" — mesma
-// regra compartilhada com o CLI bash via shared/project-type-rules.json
+// regra compartilhada via shared/project-type-rules.json
 // (lib/projects/detect.sh usa o padrão POSIX ERE equivalente).
 {
   const fakeRailsWorkspacePath = await mkdtemp(
@@ -375,9 +375,8 @@ try {
   }
 }
 
-// loadProjectTypeRules lê shared/project-type-rules.json (fonte compartilhada
-// com o CLI bash) e cai no padrão embutido se o arquivo não existir/estiver
-// malformado.
+// loadProjectTypeRules lê shared/project-type-rules.json (fonte compartilhada)
+// e cai no padrão embutido se o arquivo não existir/estiver malformado.
 {
   resetProjectTypeRulesCache();
   const rules = loadProjectTypeRules();

@@ -97,7 +97,7 @@ jobs:
         run: npm run test --workspace=@dev-dashboard/web
 
   test-rest:
-    name: Testes dos packages, scripts e CLI
+    name: Testes dos packages e scripts
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -118,9 +118,6 @@ jobs:
 
       - name: Scripts
         run: node --test scripts/*.test.mjs
-
-      - name: CLI
-        run: npm run test:cli
 
   validate:
     name: Validate

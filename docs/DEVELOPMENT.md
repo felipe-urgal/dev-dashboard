@@ -42,7 +42,6 @@ Comandos úteis:
     npm run typecheck
     npm test
     npm run build
-    npm run test:cli
     npm run test:e2e
 
 ## Segurança e integração
