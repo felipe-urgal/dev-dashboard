@@ -209,11 +209,17 @@ test('marcar como revisado recolhe o arquivo e move o progresso', async () => {
   const { wrapper } = await mountPage();
 
   const card = wrapper.findAll('.git-diff-file-card')[0]!;
-  await card.find('.git-diff-viewed input').setValue(true);
+  await card
+    .findAll('button')
+    .find((button) => button.text() === 'Marcar como revisado')!
+    .trigger('click');
 
   assert.ok(card.classes().includes('is-collapsed'));
   assert.ok(
-    wrapper.find('.git-diff-progress').text().includes('1 de 2 revisados'),
+    wrapper
+      .find('.git-diff-files-progress')
+      .text()
+      .includes('1 de 2 revisados'),
   );
 });
 
@@ -311,14 +317,17 @@ test('estado vazio ocupa o workspace e esconde controles sem utilidade', async (
   await settle(wrapper);
 
   assert.ok(wrapper.find('.git-diff-empty').exists());
-  assert.equal(wrapper.find('.git-diff-view-switch').exists(), false);
-  assert.equal(wrapper.find('.git-diff-status-filter').exists(), false);
+  assert.equal(
+    wrapper.find('[aria-label="Modo de visualização"]').exists(),
+    false,
+  );
+  assert.equal(wrapper.find('.git-diff-files').exists(), false);
 });
 
 test('alterna entre todas, staged e não staged usando o scope da API', async () => {
   const { wrapper, requests } = await mountPage();
 
-  const scopeButtons = wrapper.findAll('.git-diff-scope-switch button');
+  const scopeButtons = wrapper.findAll('[aria-label="Escopo do diff"] button');
   assert.deepEqual(
     scopeButtons.map((button) => button.text()),
     ['Todas', 'Staged', 'Não staged'],
@@ -355,7 +364,10 @@ test('atualiza o diff sem sair da página', async () => {
 test('persiste arquivos revisados durante a sessão para o mesmo snapshot', async () => {
   const { wrapper } = await mountPage();
   const card = wrapper.findAll('.git-diff-file-card')[0]!;
-  await card.find('.git-diff-viewed input').setValue(true);
+  await card
+    .findAll('button')
+    .find((button) => button.text() === 'Marcar como revisado')!
+    .trigger('click');
 
   const stored = Object.keys(window.sessionStorage)
     .filter((key) => key.startsWith('dev-dashboard-git-diff-reviewed:'))
@@ -364,12 +376,17 @@ test('persiste arquivos revisados durante a sessão para o mesmo snapshot', asyn
   assert.match(stored, /src\/signup\/index\.tsx/);
 });
 
-test('oferece filtros para copied e type-changed', async () => {
+test('lista os arquivos por pasta e a tecla R revisa o ativo e segue para o próximo', async () => {
   const { wrapper } = await mountPage();
-  const options = wrapper
-    .findAll('.git-diff-status-filter option')
-    .map((option) => option.attributes('value'));
 
-  assert.ok(options.includes('copied'));
-  assert.ok(options.includes('type-changed'));
+  assert.match(wrapper.find('.git-diff-files').text(), /src\/signup\//);
+  assert.match(wrapper.find('.git-diff-files').text(), /index\.tsx/);
+
+  await wrapper.findAll('.git-diff-files-item')[0]!.trigger('click');
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r' }));
+  await settle(wrapper);
+
+  const cards = wrapper.findAll('.git-diff-file-card');
+  assert.ok(cards[0]!.classes().includes('is-collapsed'));
+  assert.ok(cards[1]!.classes().includes('is-active'));
 });

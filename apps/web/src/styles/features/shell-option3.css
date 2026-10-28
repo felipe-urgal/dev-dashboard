@@ -192,18 +192,6 @@
   background: var(--surface-1);
 }
 
-.git-diff-refresh-button {
-  border-color: var(--accent-strong);
-  border-radius: 8px;
-  color: var(--text);
-  background: var(--accent-soft);
-}
-
-.git-diff-refresh-button:hover:not(:disabled) {
-  border-color: var(--accent);
-  background: var(--accent-strong);
-}
-
 .git-status-grid article,
 .git-command-card,
 .git-preview-grid article,
@@ -244,8 +232,7 @@
   background: var(--surface-3);
 }
 
-.git-history-toolbar,
-.git-diff-toolbar {
+.git-history-toolbar {
   padding: 14px 18px;
   border-color: var(--border);
   background: var(--surface-1);
@@ -253,9 +240,7 @@
 
 .git-history-reference,
 .git-history-filter,
-.git-history-search,
-.git-diff-status-filter,
-.git-diff-view-switch {
+.git-history-search {
   border-color: var(--border);
   border-radius: 8px;
   background: var(--surface-2);
@@ -286,8 +271,7 @@
   color: var(--text);
 }
 
-.git-history-refresh svg,
-.git-diff-refresh-button svg {
+.git-history-refresh svg {
   color: var(--accent);
 }
 
@@ -548,7 +532,6 @@
 .git-preview-grid header button,
 .git-table-row button,
 .git-history-refresh,
-.git-diff-refresh-button,
 .terminal-icon-button,
 .terminal-start,
 .tests-button-with-icon,
