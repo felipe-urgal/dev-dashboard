@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import type { GitFileChange } from '@dev-dashboard/contracts';
 
+import { isFileStaged, type CommitScope } from '../../utils/git-commit-scope';
 import {
-  fileStatusLetter,
-  isFileStaged,
-  splitFilePath,
-  type CommitScope,
-} from '../../utils/git-commit-scope';
+  baseNameOf,
+  directoryOf,
+  statusLetter,
+} from '../../utils/git-diff-tree';
 
 defineProps<{ scope: CommitScope }>();
 
 const emit = defineEmits<{ 'open-diff': [] }>();
 
 function letterOf(file: GitFileChange): string {
-  return fileStatusLetter(file.status);
+  return statusLetter(file.status);
 }
 </script>
 
@@ -33,8 +33,8 @@ function letterOf(file: GitFileChange): string {
       >
         <span class="git-commit-files-letter" data-status="!">!</span>
         <span class="git-commit-files-path"
-          ><span>{{ splitFilePath(file.path).dir }}</span
-          >{{ splitFilePath(file.path).name }}</span
+          ><span>{{ directoryOf(file.path) }}</span
+          >{{ baseNameOf(file.path) }}</span
         >
         <button type="button" @click="emit('open-diff')">Diff</button>
       </div>
@@ -55,8 +55,8 @@ function letterOf(file: GitFileChange): string {
         letterOf(file)
       }}</span>
       <span class="git-commit-files-path" :title="file.path"
-        ><span>{{ splitFilePath(file.path).dir }}</span
-        >{{ splitFilePath(file.path).name }}</span
+        ><span>{{ directoryOf(file.path) }}</span
+        >{{ baseNameOf(file.path) }}</span
       >
       <span v-if="isFileStaged(file)" class="git-commit-files-staged"
         >staged</span
@@ -75,8 +75,8 @@ function letterOf(file: GitFileChange): string {
       >
         <span class="git-commit-files-letter" data-status="U">U</span>
         <span class="git-commit-files-path" :title="file.path"
-          ><span>{{ splitFilePath(file.path).dir }}</span
-          >{{ splitFilePath(file.path).name }}</span
+          ><span>{{ directoryOf(file.path) }}</span
+          >{{ baseNameOf(file.path) }}</span
         >
       </div>
     </template>

@@ -1,8 +1,4 @@
-import type {
-  GitCommit,
-  GitFileChange,
-  GitFileStatus,
-} from '@dev-dashboard/contracts';
+import type { GitCommit, GitFileChange } from '@dev-dashboard/contracts';
 
 export const COMMIT_MESSAGE_MAX = 500;
 /** Convenção do assunto: acima disso o git e o GitHub cortam a linha. */
@@ -118,25 +114,4 @@ export function activeCommitPrefix(subject: string): string | null {
 /** Troca (ou coloca) o prefixo convencional no começo do assunto. */
 export function applyCommitPrefix(subject: string, prefix: string): string {
   return `${prefix}: ${subject.replace(PREFIX_PATTERN, '')}`;
-}
-
-const STATUS_LETTERS: Record<GitFileStatus, string> = {
-  modified: 'M',
-  added: 'A',
-  deleted: 'D',
-  renamed: 'R',
-  copied: 'C',
-  untracked: 'U',
-  conflicted: '!',
-  'type-changed': 'T',
-};
-
-export function fileStatusLetter(status: GitFileStatus): string {
-  return STATUS_LETTERS[status];
-}
-
-/** Separa a pasta (com barra final) do nome do arquivo. */
-export function splitFilePath(path: string): { dir: string; name: string } {
-  const index = path.lastIndexOf('/');
-  return { dir: path.slice(0, index + 1), name: path.slice(index + 1) };
 }
