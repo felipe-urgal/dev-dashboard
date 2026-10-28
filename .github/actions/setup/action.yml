@@ -1,28 +1,53 @@
 name: Preparar ambiente
-description: Node, dependências, módulos nativos e build dos packages
+description: Node, dependências instaladas (com cache), módulos nativos e build dos packages
 
-inputs:
-  native-modules:
-    description: Módulos nativos a recompilar (node-pty só é necessário para a API e os packages)
-    default: esbuild node-pty
+# Em vez de reinstalar tudo em cada job, restaura node_modules (já com esbuild e
+# node-pty recompilados) e o build dos packages quando o package-lock.json e o
+# código dos packages não mudaram. O cache do ESLint/Prettier fica de fora.
 
 runs:
   using: composite
   steps:
-    - name: Setup Node
+    - name: Cache das dependências
+      id: deps
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          node_modules
+          !node_modules/.cache
+          apps/*/node_modules
+          packages/*/node_modules
+        key: deps-${{ runner.os }}-node24-${{ hashFiles('package-lock.json') }}
+
+    # Só precisa do cache do npm quando as dependências terão de ser instaladas.
+    - name: Setup Node (com cache do npm)
+      if: steps.deps.outputs.cache-hit != 'true'
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: 24
         cache: npm
 
-    - name: Install dependencies
-      shell: bash
-      run: npm ci --ignore-scripts
+    - name: Setup Node
+      if: steps.deps.outputs.cache-hit == 'true'
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: 24
 
-    - name: Prepare native dependencies
+    - name: Install dependencies
+      if: steps.deps.outputs.cache-hit != 'true'
       shell: bash
-      run: npm rebuild ${{ inputs.native-modules }}
+      run: |
+        npm ci --ignore-scripts --no-audit --no-fund --prefer-offline
+        npm rebuild esbuild node-pty
+
+    - name: Cache do build dos packages
+      id: packages
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: packages/*/dist
+        key: packages-${{ runner.os }}-${{ hashFiles('package-lock.json', 'tsconfig.base.json', 'packages/*/package.json', 'packages/*/tsconfig.json', 'packages/*/src/**') }}
 
     - name: Build packages
+      if: steps.packages.outputs.cache-hit != 'true'
       shell: bash
       run: npm run build:packages

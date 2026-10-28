@@ -38,8 +38,6 @@ jobs:
 
       - name: Setup
         uses: ./.github/actions/setup
-        with:
-          native-modules: esbuild
 
       - name: Cache de ESLint e Prettier
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -62,13 +60,13 @@ jobs:
         run: npm run build:apps
 
   test-api:
-    name: Testes da API (${{ matrix.shard }}/3)
+    name: Testes da API (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4]
 
     steps:
       - name: Checkout
@@ -89,7 +87,7 @@ jobs:
 
       - name: Testes
         env:
-          TEST_SHARD: ${{ matrix.shard }}/3
+          TEST_SHARD: ${{ matrix.shard }}/4
         run: npm run test:shard --workspace=@dev-dashboard/api
 
   test-web:
@@ -107,8 +105,6 @@ jobs:
 
       - name: Setup
         uses: ./.github/actions/setup
-        with:
-          native-modules: esbuild
 
       - name: Testes
         env:
