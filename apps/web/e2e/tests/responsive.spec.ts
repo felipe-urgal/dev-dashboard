@@ -37,7 +37,7 @@ for (const viewport of VIEWPORTS) {
 
       await gotoBootstrapped(page, '/');
       await expect(
-        page.getByRole('combobox', { name: 'Trocar workspace ativo' }),
+        page.getByRole('button', { name: /Workspace ativo/ }),
       ).toBeVisible();
       await expectNoHorizontalOverflow(page);
 

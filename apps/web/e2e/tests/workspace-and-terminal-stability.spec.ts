@@ -5,7 +5,8 @@ import { gotoBootstrapped } from '../fixtures/navigate';
 test.describe('estabilidade do shell e dos terminais', () => {
   test('abre o modal de workspace', async ({ page }) => {
     await gotoBootstrapped(page, '/');
-    await page.getByRole('button', { name: 'Adicionar workspace' }).click();
+    await page.getByRole('button', { name: /Workspace ativo/ }).click();
+    await page.getByText('Adicionar workspace…').click();
 
     const dialog = page.locator('.workspace-manager-dialog');
     await expect(dialog).toBeVisible();

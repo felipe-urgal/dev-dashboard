@@ -5,10 +5,6 @@ import {
   CommandLineIcon,
   ComputerDesktopIcon,
   HomeIcon,
-  ServerStackIcon,
-  PlusIcon,
-  QueueListIcon,
-  RectangleGroupIcon,
 } from '@heroicons/vue/24/outline';
 import {
   computed,
@@ -28,6 +24,7 @@ import { nativeNotificationStore } from './stores/native-notifications';
 import CommandPalette from './components/CommandPalette.vue';
 import VisualPreferences from './components/VisualPreferences.vue';
 import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
+import WorkspaceSwitcher from './components/WorkspaceSwitcher.vue';
 import { createNaiveThemeOverrides } from './utils/naive-theme';
 import {
   currentTheme,
@@ -80,11 +77,7 @@ const { knownProjects, workspaces, selectedWorkspaceId, switchWorkspace } =
 function openWorkspaceManager(): void {
   workspaceManagerOpen.value = true;
 }
-
-function handleWorkspaceSwitch(event: Event): void {
-  const target = event.target as HTMLSelectElement;
-  void switchWorkspace(target.value);
-}
+provide('openWorkspaceManager', openWorkspaceManager);
 
 function setInterfaceMode(mode: InterfaceMode): void {
   if (mode === 'terminal') terminalMounted.value = true;
@@ -144,92 +137,25 @@ onMounted(() => {
       </button>
 
       <header id="primary-navigation" class="sidebar topbar">
+        <RouterLink
+          class="topbar-icon-link topbar-nav-link"
+          :class="{ 'is-active': route.name === 'dashboard' }"
+          :to="{ name: 'dashboard' }"
+          aria-label="Visão geral"
+          title="Visão geral"
+        >
+          <HomeIcon aria-hidden="true" />
+        </RouterLink>
+
         <div class="sidebar-section topbar-workspace">
           <span class="sidebar-label">Workspace ativo</span>
-          <div class="sidebar-workspace-row">
-            <select
-              v-if="workspaces.length > 0"
-              class="sidebar-workspace-select"
-              :value="selectedWorkspaceId"
-              aria-label="Trocar workspace ativo"
-              @change="handleWorkspaceSwitch"
-            >
-              <option
-                v-for="workspace in workspaces"
-                :key="workspace.id"
-                :value="workspace.id"
-              >
-                {{ workspace.name }}
-              </option>
-            </select>
-
-            <div v-else class="workspace-summary-empty">Nenhum workspace</div>
-
-            <button
-              type="button"
-              class="sidebar-workspace-add-icon"
-              aria-label="Adicionar workspace"
-              aria-haspopup="dialog"
-              @click.stop="openWorkspaceManager"
-            >
-              <PlusIcon aria-hidden="true" />
-            </button>
-          </div>
+          <WorkspaceSwitcher
+            :workspaces="workspaces"
+            :selected-id="selectedWorkspaceId"
+            @select="switchWorkspace"
+            @add="openWorkspaceManager"
+          />
         </div>
-
-        <nav
-          class="navigation topbar-navigation"
-          aria-label="Navegação principal"
-        >
-          <span class="sidebar-label navigation-label">Navegação</span>
-
-          <RouterLink
-            class="navigation-item"
-            :class="{ 'navigation-item-active': route.name === 'dashboard' }"
-            :to="{ name: 'dashboard' }"
-          >
-            <HomeIcon class="navigation-icon" aria-hidden="true" />
-            <span class="navigation-text">Visão geral</span>
-          </RouterLink>
-
-          <RouterLink
-            class="navigation-item"
-            :class="{ 'navigation-item-active': route.name === 'activity' }"
-            :to="{ name: 'activity' }"
-          >
-            <QueueListIcon class="navigation-icon" aria-hidden="true" />
-            <span class="navigation-text">Atividade</span>
-          </RouterLink>
-
-          <RouterLink
-            class="navigation-item"
-            :class="{
-              'navigation-item-active': route.name === 'local-services',
-            }"
-            :to="{ name: 'local-services' }"
-          >
-            <ServerStackIcon class="navigation-icon" aria-hidden="true" />
-            <span class="navigation-text">Serviços locais</span>
-          </RouterLink>
-
-          <RouterLink
-            class="navigation-item"
-            :class="{ 'navigation-item-active': route.name === 'stacks' }"
-            :to="{ name: 'stacks' }"
-          >
-            <RectangleGroupIcon class="navigation-icon" aria-hidden="true" />
-            <span class="navigation-text">Stacks</span>
-          </RouterLink>
-
-          <RouterLink
-            class="navigation-item"
-            :class="{ 'navigation-item-active': route.name === 'database' }"
-            :to="{ name: 'database' }"
-          >
-            <CircleStackIcon class="navigation-icon" aria-hidden="true" />
-            <span class="navigation-text">Banco de dados</span>
-          </RouterLink>
-        </nav>
 
         <div
           class="interface-mode-toggle"
@@ -257,6 +183,15 @@ onMounted(() => {
         </div>
 
         <div class="sidebar-tools topbar-tools">
+          <RouterLink
+            class="topbar-icon-link topbar-nav-link"
+            :class="{ 'is-active': route.name === 'database' }"
+            :to="{ name: 'database' }"
+            aria-label="Banco de dados"
+            title="Banco de dados"
+          >
+            <CircleStackIcon aria-hidden="true" />
+          </RouterLink>
           <VisualPreferences />
         </div>
       </header>
@@ -294,6 +229,41 @@ onMounted(() => {
 </template>
 
 <style>
+.topbar-icon-link {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition:
+    color 160ms ease,
+    background 160ms ease;
+}
+
+.topbar-icon-link:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.topbar-icon-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.topbar-icon-link.is-active {
+  border-color: transparent;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.topbar-icon-link svg {
+  width: 20px;
+  height: 20px;
+}
 /* Toaster (vue-sonner) teleporta o conteúdo pra fora da árvore do App, então
    isso não pode ser scoped. Deixa os toasts translúcidos com um leve
    desfoque, no lugar do fundo sólido do preset rich-colors padrão. */

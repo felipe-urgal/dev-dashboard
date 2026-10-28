@@ -1,25 +1,25 @@
 :root {
   color-scheme: dark;
 
-  /* Surfaces — GitHub-inspired neutral dark system. */
-  --surface-0: #0d1117;
-  --surface-1: #161b22;
-  --surface-2: #21262d;
-  --surface-3: #30363d;
+  /* Surfaces — escala neutra levemente azulada (tema escuro). */
+  --surface-0: #1f2430;
+  --surface-1: #272d3a;
+  --surface-2: #313847;
+  --surface-3: #3d4556;
 
   /* Compatibilidade para componentes que ainda usam os aliases legados. */
   --surface-color: var(--surface-1);
   --surface-muted: var(--surface-2);
 
   /* Borders */
-  --border: #30363d;
-  --border-strong: #484f58;
+  --border: #3f4757;
+  --border-strong: #5a6578;
   --border-color: var(--border);
 
   /* Text */
   --text: #f0f6fc;
-  --text-muted: #8b949e;
-  --text-dim: #7d8590;
+  --text-muted: #b4bdca;
+  --text-dim: #99a4b4;
   --text-color: var(--text);
   --text-secondary: var(--text-muted);
 
@@ -81,6 +81,9 @@
   --motion-easing-standard: ease;
 
   /* Espaço */
+  /* Margem lateral compartilhada entre a topbar e o conteúdo das páginas. */
+  --page-gutter: clamp(16px, 3vw, 40px);
+
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

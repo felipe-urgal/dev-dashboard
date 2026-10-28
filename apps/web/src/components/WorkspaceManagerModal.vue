@@ -389,6 +389,7 @@ watch(
 }
 
 .workspace-manager-tabs-dialog .n-card-header {
+  align-items: flex-start;
   padding: 20px 22px 14px;
 }
 
@@ -398,6 +399,8 @@ watch(
 }
 
 .workspace-manager-tabs-dialog .n-card-header__close {
+  position: relative;
+  top: 5px;
   color: var(--text-muted);
 }
 
