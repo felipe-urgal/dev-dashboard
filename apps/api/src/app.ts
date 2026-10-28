@@ -8,9 +8,7 @@ import { attentionRoutes } from './routes/attention.js';
 import { taskContextRoutes } from './routes/task-contexts.js';
 import { activityRoutes } from './routes/activity.js';
 import { agentRuntimeRoutes } from './routes/agent-runtime.js';
-import { stackRoutes } from './routes/stacks.js';
 import { hostServiceRoutes } from './routes/host-services.js';
-import { localServiceRoutes } from './routes/local-services.js';
 import { serviceCatalogRoutes } from './routes/service-catalog.js';
 import { serviceDiagnosticsRoutes } from './routes/service-diagnostics.js';
 import { projectServiceBindingRoutes } from './routes/project-service-bindings.js';
@@ -46,20 +44,7 @@ import { EnvironmentInstanceCleanupService } from './services/environment-instan
 import { GitWorktreeRemovalResourceGuardService } from './services/git-worktree-removal-resource-guard.js';
 import { GitSyncProgressService } from './services/git-sync-progress-service.js';
 import { DashboardTerminalService } from './services/dashboard-terminal-service.js';
-import { StackDefinitionService } from './services/stack-definition-service.js';
-import { StackResourceCatalogService } from './services/stack-resource-catalog-service.js';
-import { StackDependencyDiscoveryService } from './services/stack-dependency-discovery-service.js';
-import { StackCheckService } from './services/stack-check-service.js';
-import { StackLifecyclePreviewService } from './services/stack-lifecycle-preview-service.js';
-import { StackComposeHealthAdapter } from './services/stack-compose-health-adapter.js';
-import { StackHealthCheckAdapter } from './services/stack-health-check-adapter.js';
-import { StackLogsService } from './services/stack-logs-service.js';
-import { StackRestartService } from './services/stack-restart-service.js';
-import { StackStartService } from './services/stack-start-service.js';
-import type { StackOperationJournal } from './services/stack-operation-journal.js';
-import { StackStopService } from './services/stack-stop-service.js';
 import { SystemdServiceInventory } from './services/systemd-service-inventory.js';
-import { LocalServiceManager } from './services/local-service-manager.js';
 import { SystemdLifecycleCapabilitiesService } from './services/systemd-lifecycle-capabilities-service.js';
 import { SystemdUserLifecycleGrantPolicy } from './services/systemd-user-lifecycle-authorization.js';
 import { ServiceCatalogService } from './services/service-catalog-service.js';
@@ -119,10 +104,6 @@ import { createAppContext, type AppContext } from './app-context.js';
 
 export interface BuildAppOptions extends AppCompositionOptions {
   hostServiceInventory?: Pick<SystemdServiceInventory, 'inspect'>;
-  localServiceManager?: Pick<
-    LocalServiceManager,
-    'snapshot' | 'plan' | 'apply'
-  >;
   serviceCatalog?: Pick<ServiceCatalogService, 'inspect'>;
   systemdCapabilities?: Pick<SystemdLifecycleCapabilitiesService, 'inspect'>;
   /** Trusted server bootstrap only; never a browser-selected path. */
@@ -142,7 +123,6 @@ export interface BuildAppOptions extends AppCompositionOptions {
   browserBootstrapToken?: string;
   sessionTtlSeconds?: number;
   /** Trusted server injection only. Disabled until recovery review is supported. */
-  stackOperationJournal?: StackOperationJournal;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -171,22 +151,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     createAppContext({
       languageServerLogger: app.log,
     });
-  // Do not enable operation journaling for real host mutations by default:
-  // a partial request may hold a conservative claim until manual review exists.
-  const stackOperationJournal = options.stackOperationJournal;
-  const composition = createAppComposition(context, {
-    ...options,
-    ...(stackOperationJournal
-      ? { stackOperationJobs: stackOperationJournal }
-      : {}),
-  });
+  const composition = createAppComposition(context, options);
   const dashboardTerminalService = new DashboardTerminalService();
-  const stackDefinitionService = new StackDefinitionService({
-    stackStore: context.stackStore,
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-  });
   app.addHook('onClose', () => {
     dashboardTerminalService.close();
   });
@@ -233,74 +199,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     agentRuntimeRealtimeService,
   } = composition;
   registerAppLifecycle(app, context, composition);
-  const stackDependencyDiscoveryService = new StackDependencyDiscoveryService({
-    stackDefinitionService,
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    dockerComposeProvider,
-  });
-  const stackComposeHealthAdapter = new StackComposeHealthAdapter({
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    ownershipStore: dockerComposeOwnershipStore,
-    provider: dockerComposeProvider,
-  });
-  const stackHealthCheckAdapter = new StackHealthCheckAdapter({
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    processManager: context.processManager,
-  });
-  const stackCheckService = new StackCheckService(
-    {
-      stackStore: context.stackStore,
-      developmentEnvironmentInstanceStore:
-        context.developmentEnvironmentInstanceStore,
-      processManager: context.processManager,
-      composeHealthAdapter: stackComposeHealthAdapter,
-      healthCheckAdapter: stackHealthCheckAdapter,
-    },
-    options.now ? { now: () => new Date(options.now!()) } : {},
-  );
-  const stackLogsService = new StackLogsService(
-    {
-      stackDefinitionService,
-      projectStore: context.projectStore,
-      developmentEnvironmentInstanceStore:
-        context.developmentEnvironmentInstanceStore,
-      dockerComposeLifecycleService,
-      processManager: context.processManager,
-    },
-    options.now ? { now: () => new Date(options.now!()) } : {},
-  );
-  const stackRestartService = new StackRestartService({
-    stackCheckService,
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    dockerComposeLifecycleService,
-    activityEvents: context.activityEventRepository,
-  });
-  const stackStartService = new StackStartService({
-    stackCheckService,
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    dockerComposeLifecycleService,
-    activityEvents: context.activityEventRepository,
-  });
-  const stackStopService = new StackStopService({
-    stackCheckService,
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    dockerComposeLifecycleService,
-    processManager: context.processManager,
-    activityEvents: context.activityEventRepository,
-  });
-
   const gitSyncProgressService = new GitSyncProgressService();
 
   const gitWorktreeRemovalResourceGuard =
@@ -389,15 +287,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(hostServiceRoutes, {
     prefix: '/api',
     inventory: systemdInventory,
-  });
-  app.register(localServiceRoutes, {
-    prefix: '/api',
-    manager:
-      options.localServiceManager ??
-      new LocalServiceManager({
-        stateDirectory: context.processManager.stateDirectory,
-      }),
-    journal: new SystemdJournalReader(),
   });
 
   const catalog =
@@ -510,39 +399,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
       },
       options.now ? { now: () => new Date(options.now!()) } : {},
     ),
-  });
-
-  app.register(stackRoutes, {
-    prefix: '/api',
-    ...(stackOperationJournal ? { stackOperationJournal } : {}),
-    stackDefinitionService,
-    stackResourceCatalogService: new StackResourceCatalogService({
-      projectStore: context.projectStore,
-      environments: context.developmentEnvironmentInstanceStore,
-      processes: context.processManager,
-      compose: dockerComposeProvider,
-      ownership: dockerComposeOwnershipStore,
-    }),
-    stackDependencyDiscoveryService,
-    stackCheckService,
-    stackLifecyclePreviewService: new StackLifecyclePreviewService(
-      {
-        check: stackCheckService,
-        stacks: stackDefinitionService,
-        resources: new StackResourceCatalogService({
-          projectStore: context.projectStore,
-          environments: context.developmentEnvironmentInstanceStore,
-          processes: context.processManager,
-          compose: dockerComposeProvider,
-          ownership: dockerComposeOwnershipStore,
-        }),
-      },
-      options.now ? { now: () => new Date(options.now!()) } : {},
-    ),
-    stackLogsService,
-    stackRestartService,
-    stackStartService,
-    stackStopService,
   });
 
   app.register(projectRoutes, {

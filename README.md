@@ -38,14 +38,6 @@ Comandos úteis:
     npm run local:uninstall
 
 `local:uninstall` remove apenas os artefatos gerenciados da instalação e preserva configuração, estado e checkout.
-## Serviços locais
-
-A área **Serviços locais** (menu principal) controla o ciclo de vida de
-`home-music.service` sem executar deploy, build, migração ou atualizar Git.
-São operações separadas da área Produção, com confirmação curta e token de
-uso único, observação `systemd` antes/depois da ação, verificação HTTP
-`/ready` e auditoria local. Outros serviços permanecem read-only no
-inventário existente. Consulte [o guia](docs/local-services.md).
 
 ## Terminal `dev-tools`
 

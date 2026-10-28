@@ -13,7 +13,6 @@ import {
 
 import { DevelopmentEnvironmentInstanceStore } from './store/development-environment-instance-store.js';
 import { ProjectStore } from './store/project-store.js';
-import { StackStore } from './store/stack-store.js';
 import { ProjectServiceBindingStore } from './store/project-service-binding-store.js';
 import { ServiceRuntimeProfileStore } from './store/service-runtime-profile-store.js';
 import { DashboardGitService } from './services/dashboard-git-service.js';
@@ -77,9 +76,6 @@ export function createFoundationContextDomain() {
     processManager,
     serverSettingsRepository: new ProjectServerSettingsRepository(),
     projectStore,
-    stackStore: new StackStore({
-      stateDirectory: processManager.stateDirectory,
-    }),
     projectServiceBindingStore: new ProjectServiceBindingStore({
       stateDirectory: processManager.stateDirectory,
     }),

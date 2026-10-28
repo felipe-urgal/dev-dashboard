@@ -2,8 +2,7 @@
 
 A **Project** owns logical project metadata. A **Development Environment Instance**
 identifies a specific primary checkout or worktree (and its host/devcontainer
-runtime); it is not an environment selected by branch name. A **Stack** remains
-a separate orchestration definition. A **Service Binding** references an exact
+runtime); it is not an environment selected by branch name. A **Service Binding** references an exact
 observed service in an environment and documents its relationship; it is not
 permission to start or stop that service.
 
@@ -43,7 +42,7 @@ The `Prévia Start` / `Prévia Stop` selector displays decisions, shared
 consumers, observed readiness and ports, and omitted resources. It never
 executes services, even when the preview says a resource _would_ be started or
 stopped. `Excluir perfil…` removes only the profile after a second confirmation.
-It does not delete or stop any database, process, container or Stack.
+It does not delete or stop any database, process or container.
 
 ## Qualification matrix (HTTP, in-memory runtime evidence)
 
@@ -74,7 +73,7 @@ preview or these tests as proof of production database isolation.
 ## Semantics and limits
 
 - With no configured profile for an instance, **no existing behavior changes**:
-  the Dashboard, Stacks and Compose keep using their existing binding/config
+  the Dashboard and Compose keep using their existing binding/config
   flow. Nothing is migrated or implicitly switched.
 - Profiles are _declarative selection only_. GET/POST/PUT/DELETE never run
   Compose, systemd, processes, deploy, migrations or database commands.

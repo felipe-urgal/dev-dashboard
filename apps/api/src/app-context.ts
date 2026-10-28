@@ -13,7 +13,6 @@ import type {
 
 import type { DevelopmentEnvironmentInstanceStore } from './store/development-environment-instance-store.js';
 import type { ProjectStore } from './store/project-store.js';
-import type { StackStore } from './store/stack-store.js';
 import type { ProjectServiceBindingStore } from './store/project-service-binding-store.js';
 import type { ServiceRuntimeProfileStore } from './store/service-runtime-profile-store.js';
 import type { GitService } from './services/git-service.js';
@@ -62,7 +61,6 @@ export interface AppContext {
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
-  stackStore: StackStore;
   projectServiceBindingStore: ProjectServiceBindingStore;
   serviceRuntimeProfileStore: ServiceRuntimeProfileStore;
   developmentEnvironmentInstanceStore: DevelopmentEnvironmentInstanceStore;

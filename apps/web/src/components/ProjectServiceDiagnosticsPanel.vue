@@ -390,9 +390,6 @@ function providerRoute(provider: string) {
         <span v-else
           >Provider apenas observável; controle não disponível nesta tela.</span
         >
-        <RouterLink :to="{ name: 'activity', query: { projectId } }"
-          >Ver Activity e Jobs</RouterLink
-        >
       </div>
       <div
         v-if="snapshot.events.length || snapshot.jobs.length"

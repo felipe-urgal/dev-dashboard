@@ -16,13 +16,7 @@ export type CommandPaletteNavigationGroup =
   'Páginas' | 'Workspaces' | 'Projetos' | 'Ferramentas';
 
 export type CommandPaletteNavigationIcon =
-  | ProjectToolIcon
-  | 'home'
-  | 'activity'
-  | 'stacks'
-  | 'database'
-  | 'workspace'
-  | 'project';
+  ProjectToolIcon | 'home' | 'activity' | 'database' | 'workspace' | 'project';
 
 export interface CommandPaletteProjectContext {
   projectId: string;
@@ -98,26 +92,6 @@ export function buildCommandPaletteNavigationItems(
       mode: 'page',
       to: { name: 'dashboard' },
       aliases: 'home início projetos repositórios',
-    }),
-    item({
-      id: 'page-activity',
-      group: 'Páginas',
-      label: 'Atividade',
-      description: 'Jobs ativos e timeline recente',
-      icon: 'activity',
-      mode: 'page',
-      to: { name: 'activity' },
-      aliases: 'activity timeline jobs execuções agente',
-    }),
-    item({
-      id: 'page-stacks',
-      group: 'Páginas',
-      label: 'Stacks',
-      description: 'Topologia e lifecycle multi-projeto',
-      icon: 'stacks',
-      mode: 'page',
-      to: { name: 'stacks' },
-      aliases: 'stack stacks topologia lifecycle compose serviços',
     }),
     item({
       id: 'page-database',
