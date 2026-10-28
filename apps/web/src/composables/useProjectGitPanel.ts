@@ -33,6 +33,7 @@ import {
 } from '../api/git-workspace';
 import type { CommitMode } from '../components/ProjectGitCommitPage.vue';
 import { confirmDialog } from '../stores/app-dialog';
+import { deriveCommitScope } from '../utils/git-commit-scope';
 import { useAutoDismiss } from './useAutoDismiss';
 
 export type GitTab =
@@ -603,16 +604,10 @@ export function useProjectGitPanel(
       return;
     }
 
-    const files = overview.value?.files ?? [];
-    const commitChanges = files.filter(
-      (file) => file.status !== 'untracked',
-    ).length;
-    const untrackedChanges = files.filter(
-      (file) => file.status === 'untracked',
-    ).length;
-    const stagedChanges = files.filter(
-      (file) => file.indexStatus !== '.' && file.indexStatus !== '?',
-    ).length;
+    const scope = deriveCommitScope(overview.value?.files ?? []);
+    const commitChanges = scope.tracked.length;
+    const untrackedChanges = scope.untracked.length;
+    const stagedChanges = scope.staged.length;
 
     const branchBeforeCommit = overview.value?.branch;
     const upstreamBeforeCommit = overview.value?.upstream;

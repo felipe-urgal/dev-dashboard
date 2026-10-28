@@ -1,7 +1,10 @@
 <section
   class="git-modern-panel"
   :class="{
-    'git-modern-panel-flat': activeTab === 'sync' || activeTab === 'branches',
+    'git-modern-panel-flat':
+      activeTab === 'sync' ||
+      activeTab === 'branches' ||
+      activeTab === 'commit',
   }"
 >
   <div class="git-navigation-bar">
@@ -91,6 +94,7 @@
       @submit="runCommit"
       @push="runPublishBranch"
       @open-history="openTab('history')"
+      @open-diff="openTab('diff')"
     />
 
     <ProjectGitUndoPage

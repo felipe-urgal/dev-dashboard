@@ -178,7 +178,6 @@
 .git-diff-page,
 .git-history-page,
 .git-pr-card,
-.git-commit-card,
 .git-undo-card {
   background: var(--surface-1);
 }
@@ -186,7 +185,6 @@
 .git-command-card,
 .git-table-card,
 .git-history-table-wrapper,
-.git-commit-card,
 .git-undo-card,
 .git-pr-card {
   border-color: var(--border);
@@ -194,7 +192,6 @@
   background: var(--surface-1);
 }
 
-.git-commit-submit,
 .git-diff-refresh-button {
   border-color: var(--accent-strong);
   border-radius: 8px;
@@ -202,7 +199,6 @@
   background: var(--accent-soft);
 }
 
-.git-commit-submit:hover:not(:disabled),
 .git-diff-refresh-button:hover:not(:disabled) {
   border-color: var(--accent);
   background: var(--accent-strong);
@@ -552,7 +548,6 @@
 .git-preview-grid header button,
 .git-table-row button,
 .git-history-refresh,
-.git-commit-submit,
 .git-diff-refresh-button,
 .terminal-icon-button,
 .terminal-start,
