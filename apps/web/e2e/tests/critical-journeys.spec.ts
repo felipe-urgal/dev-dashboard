@@ -183,7 +183,7 @@ test.describe('Jornadas críticas', () => {
       page.getByRole('heading', { level: 2, name: 'sample-node-app' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Servidor', exact: true }),
+      page.getByRole('button', { name: /Execução/ }),
     ).toHaveAttribute('aria-current', 'page');
     expect(projectAttempts).toBe(4);
   });

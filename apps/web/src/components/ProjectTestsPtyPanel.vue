@@ -52,39 +52,36 @@ const {
   hasTerminalSelection,
   copyTerminalSelection,
   copyShortcutLabel,
-} = usePtyTerminalSocket<ProjectTestPtyStatusSnapshot & { buffer: string }>(
-  {
-    onReady: (readySnapshot) => {
-      snapshot.value = readySnapshot;
-      selectedCommandId.value = readySnapshot.commandId;
-      connectionLost.value = false;
-    },
-    onExit: (exitCode, exitSignal, exitSnapshot) => {
-      snapshot.value =
-        exitSnapshot ??
-        (snapshot.value
-          ? {
-              ...snapshot.value,
-              status: 'exited',
-              exitCode,
-              exitSignal,
-            }
-          : null);
-      connectionLost.value = false;
-      if (contextOpen.value) void loadHistory();
-    },
-    onError: (message) => {
-      errorMessage.value = message;
-    },
-    onOpen: () => {
-      connectionLost.value = false;
-    },
-    onClose: () => {
-      if (isRunning.value) connectionLost.value = true;
-    },
+} = usePtyTerminalSocket<ProjectTestPtyStatusSnapshot & { buffer: string }>({
+  onReady: (readySnapshot) => {
+    snapshot.value = readySnapshot;
+    selectedCommandId.value = readySnapshot.commandId;
+    connectionLost.value = false;
   },
-  { enableClipboard: true },
-);
+  onExit: (exitCode, exitSignal, exitSnapshot) => {
+    snapshot.value =
+      exitSnapshot ??
+      (snapshot.value
+        ? {
+            ...snapshot.value,
+            status: 'exited',
+            exitCode,
+            exitSignal,
+          }
+        : null);
+    connectionLost.value = false;
+    if (contextOpen.value) void loadHistory();
+  },
+  onError: (message) => {
+    errorMessage.value = message;
+  },
+  onOpen: () => {
+    connectionLost.value = false;
+  },
+  onClose: () => {
+    if (isRunning.value) connectionLost.value = true;
+  },
+});
 
 const isRunning = computed(() => snapshot.value?.status === 'running');
 const selectedCommand = computed(() =>

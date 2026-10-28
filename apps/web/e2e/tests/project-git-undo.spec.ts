@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 
 import { expect, test } from '@playwright/test';
 
-import { gotoBootstrapped } from '../fixtures/navigate';
+import { gotoBootstrapped, openProjectTool } from '../fixtures/navigate';
 import { readRuntimeInfo } from '../fixtures/runtime-info';
 
 const execFileAsync = promisify(execFile);
@@ -47,8 +47,7 @@ test.describe('Desfazer do projeto', () => {
     await page
       .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
       .click();
-    await page.getByRole('link', { name: 'Git' }).click();
-    await page.getByRole('button', { name: 'Desfazer' }).click();
+    await openProjectTool(page, 'Git', 'Desfazer');
     await page.getByRole('tab', { name: /Alterações locais/ }).click();
 
     const stagedRow = page.locator('.git-undo-files article', {
@@ -113,7 +112,6 @@ test.describe('Desfazer do projeto', () => {
     );
 
     await page.reload();
-    await page.getByRole('button', { name: 'Desfazer' }).click();
     await expect(page.getByText('Commit local')).toBeVisible();
     await page.getByRole('button', { name: 'Desfazer commit' }).click();
     await page

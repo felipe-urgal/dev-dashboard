@@ -485,6 +485,13 @@ function handleMenuSelect(key: string): void {
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
+  /* A coluna é larga: só os botões interceptam o clique, o resto da linha
+     continua abrindo o projeto. */
+  pointer-events: none;
+}
+
+.project-row-actions > * {
+  pointer-events: auto;
 }
 
 .project-row-port:focus-visible {

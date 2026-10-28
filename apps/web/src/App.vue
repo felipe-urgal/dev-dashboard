@@ -1,10 +1,6 @@
 <script setup lang="ts">
-import {
-  CodeBracketIcon,
-  CircleStackIcon,
-  HomeIcon,
-} from '@heroicons/vue/24/outline';
-import { computed, onMounted, provide, ref, watch } from 'vue';
+import { CircleStackIcon, HomeIcon } from '@heroicons/vue/24/outline';
+import { computed, onMounted, provide, ref } from 'vue';
 import { darkTheme, NConfigProvider } from 'naive-ui';
 import { Toaster } from 'vue-sonner';
 
@@ -14,17 +10,15 @@ import { dashboardStore } from './stores/dashboard';
 import { nativeNotificationStore } from './stores/native-notifications';
 import CommandPalette from './components/CommandPalette.vue';
 import VisualPreferences from './components/VisualPreferences.vue';
+import ProjectSwitcher from './components/ProjectSwitcher.vue';
 import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
 import WorkspaceSwitcher from './components/WorkspaceSwitcher.vue';
 import { createNaiveThemeOverrides } from './utils/naive-theme';
+import { resolveProjectSwitchTarget } from './utils/project-switch';
 import {
   currentTheme,
   loadVisualPreferences,
 } from './utils/visual-preferences';
-import {
-  readSidebarCollapsed,
-  storeSidebarCollapsed,
-} from './utils/sidebar-preferences';
 const naiveTheme = computed(() =>
   currentTheme.value === 'dark' ? darkTheme : null,
 );
@@ -35,39 +29,63 @@ const naiveThemeOverrides = computed(() =>
 loadVisualPreferences();
 
 const workspaceManagerOpen = ref(false);
-const projectSidebarCollapsed = ref(readSidebarCollapsed());
-provide('projectSidebarCollapsed', projectSidebarCollapsed);
 
 const route = useRoute();
 const router = useRouter();
 
 const isProjectRoute = computed(
-  () =>
-    typeof route.name === 'string' &&
-    (route.name === 'project-details' || route.name.startsWith('project-')),
+  () => typeof route.name === 'string' && route.name.startsWith('project-'),
 );
-const showProjectChrome = isProjectRoute;
 
 nativeNotificationStore.setNavigator((target) => {
   void router.push(target);
 });
 
-const { knownProjects, workspaces, selectedWorkspaceId, switchWorkspace } =
-  dashboardStore;
+const {
+  knownProjects,
+  sortedProjects,
+  workspaces,
+  selectedWorkspaceId,
+  switchWorkspace,
+  getCardProcess,
+} = dashboardStore;
+
+const currentProjectId = computed(() =>
+  isProjectRoute.value ? String(route.params.projectId ?? '') : '',
+);
+
+// Dentro de um projeto, o seletor lista os projetos do workspace ativo.
+const currentProject = computed(() =>
+  sortedProjects.value.find((project) => project.id === currentProjectId.value),
+);
+
+const runningProjectIds = computed(
+  () =>
+    new Set(
+      sortedProjects.value
+        .filter((project) => {
+          const status = getCardProcess(project.id)?.status;
+          return status === 'running' || status === 'starting';
+        })
+        .map((project) => project.id),
+    ),
+);
+
+function switchProject(projectId: string): void {
+  const target = sortedProjects.value.find((item) => item.id === projectId);
+  if (!target) return;
+  void router.push(
+    resolveProjectSwitchTarget(
+      { routeName: String(route.name ?? ''), query: route.query },
+      target,
+    ),
+  );
+}
 
 function openWorkspaceManager(): void {
   workspaceManagerOpen.value = true;
 }
 provide('openWorkspaceManager', openWorkspaceManager);
-
-function toggleProjectSidebar(): void {
-  if (!showProjectChrome.value) return;
-  projectSidebarCollapsed.value = !projectSidebarCollapsed.value;
-}
-
-watch(projectSidebarCollapsed, (collapsed) => {
-  storeSidebarCollapsed(collapsed);
-});
 
 onMounted(() => {
   void dashboardStore.ensureDashboardLoaded();
@@ -76,41 +94,7 @@ onMounted(() => {
 
 <template>
   <n-config-provider :theme="naiveTheme" :theme-overrides="naiveThemeOverrides">
-    <div
-      class="app-shell app-shell-topnav"
-      :class="{
-        'app-shell-project-sidebar': showProjectChrome,
-        'app-shell-project-sidebar-collapsed':
-          showProjectChrome && projectSidebarCollapsed,
-      }"
-    >
-      <button
-        v-if="showProjectChrome"
-        class="brand project-sidebar-brand"
-        type="button"
-        :aria-label="
-          projectSidebarCollapsed
-            ? 'Expandir sidebar do projeto'
-            : 'Recolher sidebar do projeto'
-        "
-        :aria-pressed="projectSidebarCollapsed"
-        :title="
-          projectSidebarCollapsed
-            ? 'Expandir sidebar do projeto'
-            : 'Recolher sidebar do projeto'
-        "
-        @click="toggleProjectSidebar"
-      >
-        <div class="brand-mark" aria-hidden="true">
-          <CodeBracketIcon />
-        </div>
-
-        <div class="brand-copy">
-          <strong>Dev Dashboard</strong>
-          <span>Local workspace</span>
-        </div>
-      </button>
-
+    <div class="app-shell app-shell-topnav">
       <header id="primary-navigation" class="sidebar topbar">
         <RouterLink
           class="topbar-icon-link topbar-nav-link"
@@ -124,7 +108,25 @@ onMounted(() => {
 
         <div class="sidebar-section topbar-workspace">
           <span class="sidebar-label">Workspace ativo</span>
+          <ProjectSwitcher
+            v-if="currentProject"
+            :projects="sortedProjects"
+            :current-id="currentProject.id"
+            :workspaces="workspaces"
+            :selected-workspace-id="selectedWorkspaceId"
+            :running-ids="runningProjectIds"
+            @select="switchProject"
+            @home="router.push({ name: 'dashboard' })"
+            @select-workspace="
+              (id) => {
+                switchWorkspace(id);
+                void router.push({ name: 'dashboard' });
+              }
+            "
+            @add-workspace="openWorkspaceManager"
+          />
           <WorkspaceSwitcher
+            v-else
             :workspaces="workspaces"
             :selected-id="selectedWorkspaceId"
             @select="switchWorkspace"
@@ -132,8 +134,12 @@ onMounted(() => {
           />
         </div>
 
+        <div id="topbar-project" class="topbar-project" />
+
         <div class="sidebar-tools topbar-tools">
+          <div id="topbar-project-actions" class="topbar-project-actions" />
           <RouterLink
+            v-if="!isProjectRoute"
             class="topbar-icon-link topbar-nav-link"
             :class="{ 'is-active': route.name === 'database' }"
             :to="{ name: 'database' }"

@@ -19,7 +19,16 @@
   width: 100%;
   max-width: none;
   align-self: stretch;
-  background: var(--surface-1);
+  background: transparent;
+}
+
+/* Painel da ferramenta alinhado ao gutter da barra global. O cabeçalho e o
+   estado de carregamento ficam de fora para não saltarem enquanto o painel
+   ainda não foi montado. */
+.project-details-page
+  > :last-child:not(.project-header):not(.page-empty-state) {
+  width: calc(100% - 2 * var(--page-gutter));
+  margin: 16px var(--page-gutter) 24px;
 }
 
 /* Conteúdos extensos devem rolar dentro da área da ferramenta, sem
@@ -58,8 +67,8 @@
 /* Testes, Terminal e Console são superfícies contínuas: a saída deve rolar
    dentro do xterm, nunca aumentar a altura da página e empurrar o restante. */
 .project-details-page-pty {
-  height: 100vh;
-  min-height: 100vh;
+  height: calc(100vh - var(--app-topbar-height, 72px));
+  min-height: calc(100vh - var(--app-topbar-height, 72px));
   overflow: hidden;
 }
 
@@ -74,9 +83,7 @@
 .project-details-page-pty :deep(.server-dashboard),
 .project-details-page-pty :deep(.terminal-panel),
 .project-details-page-pty :deep(.tests-pty-panel),
-.project-details-page-pty :deep(.rails-runtime-panel),
-.project-details-page-pty :deep(.rails-worker-panel),
-.project-details-page-pty :deep(.rails-worker-card) {
+.project-details-page-pty :deep(.rails-runtime-panel) {
   flex: 1 1 0;
   height: 100%;
   min-height: 0;
@@ -90,10 +97,6 @@
   height: auto;
   min-height: 0;
   max-height: 100%;
-}
-
-:deep(.git-navigation-bar) {
-  top: 0;
 }
 
 /* Os painéis com layout próprio também precisam esticar seus containers internos. */
@@ -116,195 +119,6 @@
   min-height: 0;
 }
 
-.project-details-sticky-header {
-  position: static;
-  background: var(--surface-0);
-}
-
-.project-details-hero {
-  display: flex;
-  min-height: unset;
-  height: auto;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px;
-  background: var(--surface-1);
-}
-
-.project-details-main {
-  display: flex;
-  min-width: 0;
-  flex: 1 1 auto;
-  align-items: center;
-  gap: 10px;
-}
-
-.project-details-breadcrumb {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 10px;
-}
-
-.project-details-breadcrumb-separator {
-  flex: 0 0 auto;
-  color: var(--text-dim);
-  font-size: 13px;
-}
-
-.project-details-back {
-  display: inline-flex;
-  min-height: 34px;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 7px;
-  padding: 0 10px;
-  border-radius: 8px;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: var(--font-weight-strong);
-  text-decoration: none;
-  transition:
-    color 150ms ease,
-    background 150ms ease;
-}
-
-.project-details-back:hover,
-.project-details-back:focus-visible {
-  color: var(--text);
-  background: var(--surface-2);
-}
-
-.project-details-back:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.project-details-back svg {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-}
-
-.project-details-actions {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.project-details-actions-row {
-  display: contents;
-}
-
-.project-title-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.project-title-row h2 {
-  overflow: hidden;
-  margin: 0;
-  color: var(--text);
-  font-size: clamp(26px, 3vw, 34px);
-  line-height: 1;
-  letter-spacing: -0.04em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.project-details-branch {
-  display: inline-flex;
-  min-width: 0;
-  max-width: min(42vw, 520px);
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-  border-radius: 999px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  font-size: var(--font-xs);
-  font-weight: var(--font-weight-strong);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.project-details-branch svg {
-  width: 13px;
-  height: 13px;
-  flex: 0 0 auto;
-}
-
-.project-details-branch span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.project-details-tabs {
-  display: flex;
-  min-width: 0;
-  align-items: stretch;
-  background: var(--surface-0);
-}
-
-.project-details-primary-tabs {
-  display: flex;
-  min-width: 0;
-  max-width: none;
-  flex: 1 1 auto;
-  align-items: stretch;
-  gap: 4px;
-  overflow-x: auto;
-  padding: 0 4px;
-  scrollbar-width: thin;
-}
-
-.project-details-tab {
-  position: relative;
-  display: inline-flex;
-  min-height: 43px;
-  flex: 0 0 auto;
-  align-items: center;
-  padding: 0 14px;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: var(--font-weight-strong);
-  text-decoration: none;
-  transition:
-    color 150ms ease,
-    background 150ms ease;
-}
-
-.project-details-tab::after {
-  position: absolute;
-  right: 10px;
-  bottom: -1px;
-  left: 10px;
-  height: 2px;
-  border-radius: 999px 999px 0 0;
-  background: transparent;
-  content: '';
-}
-
-.project-details-tab:hover {
-  color: var(--text);
-  background: var(--surface-2);
-}
-
-.project-details-tab-active {
-  color: var(--accent);
-}
-
-.project-details-tab-active::after {
-  background: var(--accent);
-}
-
 :deep(.readme-panel) {
   height: 100%;
   width: 100%;
@@ -325,36 +139,9 @@
   box-sizing: border-box;
 }
 
-@media (max-width: 1180px) {
-  .project-details-actions {
-    flex: 0 0 auto;
-  }
-}
-
 @media (max-width: 720px) {
   .project-details-page {
     --project-sticky-offset: 140px;
-  }
-
-  .project-details-hero {
-    height: auto;
-    flex-wrap: wrap;
-    padding: 6px 10px;
-  }
-
-  .project-title-row h2 {
-    font-size: 20px;
-  }
-
-  .project-details-actions {
-    width: 100%;
-    align-items: center;
-    flex-direction: row;
-    justify-content: flex-start;
-  }
-
-  .project-details-tab {
-    padding: 0 11px;
   }
 }
 
@@ -373,199 +160,13 @@
 
 :deep(.project-details-page .project-doctor-card),
 :deep(.project-details-page .readme-panel),
-:deep(.project-details-page .git-navigation-bar),
 :deep(.project-details-page .dependencies-manager-card),
 :deep(.project-details-page .dependencies-console) {
   box-shadow: none;
 }
 
-/* Modal de logs dos workers: o conteúdo fica fora do fluxo da ferramenta e
-   abre sobre a interface inteira, com rolagem independente. */
-.rails-log-overlay {
-  position: fixed;
-  z-index: 100;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgb(5 10 18 / 72%);
-  backdrop-filter: blur(4px);
-}
-
-.rails-log-modal {
-  display: flex;
-  width: min(1120px, calc(100vw - 48px));
-  height: min(760px, calc(100vh - 48px));
-  min-width: 0;
-  min-height: 0;
-  flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
-}
-
-.rails-log-modal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 20px 14px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-1);
-}
-
-.rails-log-modal-header > div {
-  display: grid;
-  gap: 4px;
-}
-
-.rails-log-modal-header span {
-  color: var(--accent);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.rails-log-modal-header h3,
-.rails-log-modal-header p {
-  margin: 0;
-}
-
-.rails-log-modal-header h3 {
-  color: var(--text);
-  font-size: 18px;
-}
-
-.rails-log-modal-header p {
-  color: var(--text-muted);
-  font-size: 11px;
-}
-
-.rails-log-close-button {
-  display: inline-flex;
-  width: 36px;
-  height: 36px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  background: var(--surface-1);
-  cursor: pointer;
-}
-
-.rails-log-close-button:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.rails-log-close-button svg {
-  width: 18px;
-  height: 18px;
-}
-
-.rails-log-modal-body {
-  display: flex;
-  min-height: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  padding: 16px;
-}
-
-.rails-log-modal-body .project-log-terminal {
-  min-height: 0;
-  flex: 1 1 auto;
-}
-
 .database-explorer {
   background: var(--surface-0);
-}
-
-.database-page-header {
-  display: flex;
-  min-height: 74px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 10px 24px;
-  background: linear-gradient(120deg, var(--surface-1), var(--surface-0));
-}
-
-.database-page-header > div {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.database-page-header h3 {
-  margin: 0;
-  font-size: clamp(21px, 2.3vw, 26px);
-  letter-spacing: -0.03em;
-  line-height: 1.15;
-}
-
-.database-page-header button {
-  min-height: 38px;
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  background: var(--surface-2);
-}
-
-.database-environments-layout {
-  gap: 16px;
-  padding: 16px 24px 24px;
-}
-
-.database-sidebar-panel,
-.database-detail-panel {
-  border-color: color-mix(in srgb, var(--border) 90%, var(--accent));
-  border-radius: var(--radius-md);
-}
-
-.database-sidebar-panel {
-  background: var(--surface-1);
-}
-
-.database-sidebar-panel > header {
-  padding: 16px;
-  background: var(--surface-2);
-}
-
-.database-sidebar-list {
-  gap: 8px;
-  padding: 10px;
-}
-
-.database-sidebar-list > button {
-  gap: 10px;
-  min-height: 76px;
-  padding: 10px;
-  border-color: transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-}
-
-.database-sidebar-list > button:hover {
-  border-color: var(--border);
-  background: var(--surface-2);
-}
-
-.database-sidebar-list > button.active {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.database-sidebar-item-icon,
-.database-detail-icon {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.database-detail-panel {
-  background: var(--surface-1);
 }
 
 .database-detail-title {
@@ -574,490 +175,38 @@
   background: linear-gradient(120deg, var(--surface-2), var(--surface-1));
 }
 
-.database-detail-heading {
-  gap: 12px;
-}
-
-.database-detail-meta {
-  gap: 6px;
-}
-
-.database-detail-meta span {
-  padding: 5px 8px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-0);
-  font-size: 10px;
-}
-
-.database-actions-menu {
-  gap: 8px;
-}
-
-.database-actions-menu button {
-  min-height: 36px;
-}
-
-.database-connection-summary,
-.database-environment-context-grid {
-  gap: 12px;
-  padding: 16px 20px 0;
-}
-
-.database-connection-summary > section,
-.database-properties-panel,
-.database-usage-panel {
-  border-color: var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-0);
-}
-
-.database-connection-summary > section,
-.database-properties-panel,
-.database-usage-panel {
-  padding: 16px;
-}
-
-.database-connection-summary h5,
-.database-properties-panel h5,
-.database-usage-panel h5 {
-  margin-bottom: 14px;
-  color: var(--text);
-  font-size: 12px;
-}
-
-.database-definition-list > div {
-  padding: 10px 0;
-}
-
-.database-shared-service-hint {
-  margin: 12px 20px 0;
-  border-radius: var(--radius-sm);
-}
-
-.database-environment-context-grid {
-  padding-bottom: 20px;
-}
-
 @media (max-width: 720px) {
-  .database-page-header,
-  .database-environments-layout {
-    padding-right: 14px;
-    padding-left: 14px;
-  }
-
   .database-detail-title {
     padding: 14px;
   }
-
-  .database-connection-summary,
-  .database-environment-context-grid {
-    padding-right: 14px;
-    padding-left: 14px;
-  }
-
-  .database-shared-service-hint {
-    margin-right: 14px;
-    margin-left: 14px;
-  }
-
-  .rails-log-overlay {
-    padding: 12px;
-  }
-
-  .rails-log-modal {
-    width: calc(100vw - 24px);
-    height: calc(100vh - 24px);
-  }
-
-  .rails-log-modal-header {
-    padding: 14px;
-  }
-
-  .rails-log-modal-body {
-    padding: 10px;
-  }
 }
 
-:deep(.project-details-tab svg) {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-}
-
-.project-details-tab {
-  gap: 7px;
-}
-
-.project-details-more-menu {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  padding: 0 8px;
-}
-
-.project-details-more-trigger {
-  display: inline-flex;
-  width: 36px;
-  height: 36px;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  background: transparent;
-  cursor: pointer;
-  transition:
-    color 150ms ease,
-    border-color 150ms ease,
-    background 150ms ease;
-}
-
-.project-details-more-trigger:hover,
-.project-details-more-trigger-active {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.project-details-more-trigger svg {
-  width: 20px;
-  height: 20px;
-}
-
-.project-details-more-popover {
-  position: fixed;
-  z-index: 1000;
-  top: calc(100% + 6px);
-  right: 0;
-  display: grid;
-  min-width: 240px;
-  max-width: min(320px, calc(100vw - 24px));
-  max-height: calc(100vh - 24px);
-  gap: 3px;
-  overflow-y: auto;
-  padding: 7px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+/* Cabeçalho do projeto: título, branch e processos, seguido da navegação
+   (áreas e ferramentas). Fixo abaixo da barra global. */
+.project-header {
+  position: sticky;
+  z-index: 40;
+  top: var(--app-topbar-height, 72px);
   background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
 }
 
-.project-details-more-item {
+.project-header-bar {
   display: flex;
-  min-height: 36px;
+  min-height: 56px;
   align-items: center;
-  padding: 0 10px;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-  font-weight: var(--font-weight-strong);
-  text-decoration: none;
+  gap: 16px;
+  padding: 0 var(--page-gutter);
 }
 
-.project-details-more-item:hover,
-.project-details-more-item-active {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-@media (max-width: 720px) {
-  .project-details-tabs {
-    position: relative;
-  }
-
-  .project-details-tab {
-    padding-right: 10px;
-    padding-left: 10px;
-  }
-
-  .project-details-tab span {
-    display: none;
-  }
-
-  .project-details-more-menu {
-    padding: 0 6px;
-  }
-
-  .project-details-more-popover {
-    min-width: min(240px, calc(100vw - 24px));
-  }
-}
-
-.project-details-more-item {
-  gap: 9px;
-}
-
-.project-details-more-item svg {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-  color: var(--text-dim);
-}
-
-.project-details-more-item:hover svg,
-.project-details-more-item-active svg {
-  color: var(--accent);
-}
-
-
-.project-details-git-group {
-  display: contents;
-}
-
-.project-details-git-submenu {
+/* As ferramentas do Git já aparecem na navegação do projeto. */
+:deep(.git-modern-panel > .git-navigation-bar) {
   display: none;
 }
 
-/* Desktop: as áreas do projeto deixam de disputar espaço horizontal e viram
-   uma rail lateral. Em telas menores, o tabbar horizontal existente é
-   preservado para não sacrificar a área útil da ferramenta. */
-.project-details-page-pty {
-  height: calc(100vh - var(--app-topbar-height, 72px));
-  min-height: calc(100vh - var(--app-topbar-height, 72px));
-}
-
-@media (min-width: 901px) {
-  .project-details-page-ready {
-    display: grid;
-    grid-template-columns: var(--project-sidebar-width, 216px) minmax(0, 1fr);
-    grid-template-rows: max-content minmax(0, 1fr);
-    align-items: stretch;
-    gap: 0;
-  }
-
-  .project-details-page-ready > .project-details-sticky-header {
-    display: contents;
-  }
-
-  .project-details-page-ready .project-details-hero {
-    position: fixed;
-    z-index: 61;
-    top: 0;
-    right: 0;
-    left: var(--project-sidebar-width, 216px);
-    display: flex;
-    width: auto;
-    height: var(--app-topbar-height, 72px);
-    min-height: var(--app-topbar-height, 72px);
-    grid-column: 2;
-    grid-row: 1;
-    align-items: center;
-    padding: 0 16px;
-    border-bottom: 1px solid var(--border);
-    background: color-mix(in srgb, var(--surface-1) 94%, var(--surface-2) 6%);
-    transition: left 180ms ease;
-  }
-
-  .project-details-page-ready .project-details-main {
-    justify-content: flex-start;
-    gap: 12px;
-  }
-
-  .project-details-page-ready .project-details-breadcrumb {
-    flex: 1 1 auto;
-  }
-
-  .project-details-page-ready .project-details-back {
-    border-radius: 0;
-    padding-right: 0;
-    padding-left: 0;
-  }
-
-  .project-details-page-ready .project-title-row {
-    justify-content: flex-start;
-  }
-
-  .project-details-page-ready .project-details-actions {
-    display: none;
-  }
-
-  .project-details-page-ready .project-title-row h2 {
-    font-size: 17px;
-    letter-spacing: -0.02em;
-  }
-
-  .project-details-page-ready .project-details-branch {
-    min-height: 26px;
-  }
-
-  .project-details-page-ready .project-details-tabs {
-    position: fixed;
-    z-index: 20;
-    top: var(--app-topbar-height, 72px);
-    left: 0;
-    grid-column: 1;
-    grid-row: 1 / 3;
-    display: block;
-    align-self: start;
-    box-sizing: border-box;
-    width: var(--project-sidebar-width, 216px);
-    height: calc(100vh - var(--app-topbar-height, 72px));
-    min-width: 0;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overflow-anchor: none;
-    padding: 20px 12px 12px;
-    border-right: 1px solid var(--border);
-    border-bottom: 0;
-    background: var(--surface-1);
-    overscroll-behavior-y: contain;
-    scrollbar-gutter: stable;
-    scrollbar-width: thin;
-    transition:
-      width 180ms ease,
-      padding 180ms ease;
-  }
-
-  .project-details-page-ready .project-details-primary-tabs {
-    display: flex;
-    min-width: 0;
-    max-width: none;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 4px;
-    overflow: visible;
-    padding: 0;
-  }
-
-  .project-details-page-ready .project-details-git-group {
-    display: grid;
-    gap: 2px;
-  }
-
-  .project-details-page-ready .project-details-git-submenu {
-    display: grid;
-    gap: 2px;
-    margin: 2px 0 5px 22px;
-    padding-left: 10px;
-    border-left: 1px solid var(--border);
-  }
-
-  .project-details-page-ready .project-details-git-submenu-item {
-    display: flex;
-    min-height: 30px;
-    align-items: center;
-    padding: 0 10px;
-    border-radius: 7px;
-    color: var(--text-dim);
-    font-size: 10px;
-    font-weight: var(--font-weight-strong);
-    line-height: 1.2;
-    text-decoration: none;
-  }
-
-  .project-details-page-ready .project-details-git-submenu-item:hover {
-    color: var(--text);
-    background: var(--surface-2);
-  }
-
-  .project-details-page-ready .project-details-git-submenu-item-active {
-    color: var(--accent);
-    background: var(--accent-soft);
-  }
-
-  .project-details-page-ready :deep(.git-navigation-bar) {
-    display: none;
-  }
-
-  .project-details-page-ready :deep(.project-details-tab) {
-    width: 100%;
-    min-height: 40px;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 10px;
-    padding: 0 12px;
-    border: 0;
-    border-radius: 8px;
-    color: var(--text-muted);
-    background: transparent;
-    font-size: 13px;
-    line-height: 1.2;
-    text-align: left;
-  }
-
-  .project-details-page-ready :deep(.project-details-tab svg) {
-    width: 16px;
-    height: 16px;
-    flex: 0 0 16px;
-  }
-
-  .project-details-page-ready :deep(.project-details-tab span) {
-    min-width: 0;
-    line-height: 1.2;
-  }
-
-  .project-details-page-ready :deep(.project-details-tab)::after {
-    display: none;
-  }
-
-  .project-details-page-ready :deep(.project-details-tab:hover) {
-    color: var(--text);
-    background: var(--surface-2);
-  }
-
-  .project-details-page-ready :deep(.project-details-tab-active) {
-    color: var(--accent);
-    background: var(--accent-soft);
-  }
-
-  .project-details-page-ready :deep(.project-details-tab-active)::before {
-    position: absolute;
-    top: 8px;
-    bottom: 8px;
-    left: 0;
-    width: 3px;
-    border-radius: 0 999px 999px 0;
-    background: var(--accent);
-    content: '';
-  }
-
-  .project-details-page-ready > :last-child {
-    grid-column: 2;
-    grid-row: 2;
-    min-width: 0;
-    width: 100%;
-  }
-
-}
-
-@media (min-width: 901px) and (max-height: 860px) {
-  .project-details-page-ready .project-details-tabs {
-    padding: 12px 10px 10px !important;
-  }
-
-  .project-details-page-ready .project-details-primary-tabs {
-    gap: 2px;
-  }
-
-  .project-details-page-ready :deep(.project-details-tab) {
-    min-height: 32px !important;
-    gap: 8px;
-    padding-inline: 10px !important;
-    font-size: 12px !important;
-  }
-
-  .project-details-page-ready :deep(.project-details-tab svg) {
-    width: 15px;
-    height: 15px;
-    flex-basis: 15px;
-  }
-
-  .project-details-page-ready .project-details-git-submenu {
-    gap: 1px;
-    margin-left: 20px;
-    padding-left: 8px;
-  }
-
-  .project-details-page-ready .project-details-git-submenu-item {
-    min-height: 26px;
-    padding-inline: 8px;
-    font-size: 9px;
-  }
+/* Páginas com terminal rolam por dentro; o cabeçalho não precisa grudar. */
+.project-details-page-pty .project-header {
+  position: static;
 }
 
 @media (max-width: 900px) {
@@ -1065,4 +214,23 @@
     height: calc(100vh - var(--app-topbar-height, 116px));
     min-height: calc(100vh - var(--app-topbar-height, 116px));
   }
+
+  .project-header {
+    position: static;
+  }
+
+  .project-header-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 12px;
+    padding-block: 8px;
+  }
+
+  .project-header-identity {
+    display: flex;
+  }
+}
+
+.project-header-identity {
+  display: none;
 }

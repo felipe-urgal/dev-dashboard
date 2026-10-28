@@ -31,36 +31,6 @@
   font-size: var(--font-xs);
 }
 
-.repositories-section {
-  display: flex;
-  min-height: 0;
-  flex: 1;
-  flex-direction: column;
-}
-
-.repositories-section > .projects-list {
-  flex: 1;
-  align-content: start;
-}
-
-.repositories-section .dd-card-header {
-  align-items: center;
-}
-
-.repositories-section h2 {
-  margin: var(--space-1) 0 0;
-  font-size: var(--font-lg);
-}
-
-.projects-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(400px, 100%), 1fr));
-  gap: 14px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 .capabilities {
   display: flex;
   flex-wrap: wrap;
@@ -112,13 +82,6 @@
   line-height: 1.6;
 }
 
-@media (max-width: 480px) {
-  .repositories-section .dd-card-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
-
 .workspace-field {
   display: grid;
   gap: var(--space-2);
@@ -147,7 +110,6 @@
 .workspace-field input:focus,
 .workspace-field select:focus {
   border-color: var(--border-strong);
-  
 }
 
 .workspace-field select {
@@ -180,77 +142,9 @@
   gap: 12px;
 }
 
-.secondary-primary-button {
-  padding: 10px 13px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  background: var(--surface-2);
-  font-size: var(--font-sm);
-  font-weight: var(--font-weight-strong);
-}
-
-.secondary-primary-button:not(:disabled):hover {
-  border-color: var(--border-strong);
-  background: var(--accent-soft);
-}
-
 .workspace-summary-empty {
   color: var(--text-muted);
   font-size: 11px;
-}
-
-.process-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
-  color: var(--text-muted);
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.process-status > span {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--text-muted);
-}
-
-.process-status-running,
-.process-status-starting {
-  color: var(--success-text);
-}
-
-.process-status-running > span,
-.process-status-starting > span {
-  background: var(--success-text);
-  
-}
-
-.process-status-stopping {
-  color: var(--warning-text);
-}
-
-.process-status-stopping > span {
-  background: var(--warning-text);
-}
-
-.process-status-failed {
-  color: var(--danger-text);
-}
-
-.process-status-failed > span {
-  background: var(--danger-text);
-}
-
-.process-details {
-  display: flex;
-  gap: 12px;
-  color: var(--text-muted);
-  font-family: 'SFMono-Regular', Consolas, monospace;
-  font-size: 9px;
 }
 
 .project-error {
@@ -261,35 +155,6 @@
   background: var(--danger-surface);
   font-size: 10px;
   line-height: 1.5;
-}
-
-.primary-small-button,
-.danger-small-button {
-  padding: 7px 10px;
-  border-radius: 8px;
-  font-size: 10px;
-  font-weight: 750;
-}
-
-.primary-small-button {
-  border: 1px solid var(--accent-strong);
-  color: var(--surface-1);
-  background: var(--accent-strong);
-}
-
-.primary-small-button:not(:disabled):hover {
-  background: var(--accent-strong);
-}
-
-.danger-small-button {
-  border: 1px solid var(--danger-text);
-  color: var(--danger-text);
-  background: var(--danger-surface);
-}
-
-.danger-small-button:not(:disabled):hover {
-  border-color: var(--danger-text);
-  background: var(--danger-surface);
 }
 
 .project-log-panel {
@@ -328,21 +193,6 @@
 .project-log-actions {
   display: flex;
   gap: 6px;
-}
-
-.log-action-button {
-  padding: 5px 7px;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  color: var(--text-muted);
-  background: var(--surface-2);
-  font-size: 9px;
-  font-weight: 700;
-}
-
-.log-action-button:not(:disabled):hover {
-  color: var(--text);
-  background: var(--border);
 }
 
 .project-log-output {
@@ -432,10 +282,6 @@
   opacity: 0.55;
 }
 
-.settings-saved {
-  color: var(--success-text) !important;
-}
-
 .server-access-note {
   margin: 0;
   color: var(--warning-text);
@@ -443,32 +289,9 @@
   line-height: 1.45;
 }
 
-.process-details {
-  flex-wrap: wrap;
-}
-
-.process-details a {
-  color: var(--info-text);
-  text-decoration: none;
-}
-
-.process-details a:hover {
-  text-decoration: underline;
-}
-
 @media (max-width: 680px) {
   .server-settings-fields {
     align-items: stretch;
     flex-direction: column;
   }
-}
-
-.repositories-section > .dd-card-header {
-  padding-bottom: 16px;
-}
-
-.repositories-section h2 {
-  color: var(--text);
-  font-size: clamp(18px, 2vw, 22px);
-  letter-spacing: -0.02em;
 }

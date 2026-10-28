@@ -1,37 +1,32 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
-import {
-  ArrowPathIcon,
-  ArrowTopRightOnSquareIcon,
-  ClipboardDocumentIcon,
-  Cog6ToothIcon,
-  ClockIcon,
-  GlobeAltIcon,
-  PlayIcon,
-  ServerStackIcon,
-  StopIcon,
-  XMarkIcon,
-} from '@heroicons/vue/24/outline';
+import { PlayIcon, ServerStackIcon } from '@heroicons/vue/24/outline';
 
 import type { Project, ProjectServerSettings } from '@dev-dashboard/contracts';
 
 import {
   fetchProjectServerConfiguration,
   saveProjectServerSettings,
-  startProjectProcess,
-  stopProjectProcess,
 } from '../api';
 
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectLogsPolling } from '../composables/useProjectLogsPolling';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
+import {
+  useProjectServerControls,
+  type ServerStartPreparation,
+} from '../composables/useProjectServerControls';
 import { useProjectServerMetrics } from '../composables/useProjectServerMetrics';
 import { confirmDialog } from '../stores/app-dialog';
 import { noticeCenterStore } from '../stores/notice-center';
 import { RequestGeneration } from '../utils/request-generation';
+import { parseServerLog, serverLogFilters } from '../utils/server-log-lines';
 import { parseServerPort } from '../utils/server-settings';
-import ProjectLogTerminal from './ProjectLogTerminal.vue';
+import ProcessConsole from './process/ProcessConsole.vue';
+import ProcessStatusBar from './process/ProcessStatusBar.vue';
+import ServerSettingsDrawer from './server/ServerSettingsDrawer.vue';
+import UiButton from './ui/UiButton.vue';
 
 const props = defineProps<{
   project: Project;
@@ -58,7 +53,6 @@ const { commandLabel, uptimeLabel } = useProjectServerMetrics(
   processStatus,
 );
 
-const logContainer = ref<HTMLElement | null>(null);
 const {
   logSnapshot,
   clearing: clearingLog,
@@ -67,7 +61,7 @@ const {
   () => props.project,
   hasManagedProcess,
   supportsServer,
-  logContainer,
+  ref(null),
   () => props.environmentInstanceId,
 );
 
@@ -77,37 +71,42 @@ const availableEnvironments = ref<string[]>([]);
 const loadingSettings = ref(false);
 const savingSettings = ref(false);
 const settingsMessage = ref('');
-const currentAction = ref<'start' | 'stop' | 'restart' | null>(null);
-const localUrlCopied = ref(false);
 const showSettings = ref(false);
 
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(settingsMessage, '');
-useAutoDismiss(localUrlCopied, false);
 
 const projectRequests = new RequestGeneration();
 let hasObservedRunning = false;
 
-const executingAction = computed(() => currentAction.value !== null);
+const executingAction = computed(() => controls.action.value !== null);
 
-const environmentDisplayLabel = computed(() => {
-  if (props.project.type === 'rails') return 'development';
-
-  return selectedEnvironment.value
-    ? `.env.${selectedEnvironment.value}`
-    : 'Padrão (.env / .env.local)';
-});
-
-const environmentSummaryLabel = computed(() => {
+const environmentLabel = computed(() => {
   if (props.project.type === 'rails') return 'development';
   return selectedEnvironment.value
     ? `.env.${selectedEnvironment.value}`
     : '.env / .env.local';
 });
 
-const portDisplayLabel = computed(() => {
+const portLabel = computed(() => {
   const port = managedProcess.value?.port ?? selectedPort.value;
-  return port ? String(port) : 'Automática';
+  return port ? `:${port}` : 'porta automática';
+});
+
+const statusNote = computed(() => {
+  const process = managedProcess.value;
+  if (processStatus.value === 'running') {
+    return [
+      uptimeLabel.value !== '—' ? `há ${uptimeLabel.value}` : '',
+      process?.pid ? `PID ${process.pid}` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }
+  if (processStatus.value === 'failed' && process?.exitCode !== undefined) {
+    return `código de saída ${process.exitCode}`;
+  }
+  return '';
 });
 
 async function confirmEnvironmentReplacement(
@@ -127,24 +126,33 @@ async function confirmEnvironmentReplacement(
   });
 }
 
+// Endereços da rede local antes dos de bridges do Docker (172.x).
+function urlRank(url: string): number {
+  const host = new URL(url).hostname;
+  if (host === 'localhost') return 0;
+  return /^(192\.168|10)\./.test(host) ? 1 : 2;
+}
+
+const shortCommand = computed(() =>
+  commandLabel.value.replace(`${props.project.path}/`, ''),
+);
+
 const processUrls = computed<string[]>(() => {
   if (processStatus.value !== 'running') return [];
-  if (managedProcess.value?.urls?.length) return managedProcess.value.urls;
+  if (managedProcess.value?.urls?.length) {
+    return [...managedProcess.value.urls].sort(
+      (a, b) => urlRank(a) - urlRank(b),
+    );
+  }
   if (managedProcess.value?.url) return [managedProcess.value.url];
 
   const port = managedProcess.value?.port;
   return port ? [`http://localhost:${port}`] : [];
 });
 
-const primaryProcessUrl = computed(() => processUrls.value[0] ?? '');
-
-const localAccessUrl = computed(() => {
-  if (processStatus.value !== 'running') return '';
-  if (primaryProcessUrl.value) return primaryProcessUrl.value;
-
-  const configuredPort = managedProcess.value?.port ?? selectedPort.value;
-  return configuredPort ? `http://localhost:${configuredPort}` : '';
-});
+const portInUse = computed(() =>
+  /EADDRINUSE|already in use/i.test(logSnapshot.value?.content ?? ''),
+);
 
 function isCurrentProject(projectId: string, generation: number): boolean {
   return (
@@ -236,122 +244,41 @@ async function handleSaveSettings(): Promise<void> {
   }
 }
 
-async function startServer(
-  projectId: string,
-  generation: number,
-): Promise<void> {
-  const settings = await persistServerSettings(projectId, generation);
-  const nextProcess = await startProjectProcess(projectId, {
-    port: settings.port ?? null,
-    ...(props.environmentInstanceId
-      ? { environmentInstanceId: props.environmentInstanceId }
-      : {}),
-  });
+const controls = useProjectServerControls({
+  getProject: () => props.project,
+  getEnvironmentInstanceId: () => props.environmentInstanceId,
+  managedProcess,
+  errorMessage,
+  scheduleProcessPolling,
+});
 
-  if (!isCurrentProject(projectId, generation)) return;
-
-  managedProcess.value = nextProcess;
-  scheduleProcessPolling();
+async function prepareStart(): Promise<ServerStartPreparation> {
+  const settings = await persistServerSettings(
+    props.project.id,
+    projectRequests.capture(),
+  );
+  return { port: settings.port ?? null };
 }
 
 async function handleStart(): Promise<void> {
   if (!['stopped', 'failed'].includes(processStatus.value)) return;
   if (!(await confirmEnvironmentReplacement('iniciar'))) return;
 
-  const projectId = props.project.id;
-  const generation = projectRequests.capture();
-  currentAction.value = 'start';
-  errorMessage.value = '';
   settingsMessage.value = '';
-
-  try {
-    await startServer(projectId, generation);
-  } catch (error) {
-    if (isCurrentProject(projectId, generation)) {
-      errorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível iniciar o servidor.';
-    }
-  } finally {
-    if (isCurrentProject(projectId, generation)) {
-      currentAction.value = null;
-    }
-  }
+  await controls.start(prepareStart);
 }
 
 async function handleStop(): Promise<void> {
   if (processStatus.value !== 'running') return;
-
-  const projectId = props.project.id;
-  const generation = projectRequests.capture();
-  currentAction.value = 'stop';
-  errorMessage.value = '';
-
-  try {
-    const nextProcess = props.environmentInstanceId
-      ? await stopProjectProcess(projectId, props.environmentInstanceId)
-      : await stopProjectProcess(projectId);
-    if (!isCurrentProject(projectId, generation)) return;
-
-    managedProcess.value = nextProcess;
-  } catch (error) {
-    if (isCurrentProject(projectId, generation)) {
-      errorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível parar o servidor.';
-    }
-  } finally {
-    if (isCurrentProject(projectId, generation)) {
-      currentAction.value = null;
-    }
-  }
+  await controls.stop();
 }
 
 async function handleRestart(): Promise<void> {
   if (processStatus.value !== 'running') return;
   if (!(await confirmEnvironmentReplacement('reiniciar'))) return;
 
-  const projectId = props.project.id;
-  const generation = projectRequests.capture();
-  currentAction.value = 'restart';
-  errorMessage.value = '';
   settingsMessage.value = '';
-
-  try {
-    if (canStop.value) {
-      const stoppedProcess = props.environmentInstanceId
-        ? await stopProjectProcess(projectId, props.environmentInstanceId)
-        : await stopProjectProcess(projectId);
-      if (!isCurrentProject(projectId, generation)) return;
-      managedProcess.value = stoppedProcess;
-    }
-
-    await startServer(projectId, generation);
-  } catch (error) {
-    if (isCurrentProject(projectId, generation)) {
-      errorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível reiniciar o servidor.';
-    }
-  } finally {
-    if (isCurrentProject(projectId, generation)) {
-      currentAction.value = null;
-    }
-  }
-}
-
-async function copyLocalUrl(): Promise<void> {
-  if (!localAccessUrl.value || !navigator.clipboard) return;
-
-  try {
-    await navigator.clipboard.writeText(localAccessUrl.value);
-    localUrlCopied.value = true;
-  } catch {
-    localUrlCopied.value = false;
-  }
+  await controls.restart(canStop.value, prepareStart);
 }
 
 function resetPanelState(): void {
@@ -363,8 +290,6 @@ function resetPanelState(): void {
   loadingSettings.value = false;
   savingSettings.value = false;
   settingsMessage.value = '';
-  currentAction.value = null;
-  localUrlCopied.value = false;
   showSettings.value = false;
   hasObservedRunning = false;
 }
@@ -420,6 +345,208 @@ onBeforeUnmount(() => {
 });
 </script>
 
-<template src="./ProjectServerPanel.template.html"></template>
+<template>
+  <div class="server-dashboard">
+    <div v-if="!supportsServer" class="server-empty-state">
+      <ServerStackIcon aria-hidden="true" />
+      <div>
+        <strong>Servidor não disponível</strong>
+        <p>Este projeto não possui a capacidade de servidor detectada.</p>
+      </div>
+    </div>
 
-<style scoped src="./ProjectServerPanel.css"></style>
+    <template v-else>
+      <ProcessStatusBar
+        :status="processStatus"
+        :status-label="statusLabel"
+        :status-note="statusNote"
+        :chips="[portLabel, environmentLabel, shortCommand]"
+        start-label="Iniciar servidor"
+        configurable
+        :urls="processUrls"
+        :action="controls.action.value"
+        :start-disabled="loadingSettings"
+        :settings-disabled="savingSettings || executingAction"
+        @start="handleStart"
+        @stop="handleStop"
+        @restart="handleRestart"
+        @configure="showSettings = true"
+      />
+
+      <p
+        v-if="settingsMessage"
+        class="server-feedback server-feedback-success"
+        role="status"
+      >
+        {{ settingsMessage }}
+      </p>
+      <div
+        v-if="errorMessage && !showSettings"
+        class="server-feedback server-feedback-error"
+        role="alert"
+      >
+        {{ errorMessage }}
+      </div>
+      <div
+        v-else-if="processStatus === 'failed' && !showSettings"
+        class="server-feedback server-feedback-error"
+        role="alert"
+      >
+        <span
+          >O servidor encerrou com falha. Veja o console e tente
+          novamente.</span
+        >
+        <UiButton v-if="portInUse" size="sm" @click="showSettings = true">
+          Trocar porta
+        </UiButton>
+      </div>
+
+      <ProcessConsole
+        :content="logSnapshot?.content ?? ''"
+        :parse="parseServerLog"
+        :filters="serverLogFilters"
+        :running="processStatus === 'running'"
+        :masked-count="logSnapshot?.redactionCount ?? 0"
+        :clearable="hasManagedProcess"
+        :clearing="clearingLog"
+        @clear="clearLogView"
+      >
+        <template #empty>
+          <p
+            v-if="processStatus === 'running' || processStatus === 'starting'"
+            class="server-console-waiting"
+          >
+            $ aguardando saída do servidor…
+          </p>
+          <div v-else class="server-console-stopped">
+            <ServerStackIcon aria-hidden="true" />
+            <strong>Servidor parado</strong>
+            <p>
+              Será executado em {{ portLabel }} no ambiente
+              {{ environmentLabel }}.
+            </p>
+            <code>$ {{ commandLabel }}</code>
+            <UiButton
+              variant="primary"
+              :disabled="loadingSettings"
+              @click="handleStart"
+            >
+              <PlayIcon aria-hidden="true" />
+              Iniciar servidor
+            </UiButton>
+          </div>
+        </template>
+      </ProcessConsole>
+
+      <ServerSettingsDrawer
+        v-if="showSettings"
+        v-model:port="selectedPort"
+        v-model:environment="selectedEnvironment"
+        :selectable-environment="project.type === 'node'"
+        :available-environments="availableEnvironments"
+        :environment-label="environmentLabel"
+        :command-label="commandLabel"
+        :loading="loadingSettings"
+        :saving="savingSettings"
+        :busy="executingAction"
+        :error-message="errorMessage"
+        @save="handleSaveSettings"
+        @close="showSettings = false"
+      />
+    </template>
+  </div>
+</template>
+
+<style scoped>
+.server-dashboard {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.server-empty-state {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--text-muted);
+  background: var(--surface-1);
+}
+
+.server-empty-state svg {
+  width: 28px;
+  height: 28px;
+}
+
+.server-empty-state p {
+  margin: 2px 0 0;
+}
+
+.server-feedback {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.server-feedback-success {
+  color: var(--success-text);
+  background: var(--success-surface);
+}
+
+.server-feedback-error {
+  justify-content: space-between;
+  border: 1px solid color-mix(in srgb, var(--danger-text) 35%, transparent);
+  color: var(--danger-text);
+  background: color-mix(in srgb, var(--danger-text) 12%, transparent);
+}
+
+.server-console-waiting {
+  margin: 0;
+  padding: 0 16px;
+  color: var(--text-dim);
+}
+
+.server-console-stopped {
+  display: flex;
+  max-width: 480px;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: auto;
+  padding: 40px 16px;
+  font-family: var(--font-family);
+  text-align: center;
+}
+
+.server-console-stopped svg {
+  width: 40px;
+  height: 40px;
+  color: var(--text-dim);
+}
+
+.server-console-stopped strong {
+  font-size: 16px;
+}
+
+.server-console-stopped p {
+  margin: 0;
+  color: var(--text-dim);
+}
+
+.server-console-stopped code {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-muted);
+  background: var(--surface-1);
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+}
+</style>

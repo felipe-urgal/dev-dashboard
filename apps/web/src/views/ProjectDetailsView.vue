@@ -2,14 +2,11 @@
 import {
   computed,
   defineAsyncComponent,
-  inject,
   onBeforeUnmount,
   ref,
   watch,
   type Component,
 } from 'vue';
-
-import { ArrowLeftIcon, ShareIcon } from '@heroicons/vue/24/outline';
 
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 
@@ -17,9 +14,10 @@ import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
 import { fetchProjectGit } from '../api';
 import EmptyState from '../components/EmptyState.vue';
-import ProjectSidebarNavigation from '../components/ProjectSidebarNavigation.vue';
+import ProjectIdentity from '../components/ProjectIdentity.vue';
 import ProjectProcessesMenu from '../components/ProjectProcessesMenu.vue';
 import ProjectToolError from '../components/ProjectToolError.vue';
+import ProjectTopNavigation from '../components/ProjectTopNavigation.vue';
 import ProjectToolLoading from '../components/ProjectToolLoading.vue';
 import { dashboardStore } from '../stores/dashboard';
 import { subscribeProjectGitOverview } from '../stores/project-live-state';
@@ -95,7 +93,6 @@ const ProjectAgentPanel = lazyTool(
 
 const route = useRoute();
 const router = useRouter();
-const projectSidebarCollapsed = inject('projectSidebarCollapsed', ref(false));
 
 const project = ref<Project | null>(null);
 const loading = ref(true);
@@ -331,67 +328,45 @@ onBeforeUnmount(stopGitOverviewRefresh);
     </EmptyState>
 
     <template v-else>
-      <div class="project-details-sticky-header">
-        <header class="project-details-hero">
-          <div class="project-details-main">
-            <nav class="project-details-breadcrumb" aria-label="Breadcrumb">
-              <RouterLink
-                class="project-details-back"
-                :to="{ name: 'dashboard' }"
-                aria-label="Voltar para a listagem de projetos"
-                title="Voltar para projetos"
-              >
-                <ArrowLeftIcon aria-hidden="true" />
-                <span>Projetos</span>
-              </RouterLink>
+      <Teleport to="#topbar-project">
+        <ProjectIdentity
+          :show-name="false"
+          :name="project.name"
+          :branch="gitBranch"
+          :clean="gitOverview?.clean"
+        />
+      </Teleport>
 
-              <span
-                class="project-details-breadcrumb-separator"
-                aria-hidden="true"
-              >
-                /
-              </span>
+      <Teleport to="#topbar-project-actions">
+        <ProjectProcessesMenu
+          v-if="project.enabled"
+          :project="project"
+          :environment-instance-id="environmentInstanceId"
+          @worker-detected="
+            (workerId, detected) => {
+              if (workerId === 'sidekiq') sidekiqDetected = detected;
+              if (workerId === 'webpack') webpackDetected = detected;
+            }
+          "
+        />
+      </Teleport>
 
-              <div class="project-title-row" aria-current="page">
-                <h2>{{ project.name }}</h2>
-                <div
-                  v-if="gitBranch"
-                  class="project-details-branch"
-                  aria-label="Branch atual"
-                >
-                  <ShareIcon aria-hidden="true" />
-                  <span>{{ gitBranch }}</span>
-                </div>
-              </div>
-            </nav>
-          </div>
+      <div class="project-header">
+        <header class="project-header-bar">
+          <ProjectIdentity
+            class="project-header-identity"
+            :name="project.name"
+            :branch="gitBranch"
+            :clean="gitOverview?.clean"
+          />
 
-          <div class="project-details-actions">
-            <div v-if="project.enabled" class="project-details-actions-row">
-              <ProjectProcessesMenu
-                :project="project"
-                :environment-instance-id="environmentInstanceId"
-                @worker-detected="
-                  (workerId, detected) => {
-                    if (workerId === 'sidekiq') sidekiqDetected = detected;
-                    if (workerId === 'webpack') webpackDetected = detected;
-                  }
-                "
-              />
-            </div>
-          </div>
-        </header>
-
-        <nav class="project-details-tabs" aria-label="Áreas do projeto">
-          <ProjectSidebarNavigation
+          <ProjectTopNavigation
             :project="project"
-            :sidebar-collapsed="projectSidebarCollapsed"
             :sidekiq-detected="sidekiqDetected"
             :webpack-detected="webpackDetected"
             :environment-instance-id="environmentInstanceId"
-            @expand-sidebar="projectSidebarCollapsed = false"
           />
-        </nav>
+        </header>
       </div>
 
       <ProjectReadmePanel

@@ -1,28 +1,11 @@
 import type {
   DatabaseReachability,
   GitFileStatus,
-  ManagedProcessStatus,
   ProjectScriptRisk,
   RailsMigrationStatus,
 } from '@dev-dashboard/contracts';
 
 import type { StatusBadgeTone } from '../components/status-badge-types';
-
-export function processToneFor(status: ManagedProcessStatus): StatusBadgeTone {
-  switch (status) {
-    case 'starting':
-    case 'stopping':
-      return 'info';
-    case 'running':
-      return 'success';
-    case 'stopped':
-      return 'warning';
-    case 'failed':
-      return 'danger';
-    default:
-      return 'neutral';
-  }
-}
 
 export function gitFileToneFor(status: GitFileStatus): StatusBadgeTone {
   switch (status) {

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { gotoBootstrapped } from '../fixtures/navigate';
+import { gotoBootstrapped, openProjectTool } from '../fixtures/navigate';
 
 test('executa testes por PTY, restaura após reload e registra histórico', async ({
   page,
@@ -10,10 +10,7 @@ test('executa testes por PTY, restaura após reload e registra histórico', asyn
     .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
     .click();
 
-  await page
-    .getByRole('button', { name: 'Desenvolvimento', exact: true })
-    .click();
-  await page.getByRole('link', { name: 'Testes', exact: true }).click();
+  await openProjectTool(page, 'Desenvolvimento', 'Testes');
 
   const command = page.getByLabel('Comando de teste');
   await expect(command).toContainText('test');

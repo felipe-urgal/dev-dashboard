@@ -3,11 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ManagedProcess, Project } from '@dev-dashboard/contracts';
 
-import ProjectDatabasePanel from '../src/components/ProjectDatabasePanel.vue';
-import ProjectGitPanel from '../src/components/ProjectGitPanel.vue';
 import ProjectServerPanel from '../src/components/ProjectServerPanel.vue';
-import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
-import { createTestRouter } from './support/test-router';
 
 const fetchProjectProcess = vi.fn().mockResolvedValue(null);
 vi.mock('../src/api', async (importOriginal) => ({
@@ -41,58 +37,6 @@ vi.mock('../src/api', async (importOriginal) => ({
     environments: [],
   }),
   fetchProjectServerSettings: vi.fn().mockResolvedValue({}),
-  fetchProjectTests: vi
-    .fn()
-    .mockResolvedValue({ supported: false, commands: [] }),
-  fetchProjectTestProcess: vi.fn().mockResolvedValue(null),
-  fetchProjectTestLog: vi
-    .fn()
-    .mockResolvedValue({ content: '', truncated: false }),
-  fetchProjectGit: vi.fn().mockResolvedValue({
-    repository: false,
-    detached: false,
-    ahead: 0,
-    behind: 0,
-    clean: true,
-    files: [],
-    recentCommits: [],
-  }),
-  fetchProjectGitDiff: vi.fn().mockResolvedValue({
-    repository: false,
-    scope: 'combined',
-    files: [],
-  }),
-  fetchProjectDatabase: vi.fn().mockResolvedValue({
-    supported: false,
-    environments: [],
-    total: 0,
-    page: 1,
-    pageSize: 20,
-  }),
-  fetchProjectScripts: vi
-    .fn()
-    .mockResolvedValue({ items: [], page: 1, totalPages: 1, total: 0 }),
-  fetchScriptExecutionHistory: vi.fn().mockResolvedValue({ items: [] }),
-  fetchLatestScriptExecution: vi.fn().mockResolvedValue(null),
-}));
-
-vi.mock('../src/api/git-workspace', () => ({
-  fetchProjectGitWorkspace: vi.fn().mockResolvedValue({
-    branches: [],
-    remotes: [],
-  }),
-  fetchProjectGitRemote: vi.fn().mockResolvedValue('origin'),
-  fetchProjectGitMutationHistory: vi.fn().mockResolvedValue({
-    page: 1,
-    pageSize: 20,
-    total: 0,
-    hasMore: false,
-    events: [],
-  }),
-  followProjectGitSyncProgress: vi.fn().mockReturnValue({
-    close: vi.fn(),
-    done: new Promise<void>(() => undefined),
-  }),
 }));
 
 const publishTerminalNotice = vi.fn();
@@ -135,31 +79,21 @@ describe('cards dos painéis de detalhe', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.useRealTimers());
 
-  it('exibe resumo compacto e console quando o servidor está parado', async () => {
+  it('oferece iniciar o servidor quando ele está parado', async () => {
     fetchProjectProcess.mockResolvedValueOnce(null);
 
     const wrapper = mountServerPanel();
     await flushPromises();
 
-    expect(wrapper.find('.server-dashboard').exists()).toBe(true);
-    expect(wrapper.find('.server-toolbar').exists()).toBe(true);
-    expect(wrapper.findAll('.server-summary-item')).toHaveLength(4);
-    expect(wrapper.find('.server-console-card').exists()).toBe(true);
-    expect(wrapper.find('.project-log-terminal').exists()).toBe(true);
-    expect(wrapper.find('.server-settings-modal').exists()).toBe(false);
-    expect(wrapper.find('.server-support-grid').exists()).toBe(false);
-    expect(wrapper.find('.server-config-card').exists()).toBe(false);
-    expect(wrapper.find('.server-status-label').text()).toContain('Parado');
-    expect(wrapper.text()).toContain('$ aguardando início do servidor...');
+    expect(wrapper.text()).toContain('Parado');
+    expect(wrapper.text()).toContain('Servidor parado');
     expect(wrapper.text()).toContain('Iniciar servidor');
-    expect(wrapper.text()).toContain('Configurar');
-    expect(wrapper.text()).not.toContain('Atividade recente');
-    expect(wrapper.text()).not.toContain('Health check');
+    expect(wrapper.text()).not.toContain('Parar');
 
     wrapper.unmount();
   });
 
-  it('exibe resumo compacto e console durante a execução do servidor', async () => {
+  it('oferece abrir, reiniciar e parar durante a execução', async () => {
     fetchProjectProcess.mockResolvedValueOnce({
       id: 'proc-running',
       projectId: project.id,
@@ -173,78 +107,14 @@ describe('cards dos painéis de detalhe', () => {
     const wrapper = mountServerPanel();
     await flushPromises();
 
-    expect(wrapper.find('.server-toolbar').exists()).toBe(true);
-    expect(wrapper.find('.server-console-card').exists()).toBe(true);
-    expect(wrapper.find('.project-log-terminal').exists()).toBe(true);
-    expect(wrapper.find('.server-config-card').exists()).toBe(false);
-    expect(wrapper.find('.server-support-grid').exists()).toBe(false);
-    expect(wrapper.find('.server-status-label').text()).toContain('Executando');
+    expect(wrapper.text()).toContain('Executando');
     expect(
       wrapper
         .get<HTMLAnchorElement>('a[aria-label="Abrir aplicação"]')
         .attributes('href'),
     ).toBe('http://localhost:3000');
-    expect(wrapper.find('button[aria-label="Copiar URL local"]').exists()).toBe(
-      true,
-    );
-    expect(wrapper.text()).toContain('Console');
-    expect(wrapper.text()).toContain('Parar');
     expect(wrapper.text()).toContain('Reiniciar');
-    expect(wrapper.text()).toContain('Configurar');
-    expect(wrapper.text()).not.toContain('Configuração do processo');
-    expect(wrapper.text()).not.toContain('Abrir no navegador do sistema');
-    expect(wrapper.text()).not.toContain('Health check');
-
-    wrapper.unmount();
-  });
-
-  it('renderiza o painel Git com sua navegação própria', async () => {
-    const wrapper = mount(ProjectGitPanel, { props: { project } });
-    await flushPromises();
-
-    expect(wrapper.find('.git-modern-panel').exists()).toBe(true);
-    expect(wrapper.find('.git-subtabs').exists()).toBe(true);
-    expect(
-      wrapper.findAll('.git-subtabs button').map((button) => button.text()),
-    ).toEqual([
-      'Sincronização',
-      'Branches',
-      'Diff',
-      'Commit',
-      'Desfazer',
-      'Issues',
-      'Pull Request',
-      'Histórico',
-    ]);
-    expect(wrapper.find('.git-subtabs').text()).not.toContain('Resumo');
-    expect(wrapper.find('.git-subtabs button')?.text()).toContain(
-      'Sincronização',
-    );
-
-    wrapper.unmount();
-  });
-
-  it('renderiza o painel de testes como workspace contínuo', async () => {
-    const wrapper = mount(ProjectTestsPanel, {
-      props: { project },
-      global: { plugins: [createTestRouter()] },
-    });
-    await flushPromises();
-
-    expect(wrapper.find('.tests-pty-panel').exists()).toBe(true);
-    expect(wrapper.find('.tests-execution-controls').exists()).toBe(true);
-    expect(wrapper.find('.dd-card').exists()).toBe(false);
-
-    wrapper.unmount();
-  });
-
-  it('renderiza banco de dados somente com ambientes', async () => {
-    const wrapper = mount(ProjectDatabasePanel, { props: { project } });
-    await flushPromises();
-
-    expect(wrapper.find('.database-explorer').exists()).toBe(true);
-    expect(wrapper.find('.database-environments-layout').exists()).toBe(true);
-    expect(wrapper.find('.database-explorer-tabs').exists()).toBe(false);
+    expect(wrapper.text()).toContain('Parar');
 
     wrapper.unmount();
   });

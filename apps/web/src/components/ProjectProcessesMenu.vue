@@ -5,8 +5,8 @@ import { EllipsisVerticalIcon } from '@heroicons/vue/24/outline';
 
 import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
 
-import { startProjectProcess, stopProjectProcess } from '../api';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
+import { useProjectServerControls } from '../composables/useProjectServerControls';
 import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
 
 const props = withDefaults(
@@ -21,13 +21,19 @@ const emit = defineEmits<{
   'worker-detected': [workerId: RailsWorkerId, detected: boolean];
 }>();
 
-const serverBusy = ref<'start' | 'stop' | null>(null);
 const errorMessage = ref('');
 
 const server = useProjectProcessStatus(
   () => props.project,
   () => props.environmentInstanceId,
 );
+const serverControls = useProjectServerControls({
+  getProject: () => props.project,
+  getEnvironmentInstanceId: () => props.environmentInstanceId,
+  managedProcess: server.managedProcess,
+  errorMessage,
+  scheduleProcessPolling: server.scheduleProcessPolling,
+});
 const sidekiq = useProjectRailsWorker(
   () => props.project,
   'sidekiq',
@@ -74,45 +80,6 @@ interface ProcessItem {
   stop: () => Promise<void>;
 }
 
-async function startServer(): Promise<void> {
-  serverBusy.value = 'start';
-  errorMessage.value = '';
-  try {
-    const nextProcess = props.environmentInstanceId
-      ? await startProjectProcess(props.project.id, {
-          environmentInstanceId: props.environmentInstanceId,
-        })
-      : await startProjectProcess(props.project.id);
-    server.managedProcess.value = nextProcess;
-    server.scheduleProcessPolling();
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível iniciar o servidor.';
-  } finally {
-    serverBusy.value = null;
-  }
-}
-
-async function stopServer(): Promise<void> {
-  serverBusy.value = 'stop';
-  errorMessage.value = '';
-  try {
-    const nextProcess = props.environmentInstanceId
-      ? await stopProjectProcess(props.project.id, props.environmentInstanceId)
-      : await stopProjectProcess(props.project.id);
-    server.managedProcess.value = nextProcess;
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível parar o servidor.';
-  } finally {
-    serverBusy.value = null;
-  }
-}
-
 const isRailsProject = computed(() => props.project.type === 'rails');
 
 const items = computed<ProcessItem[]>(() => {
@@ -123,10 +90,10 @@ const items = computed<ProcessItem[]>(() => {
       key: 'server',
       label: 'Servidor',
       running: server.canStop.value,
-      busy: serverBusy.value !== null,
+      busy: serverControls.action.value !== null,
       statusLabel: server.statusLabel.value,
-      start: startServer,
-      stop: stopServer,
+      start: () => serverControls.start(),
+      stop: () => serverControls.stop(),
     });
   }
 
@@ -309,40 +276,52 @@ async function toggleItem(item: ProcessItem): Promise<void> {
 .processes-menu-trigger {
   position: relative;
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   color: var(--text-muted);
-  background: var(--surface-2);
+  background: transparent;
   place-items: center;
   cursor: pointer;
+  transition:
+    color 160ms ease,
+    background 160ms ease;
 }
 
 .processes-menu-trigger:hover {
   color: var(--text);
-  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+
+.processes-menu-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .processes-menu-trigger svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
+/* Quantidade de processos em execução: verde, recortado da borda do botão. */
 .processes-menu-count {
   position: absolute;
-  top: -5px;
-  right: -5px;
+  top: -6px;
+  right: -6px;
   display: inline-grid;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid var(--surface-1);
   border-radius: 999px;
-  color: #fff;
-  background: var(--danger-text);
-  font-size: 9px;
+  box-sizing: content-box;
+  color: #0b1d12;
+  background: var(--success-text);
+  font-size: 10px;
   font-weight: 800;
+  line-height: 1;
   place-items: center;
 }
 </style>

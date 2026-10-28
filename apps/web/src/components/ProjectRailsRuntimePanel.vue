@@ -1,23 +1,29 @@
 <script setup lang="ts">
-import {
-  ArrowPathIcon,
-  ArrowsPointingInIcon,
-  ArrowsPointingOutIcon,
-  ChevronDownIcon,
-  InformationCircleIcon,
-  PlayIcon,
-  StopIcon,
-} from '@heroicons/vue/24/outline';
+import { computed, watch } from 'vue';
+import { PlayIcon, ServerStackIcon } from '@heroicons/vue/24/outline';
 
-import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
-
-import { ref, watch } from 'vue';
+import type {
+  ManagedProcess,
+  Project,
+  RailsWorkerId,
+} from '@dev-dashboard/contracts';
 
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
-import { processToneFor } from '../utils/status-tones';
-import ProjectLogTerminal from './ProjectLogTerminal.vue';
-import StatusBadge from './StatusBadge.vue';
+import { useProjectServerMetrics } from '../composables/useProjectServerMetrics';
+import {
+  parseSidekiqLog,
+  sidekiqLogFilters,
+  sidekiqRuntimeInfo,
+} from '../utils/sidekiq-log-lines';
+import {
+  parseWebpackLog,
+  webpackLogFilters,
+  webpackRuntimeInfo,
+} from '../utils/webpack-log-lines';
+import ProcessConsole from './process/ProcessConsole.vue';
+import ProcessStatusBar from './process/ProcessStatusBar.vue';
+import UiButton from './ui/UiButton.vue';
 
 const props = defineProps<{
   project: Project;
@@ -35,6 +41,12 @@ const worker = useProjectRailsWorker(
 
 useAutoDismiss(worker.errorMessage, '');
 
+const { uptimeLabel } = useProjectServerMetrics(
+  () => props.project,
+  worker.managedProcess,
+  worker.status,
+);
+
 watch(
   () =>
     [props.project.id, worker.detected.value, worker.canStop.value] as const,
@@ -51,621 +63,243 @@ watch(
   },
 );
 
-const workerLabels: Record<RailsWorkerId, string> = {
-  sidekiq: 'Sidekiq',
-  webpack: 'Webpack',
-};
+const WORKERS = {
+  sidekiq: {
+    name: 'Sidekiq',
+    processLabel: 'Sidekiq',
+    defaultCommand: 'bundle exec sidekiq',
+    description:
+      'Processa os jobs em segundo plano. Precisa do Redis ativo para iniciar.',
+    parse: parseSidekiqLog,
+    filters: sidekiqLogFilters,
+    technical: true,
+    canRestart: true,
+  },
+  webpack: {
+    name: 'Webpack',
+    processLabel: 'webpack-dev-server',
+    defaultCommand: 'bin/webpack-dev-server',
+    description: 'Compila os assets do projeto em tempo real.',
+    parse: parseWebpackLog,
+    filters: webpackLogFilters,
+    technical: false,
+    canRestart: false,
+  },
+} as const;
 
-const workerProcessLabels: Record<RailsWorkerId, string> = {
-  sidekiq: 'Sidekiq',
-  webpack: 'webpack-dev-server',
-};
+const meta = computed(() => WORKERS[props.workerId]);
 
-const supportsRestart = props.workerId === 'sidekiq';
-const logMaximized = ref(false);
-
-function toggleLogMaximized(): void {
-  logMaximized.value = !logMaximized.value;
+function commandOf(process: ManagedProcess | null): string {
+  if (!process?.command) return meta.value.defaultCommand;
+  return [process.command, ...(process.args ?? [])]
+    .join(' ')
+    .replace(`${props.project.path}/`, '');
 }
 
-function formatDate(value?: string): string {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('pt-BR');
-}
+/** Chips lidos do que o próprio processo imprime ao iniciar. */
+const chips = computed(() => {
+  const content = worker.log.value?.content ?? '';
+  const list: string[] = [];
+
+  if (props.workerId === 'sidekiq') {
+    const info = sidekiqRuntimeInfo(content);
+    if (info.redis) list.push(info.redis);
+    if (info.version) list.push(`Sidekiq ${info.version}`);
+  } else {
+    const info = webpackRuntimeInfo(content);
+    if (info.port) list.push(`:${info.port}`);
+    if (info.version) list.push(`webpack-dev-server ${info.version}`);
+  }
+
+  list.push(commandOf(worker.managedProcess.value));
+  return list;
+});
+
+const statusNote = computed(() => {
+  const process = worker.managedProcess.value;
+  if (worker.status.value === 'running') {
+    return [
+      uptimeLabel.value !== '—' ? `há ${uptimeLabel.value}` : '',
+      process?.pid ? `PID ${process.pid}` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }
+  if (worker.status.value === 'failed' && process?.exitCode !== undefined) {
+    return `código de saída ${process.exitCode}`;
+  }
+  return '';
+});
 </script>
 
 <template>
-  <div class="rails-runtime-panel">
-    <section
-      class="rails-worker-panel"
-      :data-worker-id="workerId"
-      aria-label="Estado do processo"
+  <div class="rails-runtime-panel" :data-worker-id="workerId">
+    <p v-if="worker.errorMessage.value" class="process-alert" role="alert">
+      {{ worker.errorMessage.value }}
+    </p>
+
+    <p
+      v-if="worker.loading.value && !worker.detected.value"
+      class="process-note"
     >
-      <div class="rails-worker-card">
-        <p
-          v-if="worker.errorMessage.value"
-          class="rails-worker-error"
-          role="alert"
-        >
-          {{ worker.errorMessage.value }}
-        </p>
+      Verificando se {{ meta.processLabel }} está disponível no projeto…
+    </p>
 
-        <p
-          v-if="worker.loading.value && !worker.detected.value"
-          class="rails-worker-empty"
-        >
-          Verificando se {{ workerProcessLabels[workerId] }} está disponível no
-          projeto…
-        </p>
+    <div v-else-if="!worker.detected.value" class="process-note">
+      <ServerStackIcon aria-hidden="true" />
+      <strong>{{ meta.processLabel }} não foi detectado.</strong>
+      <p>
+        O painel será habilitado automaticamente quando o projeto possuir a
+        dependência ou o binstub correspondente.
+      </p>
+    </div>
 
-        <div
-          v-else-if="!worker.detected.value"
-          class="rails-worker-empty-state"
-        >
-          <strong
-            >{{ workerProcessLabels[workerId] }} não foi detectado.</strong
-          >
-          <p>
-            O painel será habilitado automaticamente quando o projeto possuir a
-            dependência ou o binstub correspondente.
-          </p>
-        </div>
+    <template v-else>
+      <ProcessStatusBar
+        :status="worker.status.value"
+        :status-label="`${meta.name} · ${worker.statusLabel.value}`"
+        :status-note="statusNote"
+        :chips="chips"
+        :action="worker.currentAction.value"
+        :can-restart="meta.canRestart"
+        :start-label="`Iniciar ${meta.name}`"
+        @start="worker.start()"
+        @stop="worker.stop()"
+        @restart="worker.restart()"
+      />
 
-        <template v-else>
+      <p
+        v-if="worker.status.value === 'failed' && !worker.errorMessage.value"
+        class="process-alert"
+        role="alert"
+      >
+        {{ meta.name }} encerrou com falha<template
+          v-if="worker.managedProcess.value?.exitCode !== undefined"
+        >
+          (código {{ worker.managedProcess.value.exitCode }})</template
+        >. Consulte o log abaixo e tente iniciar novamente.
+      </p>
+
+      <ProcessConsole
+        :content="worker.log.value?.content ?? ''"
+        :parse="meta.parse"
+        :filters="meta.filters"
+        :technical="meta.technical"
+        :running="worker.status.value === 'running'"
+        :masked-count="worker.log.value?.redactionCount ?? 0"
+        :clearable="worker.detected.value"
+        :clearing="worker.clearingLog.value"
+        title="Log"
+        @clear="worker.clearLog()"
+      >
+        <template #empty>
           <p
             v-if="
-              worker.status.value === 'failed' && !worker.errorMessage.value
+              worker.status.value === 'running' ||
+              worker.status.value === 'starting'
             "
-            class="rails-worker-error"
-            role="alert"
+            class="process-waiting"
           >
-            {{ workerLabels[workerId] }} encerrou com falha<template
-              v-if="worker.managedProcess.value?.exitCode !== undefined"
-            >
-              (código {{ worker.managedProcess.value.exitCode }})</template
-            >. Consulte o log abaixo e tente iniciar novamente.
+            $ aguardando saída de {{ meta.processLabel }}…
           </p>
-
-          <header class="rails-worker-toolbar">
-            <div class="rails-worker-identity">
-              <span
-                class="rails-worker-status-dot"
-                :class="{ 'is-running': worker.status.value === 'running' }"
-                aria-hidden="true"
-              />
-              <strong>{{ workerLabels[workerId] }}</strong>
-              <StatusBadge :tone="processToneFor(worker.status.value)">
-                {{ worker.statusLabel.value }}
-              </StatusBadge>
-            </div>
-
-            <div class="rails-worker-actions">
-              <details class="rails-worker-details">
-                <summary class="rails-worker-details-trigger">
-                  <InformationCircleIcon aria-hidden="true" />
-                  Detalhes
-                  <ChevronDownIcon
-                    class="rails-worker-details-chevron"
-                    aria-hidden="true"
-                  />
-                </summary>
-
-                <div class="rails-worker-details-popover">
-                  <dl>
-                    <div>
-                      <dt>PID</dt>
-                      <dd>{{ worker.managedProcess.value?.pid ?? '—' }}</dd>
-                    </div>
-                    <div>
-                      <dt>Iniciado em</dt>
-                      <dd>
-                        {{ formatDate(worker.managedProcess.value?.startedAt) }}
-                      </dd>
-                    </div>
-                    <div class="rails-worker-command">
-                      <dt>Comando</dt>
-                      <dd>
-                        <code>{{
-                          worker.managedProcess.value?.command ??
-                          'Ainda não iniciado pelo dashboard'
-                        }}</code>
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              </details>
-
-              <button
-                v-if="worker.currentAction.value === 'start'"
-                type="button"
-                class="primary-button"
-                disabled
-              >
-                <PlayIcon aria-hidden="true" />
-                Iniciando…
-              </button>
-
-              <button
-                v-else-if="worker.currentAction.value === 'restart'"
-                type="button"
-                class="secondary-button"
-                disabled
-              >
-                <ArrowPathIcon aria-hidden="true" />
-                Reiniciando…
-              </button>
-
-              <button
-                v-else-if="worker.currentAction.value === 'stop'"
-                type="button"
-                class="rails-worker-stop-button"
-                disabled
-              >
-                <StopIcon aria-hidden="true" />
-                Parando…
-              </button>
-
-              <button
-                v-else-if="worker.status.value === 'starting'"
-                type="button"
-                class="primary-button"
-                disabled
-              >
-                <PlayIcon aria-hidden="true" />
-                Iniciando…
-              </button>
-
-              <template v-else-if="worker.status.value === 'running'">
-                <button
-                  v-if="supportsRestart"
-                  type="button"
-                  class="secondary-button"
-                  @click="worker.restart()"
-                >
-                  <ArrowPathIcon aria-hidden="true" />
-                  Reiniciar
-                </button>
-                <button
-                  type="button"
-                  class="rails-worker-stop-button"
-                  @click="worker.stop()"
-                >
-                  <StopIcon aria-hidden="true" />
-                  Parar
-                </button>
-              </template>
-
-              <button
-                v-else-if="worker.status.value === 'stopping'"
-                type="button"
-                class="rails-worker-stop-button"
-                disabled
-              >
-                <StopIcon aria-hidden="true" />
-                Parando…
-              </button>
-
-              <button
-                v-else
-                type="button"
-                class="primary-button"
-                @click="worker.start()"
-              >
-                <PlayIcon aria-hidden="true" />
-                {{
-                  worker.status.value === 'failed'
-                    ? 'Iniciar novamente'
-                    : 'Iniciar'
-                }}
-              </button>
-            </div>
-          </header>
-
-          <section
-            class="rails-log-panel"
-            :class="{ 'rails-log-panel-expanded': logMaximized }"
-            :aria-label="'Log do ' + workerProcessLabels[workerId]"
-          >
-            <div class="rails-log-panel-body">
-              <ProjectLogTerminal
-                :content="worker.log.value?.content ?? ''"
-                :running="worker.status.value === 'running'"
-                :masked-count="worker.log.value?.redactionCount ?? 0"
-                :clearable="worker.detected.value"
-                :clearing="worker.clearingLog.value"
-                :title="worker.status.value === 'running' ? 'Ao vivo' : 'Log'"
-                copy-label="Copiar"
-                :show-status-label="false"
-                :show-follow-status="false"
-                @clear="worker.clearLog()"
-              >
-                <template #actions>
-                  <button
-                    type="button"
-                    class="rails-log-panel-button"
-                    :aria-label="
-                      logMaximized ? 'Restaurar log' : 'Expandir log'
-                    "
-                    @click="toggleLogMaximized"
-                  >
-                    <ArrowsPointingInIcon
-                      v-if="logMaximized"
-                      aria-hidden="true"
-                    />
-                    <ArrowsPointingOutIcon v-else aria-hidden="true" />
-                    {{ logMaximized ? 'Restaurar' : 'Expandir' }}
-                  </button>
-                </template>
-              </ProjectLogTerminal>
-            </div>
-          </section>
+          <div v-else class="process-stopped">
+            <ServerStackIcon aria-hidden="true" />
+            <strong>{{ meta.name }} parado</strong>
+            <p>{{ meta.description }}</p>
+            <code>$ {{ commandOf(worker.managedProcess.value) }}</code>
+            <UiButton variant="primary" @click="worker.start()">
+              <PlayIcon aria-hidden="true" />
+              Iniciar {{ meta.name }}
+            </UiButton>
+          </div>
         </template>
-      </div>
-    </section>
+      </ProcessConsole>
+    </template>
   </div>
 </template>
 
 <style scoped>
 .rails-runtime-panel {
   display: flex;
-  width: 100%;
-  min-width: 0;
-  min-height: calc(100vh - var(--app-topbar-height, 72px));
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--surface-1);
-}
-
-.rails-worker-panel,
-.rails-worker-card {
-  display: flex;
-  min-width: 0;
   min-height: 0;
-  flex: 1 1 auto;
   flex-direction: column;
+  gap: 14px;
 }
 
-.rails-worker-card {
-  overflow: hidden;
-  background: var(--surface-1);
-}
-
-.rails-worker-error {
-  flex: 0 0 auto;
+.process-alert {
   margin: 0;
-  padding: 9px 14px;
-  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--danger-text) 35%, transparent);
+  border-radius: 12px;
   color: var(--danger-text);
-  background: var(--danger-surface);
-  font-size: 10px;
+  background: color-mix(in srgb, var(--danger-text) 12%, transparent);
+  font-size: 13px;
 }
 
-.rails-worker-empty,
-.rails-worker-empty-state {
+.process-note {
   display: grid;
-  min-height: 0;
-  flex: 1 1 auto;
-  place-content: center;
   justify-items: center;
-  gap: 6px;
-  padding: 28px 18px;
+  gap: 10px;
+  margin: 0;
+  padding: 40px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
   color: var(--text-muted);
+  background: var(--surface-1);
   text-align: center;
-  font-size: 10px;
 }
 
-.rails-worker-empty-state strong {
-  display: block;
-  color: var(--text);
-  font-size: 12px;
-}
-
-.rails-worker-empty-state p {
-  max-width: 620px;
-  margin: 0;
-  line-height: 1.5;
-}
-
-.rails-worker-toolbar {
-  display: flex;
-  min-height: 54px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 9px 12px 9px 14px;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
-}
-
-.rails-worker-identity,
-.rails-worker-actions {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 8px;
-}
-
-.rails-worker-identity > strong {
-  color: var(--text);
-  font-size: 12px;
-}
-
-.rails-worker-status-dot {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: var(--text-dim);
-}
-
-.rails-worker-status-dot.is-running {
-  background: var(--success-text);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success-text) 14%, transparent);
-}
-
-.rails-worker-actions {
-  flex: 0 0 auto;
-}
-
-.rails-worker-actions button,
-.rails-worker-details-trigger {
-  display: inline-flex;
-  min-height: 32px;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border-radius: var(--radius-sm);
-  font-size: 10px;
-}
-
-.rails-worker-actions svg,
-.rails-worker-details-trigger svg {
-  width: 14px;
-  height: 14px;
-}
-
-.rails-worker-details {
-  position: relative;
-}
-
-.rails-worker-details-trigger {
-  padding: 0 9px;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  background: transparent;
-  font-weight: var(--font-weight-strong);
-  cursor: pointer;
-  list-style: none;
-}
-
-.rails-worker-details-trigger::-webkit-details-marker {
-  display: none;
-}
-
-.rails-worker-details-trigger:hover {
-  border-color: var(--border-strong);
-  color: var(--text);
-  background: var(--surface-2);
-}
-
-.rails-worker-details-chevron {
-  transition: transform var(--motion-duration-fast)
-    var(--motion-easing-standard);
-}
-
-.rails-worker-details[open] .rails-worker-details-chevron {
-  transform: rotate(180deg);
-}
-
-.rails-worker-details-popover {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 8px);
-  right: 0;
-  width: min(520px, calc(100vw - 64px));
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
-  box-shadow: 0 12px 32px rgb(0 0 0 / 24%);
-}
-
-.rails-worker-details-popover dl {
-  display: grid;
-  grid-template-columns: minmax(90px, 0.35fr) minmax(180px, 0.65fr);
-  gap: 12px;
-  margin: 0;
-}
-
-.rails-worker-details-popover dt {
-  margin-bottom: 4px;
+.process-note svg {
+  width: 32px;
+  height: 32px;
   color: var(--text-dim);
-  font-size: 9px;
-  font-weight: var(--font-weight-strong);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
-.rails-worker-details-popover dd {
+.process-note p,
+.process-note strong {
   margin: 0;
-  color: var(--text);
-  font-size: 10px;
 }
 
-.rails-worker-command {
-  min-width: 0;
-  grid-column: 1 / -1;
+.process-waiting {
+  margin: 0;
+  padding: 0 16px;
+  color: var(--text-dim);
 }
 
-.rails-worker-command code {
-  display: block;
-  overflow: auto;
-  padding: 8px 9px;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  background: var(--surface-0);
-  font-family: var(--font-family-code);
-  font-size: 10px;
-  white-space: nowrap;
-}
-
-.rails-worker-stop-button {
-  display: inline-flex;
-  min-height: 32px;
-  align-items: center;
-  gap: 6px;
-  padding: 0 10px;
-  border: 1px solid var(--danger-text);
-  border-radius: var(--radius-sm);
-  color: #fff;
-  background: var(--danger-text);
-  cursor: pointer;
-  font: inherit;
-  font-size: 10px;
-  font-weight: var(--font-weight-strong);
-}
-
-.rails-worker-stop-button:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.rails-worker-stop-button:disabled {
-  cursor: wait;
-  opacity: 0.55;
-}
-
-.rails-log-panel {
+.process-stopped {
   display: flex;
-  min-height: 0;
-  flex: 1 1 auto;
+  max-width: 480px;
   flex-direction: column;
-  overflow: hidden;
-  background: var(--surface-0);
-}
-
-.rails-log-panel-expanded {
-  position: fixed;
-  z-index: 1000;
-  inset: 0;
-  min-height: 0;
-  background: var(--surface-1);
-}
-
-.rails-log-panel-body {
-  display: flex;
-  min-height: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-}
-
-.rails-log-panel-body .project-log-terminal {
-  min-height: 0;
-  flex: 1 1 auto;
-}
-
-.rails-log-panel-body :deep(.project-log-viewer) {
-  display: flex;
-  min-height: 0;
-  flex: 1 1 auto;
-  flex-direction: column;
-  border: 0;
-  border-radius: 0;
-  background: var(--surface-0);
-}
-
-.rails-log-panel-body :deep(.project-log-viewer-header) {
-  min-height: 44px;
-  padding: 7px 12px;
-  border-top: 0;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
-}
-
-.rails-log-panel-body :deep(.project-log-viewer-output) {
-  min-height: 0;
-  max-height: none;
-  flex: 1 1 auto;
-  background: var(--surface-0);
-}
-
-.rails-log-panel-body :deep(.project-log-viewer-output pre) {
-  min-height: 100%;
-  box-sizing: border-box;
-  padding: 14px 16px 20px;
-  background: var(--surface-0);
-  font-size: 11px;
-  line-height: 1.6;
-}
-
-.rails-log-panel-button {
-  display: inline-flex;
-  min-height: 28px;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 12px;
+  margin: auto;
+  padding: 40px 16px;
+  font-family: var(--font-family);
+  text-align: center;
+}
+
+.process-stopped svg {
+  width: 40px;
+  height: 40px;
+  color: var(--text-dim);
+}
+
+.process-stopped strong {
+  font-size: 16px;
+}
+
+.process-stopped p {
+  margin: 0;
+  color: var(--text-dim);
+}
+
+.process-stopped code {
+  padding: 10px 14px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   color: var(--text-muted);
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  font-size: 9px;
-}
-
-.rails-log-panel-button svg {
-  width: 13px;
-  height: 13px;
-}
-
-.rails-log-panel-button:hover {
-  border-color: var(--border-strong);
-  color: var(--text);
-  background: var(--surface-2);
-}
-
-@media (max-width: 720px) {
-  .rails-worker-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .rails-worker-actions {
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-
-  .rails-worker-details-popover {
-    position: static;
-    width: min(100%, 520px);
-    margin-top: 8px;
-  }
-}
-
-@media (max-width: 520px) {
-  .rails-worker-identity {
-    flex-wrap: wrap;
-  }
-
-  .rails-worker-actions {
-    justify-content: stretch;
-  }
-
-  .rails-worker-actions > button,
-  .rails-worker-details,
-  .rails-worker-details-trigger {
-    flex: 1 1 auto;
-  }
-
-  .rails-worker-details-popover dl {
-    grid-template-columns: 1fr;
-  }
-
-  .rails-worker-command {
-    grid-column: auto;
-  }
+  background: var(--surface-1);
+  font-family: var(--font-family-mono);
+  font-size: 13px;
 }
 </style>
