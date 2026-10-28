@@ -38,6 +38,8 @@ jobs:
 
       - name: Setup
         uses: ./.github/actions/setup
+        with:
+          native-modules: esbuild
 
       - name: Cache de ESLint e Prettier
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -53,13 +55,20 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Typecheck dos testes do web
+        run: npm run typecheck:tests --workspace=@dev-dashboard/web
+
       - name: Build
         run: npm run build:apps
 
   test-api:
-    name: Testes da API
+    name: Testes da API (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
 
     steps:
       - name: Checkout
@@ -74,17 +83,23 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /tmp/tsx-*
-          key: tsx-api-${{ runner.os }}-${{ hashFiles('apps/api/src/**', 'apps/api/test/**', 'packages/*/src/**') }}
+          key: tsx-api-${{ runner.os }}-${{ hashFiles('apps/api/src/**', 'apps/api/test/**', 'packages/*/src/**') }}-${{ matrix.shard }}
           restore-keys: |
             tsx-api-${{ runner.os }}-
 
       - name: Testes
-        run: npm run test --workspace=@dev-dashboard/api
+        env:
+          TEST_SHARD: ${{ matrix.shard }}/3
+        run: npm run test:shard --workspace=@dev-dashboard/api
 
   test-web:
-    name: Testes do web
+    name: Testes do web (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
 
     steps:
       - name: Checkout
@@ -92,9 +107,13 @@ jobs:
 
       - name: Setup
         uses: ./.github/actions/setup
+        with:
+          native-modules: esbuild
 
       - name: Testes
-        run: npm run test --workspace=@dev-dashboard/web
+        env:
+          TEST_SHARD: ${{ matrix.shard }}/2
+        run: npm run test:shard --workspace=@dev-dashboard/web
 
   test-rest:
     name: Testes dos packages e scripts

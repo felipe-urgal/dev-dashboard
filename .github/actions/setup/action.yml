@@ -1,6 +1,11 @@
 name: Preparar ambiente
 description: Node, dependências, módulos nativos e build dos packages
 
+inputs:
+  native-modules:
+    description: Módulos nativos a recompilar (node-pty só é necessário para a API e os packages)
+    default: esbuild node-pty
+
 runs:
   using: composite
   steps:
@@ -16,7 +21,7 @@ runs:
 
     - name: Prepare native dependencies
       shell: bash
-      run: npm rebuild esbuild node-pty
+      run: npm rebuild ${{ inputs.native-modules }}
 
     - name: Build packages
       shell: bash

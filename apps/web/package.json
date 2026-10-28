@@ -8,7 +8,9 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
     "test": "tsc -p tsconfig.test.json --noEmit && vitest run",
+    "test:shard": "vitest run --shard=$TEST_SHARD",
     "test:coverage": "tsc -p tsconfig.test.json --noEmit && vitest run --coverage",
     "test:e2e": "tsc -p e2e/tsconfig.json --noEmit && playwright test --config=e2e/playwright.config.ts"
   },
