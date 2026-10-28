@@ -24,7 +24,7 @@ test.describe('Mutações de branch Git do projeto', () => {
     await openProjectTool(page, 'Git', 'Branches');
 
     await expect(
-      page.locator('.branch-table-row', {
+      page.locator('[data-branch]', {
         has: page.getByText('main', { exact: true }),
       }),
     ).toBeVisible();
@@ -41,10 +41,12 @@ test.describe('Mutações de branch Git do projeto', () => {
       page.getByText('Branch "feature/e2e-branch" criada e selecionada.'),
     ).toBeVisible();
 
-    const newBranchRow = page.locator('.branch-table-row', {
+    const newBranchRow = page.locator('[data-branch]', {
       has: page.getByText('feature/e2e-branch', { exact: true }),
     });
-    await expect(newBranchRow.locator('.branch-current-badge')).toBeVisible();
+    await expect(
+      newBranchRow.getByText('Atual', { exact: true }),
+    ).toBeVisible();
 
     // Erro: recriar o mesmo nome falha, sem trocar a branch atual.
     await page.getByRole('button', { name: 'Nova branch' }).click();
@@ -52,10 +54,12 @@ test.describe('Mutações de branch Git do projeto', () => {
     await page.getByRole('button', { name: 'Criar e trocar' }).click();
     await page.getByRole('button', { name: 'Criar branch' }).click();
     await expect(page.getByRole('alert')).toBeVisible();
-    await expect(newBranchRow.locator('.branch-current-badge')).toBeVisible();
+    await expect(
+      newBranchRow.getByText('Atual', { exact: true }),
+    ).toBeVisible();
 
     // Trocar de volta para "main" pela ação "Trocar" da própria linha.
-    const mainRow = page.locator('.branch-table-row', {
+    const mainRow = page.locator('[data-branch]', {
       has: page.getByText('main', { exact: true }),
     });
     await mainRow.getByRole('button', { name: 'Trocar' }).click();
@@ -64,12 +68,14 @@ test.describe('Mutações de branch Git do projeto', () => {
     ).toBeVisible();
     await page.getByRole('button', { name: 'Trocar de branch' }).click();
     await expect(page.getByText('Agora na branch "main".')).toBeVisible();
-    await expect(mainRow.locator('.branch-current-badge')).toBeVisible();
+    await expect(mainRow.getByText('Atual', { exact: true })).toBeVisible();
 
     // Publica a branch local e mantém o origin dentro do próprio fixture.
     await newBranchRow.getByRole('button', { name: 'Trocar' }).click();
     await page.getByRole('button', { name: 'Trocar de branch' }).click();
-    await expect(newBranchRow.locator('.branch-current-badge')).toBeVisible();
+    await expect(
+      newBranchRow.getByText('Atual', { exact: true }),
+    ).toBeVisible();
 
     await newBranchRow.getByLabel('Mais ações para feature/e2e-branch').click();
     await newBranchRow.getByRole('button', { name: 'Publicar' }).click();
@@ -82,7 +88,7 @@ test.describe('Mutações de branch Git do projeto', () => {
 
     // Renomear localmente preserva a associação com o origin antigo.
     await newBranchRow.getByLabel('Mais ações para feature/e2e-branch').click();
-    await newBranchRow.getByRole('button', { name: 'Renomear' }).click();
+    await page.getByText('Renomear', { exact: true }).click();
     await page.getByLabel('Novo nome').fill('feature/e2e-renamed');
     await page.getByRole('button', { name: 'Salvar novo nome' }).click();
     await expect(
@@ -91,7 +97,7 @@ test.describe('Mutações de branch Git do projeto', () => {
       ),
     ).toBeVisible();
 
-    const renamedRow = page.locator('.branch-table-row', {
+    const renamedRow = page.locator('[data-branch]', {
       has: page.getByText('feature/e2e-renamed', { exact: true }),
     });
     await expect(
@@ -99,7 +105,7 @@ test.describe('Mutações de branch Git do projeto', () => {
     ).toBeVisible();
 
     // Branch existente apenas no origin pode ser trazida para local.
-    const remoteOnlyRow = page.locator('.branch-table-row', {
+    const remoteOnlyRow = page.locator('[data-branch]', {
       has: page.getByText('feature/remota-e2e', { exact: true }),
     });
     await remoteOnlyRow
@@ -115,17 +121,15 @@ test.describe('Mutações de branch Git do projeto', () => {
     // A branch trazida pode ser removida localmente após voltar para main.
     await mainRow.getByRole('button', { name: 'Trocar' }).click();
     await page.getByRole('button', { name: 'Trocar de branch' }).click();
-    await expect(mainRow.locator('.branch-current-badge')).toBeVisible();
+    await expect(mainRow.getByText('Atual', { exact: true })).toBeVisible();
 
-    const trackedRemoteRow = page.locator('.branch-table-row', {
+    const trackedRemoteRow = page.locator('[data-branch]', {
       has: page.getByText('feature/remota-e2e', { exact: true }),
     });
     await trackedRemoteRow
       .getByLabel('Mais ações para feature/remota-e2e')
       .click();
-    await trackedRemoteRow
-      .getByRole('button', { name: 'Remover branch' })
-      .click();
+    await page.getByText('Remover branch local', { exact: true }).click();
     await page.getByLabel('Nome da branch').fill('feature/remota-e2e');
     await page.getByRole('button', { name: 'Remover branch local' }).click();
     await expect(
@@ -142,6 +146,6 @@ test.describe('Mutações de branch Git do projeto', () => {
     await expect(
       page.getByText('Este projeto não é um repositório Git.'),
     ).toBeVisible();
-    await expect(page.locator('.branch-table-row')).toHaveCount(0);
+    await expect(page.locator('[data-branch]')).toHaveCount(0);
   });
 });

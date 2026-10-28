@@ -92,16 +92,6 @@
   background: var(--surface-0);
 }
 
-.processes-table-title {
-  color: var(--text);
-  font-size: 13px;
-}
-
-.processes-table-title:hover,
-.processes-table-title:focus-visible {
-  color: var(--accent);
-}
-
 .git-modern-panel {
   min-height: 0;
   background: var(--surface-1);
@@ -185,8 +175,6 @@
   padding: 12px 22px 0;
 }
 
-.git-sync-page,
-.git-branches-page,
 .git-diff-page,
 .git-history-page,
 .git-pr-card,
@@ -195,41 +183,18 @@
   background: var(--surface-1);
 }
 
-.git-sync-card,
 .git-command-card,
 .git-table-card,
 .git-history-table-wrapper,
 .git-commit-card,
 .git-undo-card,
-.git-pr-card,
-.branch-table-card {
+.git-pr-card {
   border-color: var(--border);
   border-radius: 10px;
   background: var(--surface-1);
 }
 
-.git-sync-card {
-  padding: 20px 22px;
-}
-
-.git-sync-main-row {
-  min-width: 0;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.git-sync-relationship > svg {
-  color: var(--accent);
-}
-
-.git-sync-status {
-  font-size: 10px;
-}
-
-.git-sync-button,
 .git-commit-submit,
-.branch-create-button,
-.branch-refresh-button,
 .git-diff-refresh-button {
   border-color: var(--accent-strong);
   border-radius: 8px;
@@ -237,10 +202,7 @@
   background: var(--accent-soft);
 }
 
-.git-sync-button:hover:not(:disabled),
 .git-commit-submit:hover:not(:disabled),
-.branch-create-button:hover:not(:disabled),
-.branch-refresh-button:hover:not(:disabled),
 .git-diff-refresh-button:hover:not(:disabled) {
   border-color: var(--accent);
   background: var(--accent-strong);
@@ -287,8 +249,7 @@
 }
 
 .git-history-toolbar,
-.git-diff-toolbar,
-.branch-table-toolbar {
+.git-diff-toolbar {
   padding: 14px 18px;
   border-color: var(--border);
   background: var(--surface-1);
@@ -306,37 +267,31 @@
 
 .git-history-table thead th,
 .git-history-day th,
-.git-diff-file-head,
-.branch-table-header {
+.git-diff-file-head {
   border-color: var(--border);
   background: var(--surface-2);
   color: var(--text-dim);
 }
 
-.git-history-row td,
-.branch-table-row {
+.git-history-row td {
   border-color: var(--border);
 }
 
-.git-history-row:hover td,
-.branch-table-row:hover {
+.git-history-row:hover td {
   background: var(--surface-2);
 }
 
-.git-history-row.active td,
-.branch-table-row.current {
+.git-history-row.active td {
   background: var(--accent-soft);
 }
 
 .git-history-subject code,
-.git-history-subject-text,
-.branch-name-cell {
+.git-history-subject-text {
   color: var(--text);
 }
 
 .git-history-refresh svg,
-.git-diff-refresh-button svg,
-.branch-refresh-button svg {
+.git-diff-refresh-button svg {
   color: var(--accent);
 }
 
@@ -348,10 +303,6 @@
 
   .git-subtabs button {
     padding-inline: 11px;
-  }
-
-  .git-sync-card {
-    padding: 16px;
   }
 }
 
@@ -601,10 +552,7 @@
 .git-preview-grid header button,
 .git-table-row button,
 .git-history-refresh,
-.git-sync-button,
 .git-commit-submit,
-.branch-create-button,
-.branch-refresh-button,
 .git-diff-refresh-button,
 .terminal-icon-button,
 .terminal-start,

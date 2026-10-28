@@ -1,4 +1,9 @@
-<section class="git-modern-panel">
+<section
+  class="git-modern-panel"
+  :class="{
+    'git-modern-panel-flat': activeTab === 'sync' || activeTab === 'branches',
+  }"
+>
   <div class="git-navigation-bar">
     <ProjectGitSubtabs :tabs="tabs" :active-tab="activeTab" @select="openTab" />
   </div>
@@ -50,6 +55,7 @@
       @update-current-branch="handleCurrentBranchUpdate"
       @synchronize="handleMainSynchronization"
       @clear-console="clearMainSynchronizationConsole"
+      @open-commit="openTab('commit')"
     />
 
     <ProjectGitBranchesPage
@@ -67,6 +73,7 @@
       @publish="runPublishBranch"
       @track="runTrackRemoteBranch"
       @delete-remote="runDeleteRemoteBranch"
+      @open-pull-request="openTab('pull-request')"
     />
 
     <ProjectGitDiffPage

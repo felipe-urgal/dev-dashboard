@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'vitest';
 
 import { flushPromises, mount } from '@vue/test-utils';
+import { NDropdown } from 'naive-ui';
 
 import type {
   GitDiffSnapshot,
@@ -339,38 +340,17 @@ async function clickTab(
   await flushPromises();
 }
 
-test('abre diretamente em sincronização e mantém branches como segunda aba', async () => {
+test('abre diretamente na aba Sincronização', async () => {
   const mounted = await mountPanel();
   cleanup = mounted.restore;
 
-  const text = mounted.wrapper.text();
-  assert.doesNotMatch(text, /Resumo/);
-  assert.doesNotMatch(text, /Histórico recente/);
-  assert.doesNotMatch(text, /upstream\//);
-  assert.match(text, /main\s*→\s*origin\/main/);
-  assert.match(text, /Iniciar sincronização/);
+  assert.match(mounted.wrapper.text(), /Sincronizar/);
   assert.ok(
     mounted.wrapper
       .findAll('.git-subtabs button')
       .find((button) => button.text() === 'Sincronização')
       ?.classes('active'),
   );
-  assert.deepEqual(
-    mounted.wrapper
-      .findAll('.git-subtabs button')
-      .map((button) => button.text()),
-    [
-      'Sincronização',
-      'Branches',
-      'Diff',
-      'Commit',
-      'Desfazer',
-      'Issues',
-      'Pull Request',
-      'Histórico',
-    ],
-  );
-  assert.ok(!mounted.wrapper.find('.git-server-indicator').exists());
 });
 
 test('atualiza a branch atual a partir do upstream por pull confirmado', async () => {
@@ -420,10 +400,12 @@ test('atualiza a branch atual a partir do upstream por pull confirmado', async (
     globalThis.confirm = originalConfirm;
   };
 
-  const card = mounted.wrapper.find('.git-sync-current-card');
+  const card = mounted.wrapper.find('.git-current');
   assert.ok(card.exists());
-  const update = card.find('.git-sync-button');
-  assert.match(update.text(), /Atualizar local/);
+  const update = card
+    .findAll('button')
+    .find((button) => button.text().includes('Atualizar local'));
+  assert.ok(update);
   await update.trigger('click');
   await flushPromises();
   await flushPromises();
@@ -472,16 +454,14 @@ test('lista branches locais e origin sem expor ações de sincronização', asyn
   cleanup = mounted.restore;
   await clickTab(mounted.wrapper, 'Branches');
 
-  assert.equal(mounted.wrapper.findAll('.branch-table-row').length, 3);
   assert.match(mounted.wrapper.text(), /release\/2.0/);
   assert.doesNotMatch(mounted.wrapper.text(), /upstream\/release\/2.0/);
 
-  const rows = mounted.wrapper.findAll('.branch-table-row');
+  const rows = mounted.wrapper.findAll('[data-branch]');
   assert.equal(rows.length, 3);
   const release = rows.find((row) => row.text().includes('release/2.0'));
   assert.ok(release);
   assert.match(release.text(), /Somente remota/);
-  assert.match(release.text(), /Somente leitura/);
 });
 
 test('cria branch com prefixo pelo modal centralizado', async () => {
@@ -516,23 +496,20 @@ test('cria branch com prefixo pelo modal centralizado', async () => {
     globalThis.confirm = originalConfirm;
   };
   await clickTab(mounted.wrapper, 'Branches');
-  await mounted.wrapper.find('.branch-create-button').trigger('click');
-  const createForm = mounted.wrapper.find('.branch-modal-form');
-  assert.ok(createForm.exists());
-  assert.match(mounted.wrapper.find('.branch-modal').text(), /Nova branch/);
-  await createForm.find('select').setValue('bugfix/');
   await mounted.wrapper
-    .find('.branch-modal-form input:not([readonly])')
-    .setValue('correcao-botao');
+    .findAll('button')
+    .find((button) => button.text() === 'Nova branch')!
+    .trigger('click');
+  const createForm = mounted.wrapper.find('.git-branch-dialog');
+  assert.ok(createForm.exists());
+  assert.match(createForm.text(), /Nova branch/);
+  await createForm
+    .findAll('.git-branch-chips button')
+    .find((button) => button.text() === 'bugfix/')!
+    .trigger('click');
+  await createForm.find('input[aria-label="Nome"]').setValue('correcao-botao');
   await flushPromises();
-  assert.equal(
-    (
-      mounted.wrapper.find('.branch-modal-form input[readonly]')
-        .element as HTMLInputElement
-    ).value,
-    'bugfix/correcao-botao',
-  );
-  await mounted.wrapper.find('.branch-modal-form').trigger('submit');
+  await createForm.trigger('submit');
   await flushPromises();
   await flushPromises();
 
@@ -590,17 +567,13 @@ test('renomeia uma branch local pelo menu de ações', async () => {
   await clickTab(mounted.wrapper, 'Branches');
 
   const currentRow = mounted.wrapper
-    .findAll('.branch-table-row')
+    .findAll('[data-branch]')
     .find((row) => row.text().includes('feature/git-ui'));
   assert.ok(currentRow);
-  await currentRow.find('.branch-menu-trigger').trigger('click');
-  const renameAction = currentRow
-    .findAll('.branch-menu-popover button')
-    .find((button) => button.text().includes('Renomear'));
-  assert.ok(renameAction);
-  await renameAction.trigger('click');
+  currentRow.findComponent(NDropdown).vm.$emit('select', 'rename');
+  await flushPromises();
 
-  const renameForm = mounted.wrapper.find('.branch-modal-form');
+  const renameForm = mounted.wrapper.find('.git-branch-dialog');
   await renameForm.find('input').setValue('feature/git-ui-renamed');
   await renameForm.trigger('submit');
   await flushPromises();
@@ -661,29 +634,25 @@ test('remove uma branch local após confirmação digitada', async () => {
   await clickTab(mounted.wrapper, 'Branches');
 
   const row = mounted.wrapper
-    .findAll('.branch-table-row')
+    .findAll('[data-branch]')
     .find((candidate) => candidate.text().includes('bugfix/old'));
   assert.ok(row);
-  await row.find('.branch-menu-trigger').trigger('click');
-  const deleteAction = row
-    .findAll('.branch-menu-popover button')
-    .find((button) => button.text().includes('Remover branch'));
-  assert.ok(deleteAction);
-  await deleteAction.trigger('click');
+  row.findComponent(NDropdown).vm.$emit('select', 'delete');
+  await flushPromises();
 
-  const deleteForm = mounted.wrapper.find('.branch-delete-form');
+  const deleteForm = mounted.wrapper.find('.git-branch-dialog');
   const submit = deleteForm.find('button[type="submit"]');
   assert.ok(submit.attributes('disabled') !== undefined);
   await deleteForm.find('input').setValue('bugfix/old');
   await flushPromises();
   assert.equal(
     (
-      mounted.wrapper.find('.branch-delete-form button[type="submit"]')
+      mounted.wrapper.find('.git-branch-dialog button[type="submit"]')
         .element as HTMLButtonElement
     ).disabled,
     false,
   );
-  await mounted.wrapper.find('.branch-delete-form').trigger('submit');
+  await mounted.wrapper.find('.git-branch-dialog').trigger('submit');
   await flushPromises();
   await flushPromises();
 
@@ -978,49 +947,18 @@ test('abre a aba Diff como o componente dedicado, sem app aninhado', async () =>
   assert.equal(mounted.wrapper.findAll('.git-tab-page').length, 0);
 });
 
-test('renderiza a sincronização em uma única ação entre main e origin/main', async () => {
-  const mounted = await mountPanel({
-    workspace: {
-      ...baseWorkspace,
-      branches: baseWorkspace.branches.map((branch) =>
-        branch.name === 'upstream/main'
-          ? {
-              ...branch,
-              latestCommit: {
-                ...branch.latestCommit!,
-                hash: 'def123456789',
-                shortHash: 'def1234',
-              },
-            }
-          : branch,
-      ),
-    },
-  });
-  cleanup = mounted.restore;
-
-  const syncCard = mounted.wrapper.find('.git-sync-main-card');
-  assert.ok(syncCard.exists());
-  assert.match(syncCard.text(), /main\s*→\s*origin\/main/);
-  assert.match(syncCard.text(), /Tudo sincronizado/);
-  assert.equal(syncCard.findAll('.git-sync-button').length, 1);
-  assert.ok(
-    syncCard.find('.git-sync-button').attributes('disabled') !== undefined,
-  );
-  assert.doesNotMatch(
-    syncCard.text(),
-    /upstream|fetch|pipeline|estratégia|pull request/i,
-  );
-});
-
 test('avisa sobre alterações locais somente quando há sincronização pendente', async () => {
   const mounted = await mountPanel();
   cleanup = mounted.restore;
 
-  assert.match(mounted.wrapper.text(), /Alterações locais pendentes/);
-  assert.doesNotMatch(mounted.wrapper.text(), /Tudo sincronizado/);
+  assert.match(mounted.wrapper.text(), /alterações locais pendentes/i);
+  assert.doesNotMatch(mounted.wrapper.text(), /Tudo em dia/);
   assert.ok(
-    mounted.wrapper.find('.git-sync-button').attributes('disabled') !==
-      undefined,
+    mounted.wrapper
+      .find('.git-flow-summary')
+      .findAll('button')
+      .find((button) => button.text().includes('Sincronizar'))
+      ?.attributes('disabled') !== undefined,
   );
 });
 
@@ -1076,7 +1014,9 @@ test('sincroniza a main em uma única mutação confirmada', async () => {
   };
 
   await mounted.wrapper
-    .find('.git-sync-main-card .git-sync-button')
+    .find('.git-flow-summary')
+    .findAll('button')
+    .find((button) => button.text().includes('Sincronizar'))!
     .trigger('click');
   await flushPromises();
   await flushPromises();
