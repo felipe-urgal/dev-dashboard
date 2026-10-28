@@ -1,12 +1,23 @@
 name: CI
 
+# O mesmo gate de `npm run check`, dividido em jobs paralelos. O job final
+# "Validate" mantém o nome do check estável e só passa se todos os outros passarem.
+
 on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - LICENSE
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - LICENSE
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -16,8 +27,8 @@ permissions:
   contents: read
 
 jobs:
-  validate:
-    name: Validate
+  static:
+    name: Lint e build
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -25,17 +36,99 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Setup Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Cache de ESLint e Prettier
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          node-version: 24
-          cache: npm
+          path: node_modules/.cache
+          key: lint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            lint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.js') }}-
 
-      - name: Install dependencies
-        run: npm ci --ignore-scripts
+      - name: Format
+        run: npm run format:check
 
-      - name: Prepare native dependencies
-        run: npm rebuild esbuild node-pty
+      - name: Lint
+        run: npm run lint
 
-      - name: Quality gate
-        run: npm run check
+      - name: Build
+        run: npm run build:apps
+
+  test-api:
+    name: Testes da API
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      # O tsx transpila cada arquivo de teste num processo próprio e guarda o
+      # resultado em /tmp/tsx-<uid>; reaproveitar o cache evita refazer tudo.
+      - name: Cache do tsx
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/tsx-*
+          key: tsx-api-${{ runner.os }}-${{ hashFiles('apps/api/src/**', 'apps/api/test/**', 'packages/*/src/**') }}
+          restore-keys: |
+            tsx-api-${{ runner.os }}-
+
+      - name: Testes
+        run: npm run test --workspace=@dev-dashboard/api
+
+  test-web:
+    name: Testes do web
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Testes
+        run: npm run test --workspace=@dev-dashboard/web
+
+  test-rest:
+    name: Testes dos packages e scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Packages
+        run: >-
+          npm run test
+          --workspace=@dev-dashboard/core
+          --workspace=@dev-dashboard/process-manager
+          --workspace=@dev-dashboard/project-discovery
+          --workspace=@dev-dashboard/agent-runtime
+
+      - name: Scripts
+        run: node --test scripts/*.test.mjs
+
+  validate:
+    name: Validate
+    if: ${{ always() }}
+    needs: [static, test-api, test-web, test-rest]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Todos os jobs passaram
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
+        run: |
+          echo "Algum job falhou, foi cancelado ou foi pulado: ${{ join(needs.*.result, ', ') }}"
+          exit 1

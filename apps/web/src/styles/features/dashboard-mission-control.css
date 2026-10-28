@@ -50,19 +50,6 @@
   margin: 27px 0 29px;
 }
 
-.sidebar-workspace-select {
-  min-height: 46px;
-  border-radius: 10px;
-  background: var(--surface-1);
-}
-
-.sidebar-workspace-add-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 10px;
-  background: var(--surface-1);
-}
-
 .navigation {
   gap: 6px;
 }

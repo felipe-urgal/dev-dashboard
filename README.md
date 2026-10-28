@@ -38,22 +38,6 @@ Comandos úteis:
     npm run local:uninstall
 
 `local:uninstall` remove apenas os artefatos gerenciados da instalação e preserva configuração, estado e checkout.
-## Serviços locais
-
-A área **Serviços locais** (menu principal) controla o ciclo de vida de
-`home-music.service` sem executar deploy, build, migração ou atualizar Git.
-São operações separadas da área Produção, com confirmação curta e token de
-uso único, observação `systemd` antes/depois da ação, verificação HTTP
-`/ready` e auditoria local. Outros serviços permanecem read-only no
-inventário existente. Consulte [o guia](docs/local-services.md).
-
-## Terminal `dev-tools`
-
-O modo Terminal mantém apenas ações suportadas pelo Dashboard atual. No menu de projeto ficam Git, navegador, editor, terminal, status de servidores e os submenus Rails/Node, todos alinhados aos contratos atuais de runtime, ownership e observabilidade do backend.
-
-Abertura de editor usa `DEV_EDITOR` quando configurado e, como fallback local, tenta `subl`, `code` e `gedit`. O comando histórico `dev-sublime` permanece apenas como alias de compatibilidade para `dev-editor`.
-
-Integrações diretas antigas com Claude Code/ações de IA foram removidas do `dev-tools`; automação assistida pertence ao Agent Runtime do Dashboard. A sessão embutida usa WebSocket + `node-pty`, preserva reconexão/resize e possui gate E2E dedicado para o lifecycle Web ↔ Terminal, complementado por testes determinísticos de protocolo e PTY real.
 
 ## Segurança
 

@@ -59,7 +59,7 @@ const overview: ProjectGitOverview = {
   recentCommits: commits,
 };
 
-test('renderiza tela de commit minimalista sem resumo, abas ou histórico', async () => {
+test('digita a mensagem, habilita e envia o commit normal', async () => {
   const wrapper = mount(ProjectGitCommitPage, {
     props: {
       overview,
@@ -70,21 +70,7 @@ test('renderiza tela de commit minimalista sem resumo, abas ou histórico', asyn
     },
   });
 
-  assert.ok(wrapper.find('.git-commit-card').exists());
-  assert.equal(wrapper.findAll('.git-commit-summary-card').length, 0);
-  assert.equal(wrapper.findAll('.git-commit-history-row').length, 0);
-  assert.equal(wrapper.find('.git-commit-scope input').exists(), false);
-  assert.equal(wrapper.find('.git-commit-mode').exists(), false);
-  assert.equal(wrapper.text().includes('Criar novo commit'), false);
-  assert.equal(wrapper.text().includes('Últimos commits'), false);
-  assert.equal(wrapper.text().includes('Ver histórico completo'), false);
-  assert.equal(wrapper.text().includes('git commit -a'), false);
-  assert.equal(wrapper.text().includes('git commit --amend'), false);
-
   const textarea = wrapper.find('.git-commit-message textarea');
-  assert.equal(textarea.attributes('aria-label'), 'Mensagem do commit');
-  assert.equal(textarea.attributes('placeholder'), 'Descreva as alterações');
-  assert.match(wrapper.text(), /0\/500/);
   assert.match(wrapper.text(), /2 alterações entram no commit normal/);
   assert.match(wrapper.text(), /1 arquivo não rastreado fica de fora/);
   assert.match(wrapper.text(), /1 alteração staged disponível para amend/);

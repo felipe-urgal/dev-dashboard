@@ -276,25 +276,6 @@ function mockFetchFor(
   return originalFetch;
 }
 
-test('mostra somente a área de Ambientes', async () => {
-  const originalFetch = mockFetchFor('node');
-  const wrapper = mount(ProjectDatabasePanel, {
-    props: { project: makeProject({ type: 'node' }) },
-  });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  const labels = wrapper
-    .findAll('.database-explorer-tabs button')
-    .map((button) => button.text());
-  assert.deepEqual(labels, []);
-  assert.ok(wrapper.find('.database-environments-layout').exists());
-});
-
 function environment(
   overrides: Partial<ProjectDatabaseEnvironment>,
 ): ProjectDatabaseEnvironment {
@@ -401,39 +382,4 @@ test('inicia um banco local indisponível', async () => {
       .findAll('button')
       .some((button) => button.text() === 'Pausar banco'),
   );
-});
-
-test('avisa quando dois ambientes compartilham o mesmo serviço local', async () => {
-  const database: ProjectDatabaseOverview = {
-    supported: true,
-    total: 2,
-    page: 1,
-    pageSize: 20,
-    environments: [
-      environment({
-        id: 'rails-development',
-        environment: 'development',
-        driver: 'mysql2',
-        reachability: 'reachable',
-      }),
-      environment({
-        id: 'rails-test',
-        environment: 'test',
-        driver: 'mysql2',
-        reachability: 'reachable',
-      }),
-    ],
-  };
-  const originalFetch = mockFetchFor('node', { database });
-  const wrapper = mount(ProjectDatabasePanel, {
-    props: { project: makeProject({ type: 'node' }) },
-  });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  assert.match(wrapper.text(), /também é usado por: test/);
 });

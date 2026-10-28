@@ -310,6 +310,29 @@ test('dashboard ignora scan antigo após trocar de workspace', async () => {
   assert.equal(store.scanStatus.value, 'complete');
 });
 
+test('dashboard trata a instância primária como contexto global do card', async () => {
+  const store = createDashboardStore(
+    createApi({
+      fetchWorkspaces: async () => [workspace],
+      scanWorkspace: async () => scanResult([project]),
+      fetchManagedProcesses: async () => [
+        {
+          id: 'primary',
+          projectId: project.id,
+          workspaceId: workspace.id,
+          environmentInstanceId: `environment:primary:${project.id}`,
+          kind: 'server',
+          status: 'running',
+          port: 3002,
+        },
+      ],
+    }),
+  );
+  await store.ensureDashboardLoaded();
+  assert.equal(store.getCardProcess(project.id)?.status, 'running');
+  assert.equal(store.getCardProcess(project.id)?.port, 3002);
+});
+
 test('dashboard usa apenas servidor do contexto global e estado compartilhado', async () => {
   const processes: ManagedProcess[] = [
     {

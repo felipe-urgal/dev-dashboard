@@ -23,7 +23,7 @@ A issue #1116 agora possui um **núcleo de execução confirmada**, separado dos
 - **Process-local:** locks não coordenam duas instâncias da API ou ferramentas externas. Para execução pública será preciso uma estratégia de lease interoperável e integração aos owners de lifecycle que já têm proteções próprias.
 - A confirmação não é uma capacidade transferível nem um token criptográfico; o endpoint de preview continua somente leitura.
 - Adapter real de Compose precisa resolver ownership registrado, bloqueios de portas, dependências automáticas e verificar impacto em outros workspaces **antes** de ser associado ao coordinator.
-- Ainda faltam timeouts/cancelamento seguro, recuperação/reattach durável ao Activity/Jobs e regras para plano alvo Stack. Nenhuma mutação de host deve ser exposta pela UI até isso ser concluído.
+- Ainda faltam timeouts/cancelamento seguro, recuperação/reattach durável ao Activity/Jobs. Nenhuma mutação de host deve ser exposta pela UI até isso ser concluído.
 
 ## Testes
 

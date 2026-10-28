@@ -36,7 +36,7 @@ Os providers `systemd`, `docker`, `compose`, `managed-process` e `ports` reporta
 - A inspeção Compose é restrita a registros de ownership previamente persistidos para projetos conhecidos; projetos sem registro não são adotados.
 - Observação Docker usa `docker container ls --all` apenas para listar containers do host. Não executa `docker start`, `docker stop` ou `docker inspect`.
 - Serviços de produção e dependências compartilhadas não são gerenciados pelo inventário. Vínculos explícitos, preview e autorização de mutações pertencem às issues #1115, #1116 e #1117.
-- O catálogo ainda não substitui os painéis especializados Docker Compose, Process Manager, Stacks ou Port Inspector.
+- O catálogo ainda não substitui os painéis especializados Docker Compose, Process Manager ou Port Inspector.
 
 ## Matriz de observação e permissões
 
@@ -55,4 +55,4 @@ A API não deve consultar serviços de hosts remotos, nem transformar uma porta 
 
 Executar os testes `docker-container-observer.test.ts`, `service-catalog-service.test.ts`, `service-catalog-routes.test.ts` e os testes systemd/port inspector existentes; validar `npm run check` e os E2E do pipeline antes de disponibilizar mudanças.
 
-Referências: epic #1113, inventário #1114, Stacks #1072.
+Referências: epic #1113, inventário #1114.

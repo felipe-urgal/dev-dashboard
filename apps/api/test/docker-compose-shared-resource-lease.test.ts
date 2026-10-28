@@ -4,11 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import type { Project, Stack, StackCheck } from '@dev-dashboard/contracts';
+import type { Project } from '@dev-dashboard/contracts';
 
 import { DockerComposeLifecycleService } from '../src/services/docker-compose-lifecycle-service.js';
 import { ServiceResourceOperationLock } from '../src/services/service-resource-operation-lock.js';
-import { StackStartService } from '../src/services/stack-start-service.js';
 
 const project: Project = {
   id: 'project-1',
@@ -112,82 +111,6 @@ test('independent Compose owners in the same state directory reject concurrent m
 
     h.release();
     assert.equal((await operation).state, 'started');
-    assert.deepEqual(readdirSync(h.releaseRoot), []);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test('Stack Start and direct Compose mutations compete for the same owner lease', async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), 'stack-compose-lease-'));
-  try {
-    const h = harness(dir);
-    const direct = h.build();
-    const stackOwner = h.build();
-    const running = direct.start(project, {}, 'web');
-    await h.started;
-
-    const stack: Stack = {
-      id: 'dev-stack',
-      name: 'Development',
-      nodes: [
-        {
-          id: 'web',
-          name: 'Web',
-          target: {
-            kind: 'compose-service',
-            projectId: project.id,
-            environmentInstanceId: 'environment:primary:' + project.id,
-            service: 'web',
-          },
-        },
-      ],
-      dependencies: [],
-    };
-    const check: StackCheck = {
-      stack,
-      topology: {
-        stackId: stack.id,
-        startOrder: ['web'],
-        stopOrder: ['web'],
-      },
-      health: {
-        stackId: stack.id,
-        state: 'stopped',
-        observedAt: new Date().toISOString(),
-        nodes: [
-          {
-            nodeId: 'web',
-            state: 'stopped',
-            observedAt: new Date().toISOString(),
-          },
-        ],
-      },
-    };
-    const stackStart = new StackStartService({
-      stackCheckService: { check: async () => check },
-      projectStore: {
-        findProject: (id) => (id === project.id ? project : null),
-      },
-      developmentEnvironmentInstanceStore: {
-        resolveForProject: (id, env) =>
-          id === project.id && env === 'environment:primary:' + project.id
-            ? {
-                projectId: id,
-                environmentInstanceId: env,
-                cwd: project.path,
-                runtime: 'host' as const,
-              }
-            : null,
-      },
-      dockerComposeLifecycleService: stackOwner,
-    });
-
-    const result = await stackStart.start(stack.id);
-    assert.equal(result.state, 'failed');
-    assert.equal(h.commandCount(), 1);
-    h.release();
-    await running;
     assert.deepEqual(readdirSync(h.releaseRoot), []);
   } finally {
     rmSync(dir, { recursive: true, force: true });

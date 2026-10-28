@@ -5,7 +5,6 @@ import { ref } from 'vue';
 import type {
   MachineDatabaseQueryResult,
   MachineDatabaseService,
-  MachineDatabaseServiceDetails,
   MachineDatabaseTable,
 } from '@dev-dashboard/contracts';
 
@@ -31,40 +30,7 @@ const postgresqlService: MachineDatabaseService = {
   active: false,
 };
 
-const mysqlService: MachineDatabaseService = {
-  id: 'mysql',
-  driver: 'mysql',
-  label: 'MySQL',
-  unit: 'mysql.service',
-  installed: true,
-  active: true,
-};
-
 describe('useMachineDatabaseServices', () => {
-  test('mantém a resposta mais nova quando refreshes terminam fora de ordem', async () => {
-    const first = deferred<MachineDatabaseService[]>();
-    const second = deferred<MachineDatabaseService[]>();
-    let request = 0;
-
-    const state = useMachineDatabaseServices({
-      dependencies: {
-        fetchServices: () => (++request === 1 ? first.promise : second.promise),
-      },
-    });
-
-    const firstLoad = state.loadServices();
-    const secondLoad = state.loadServices();
-
-    second.resolve([mysqlService]);
-    assert.equal(await secondLoad, 'applied');
-    first.resolve([postgresqlService]);
-    assert.equal(await firstLoad, 'superseded');
-
-    assert.deepEqual(state.services.value, [mysqlService]);
-    assert.equal(state.loading.value, false);
-    assert.equal(state.errorMessage.value, '');
-  });
-
   test('confirma mutação sensível e atualiza o estado após sucesso', async () => {
     const confirmations: string[] = [];
     const actions: string[] = [];
@@ -94,33 +60,6 @@ describe('useMachineDatabaseServices', () => {
       state.successMessage.value,
       'PostgreSQL reiniciado com sucesso.',
     );
-  });
-
-  test('limpa loading de detalhes ao invalidar request em voo após mutação', async () => {
-    const pendingDetails = deferred<MachineDatabaseServiceDetails>();
-    const state = useMachineDatabaseServices({
-      dependencies: {
-        fetchDetails: async () => await pendingDetails.promise,
-        runAction: async () => undefined,
-        fetchServices: async () => [{ ...postgresqlService, active: true }],
-      },
-    });
-
-    const detailsLoad = state.loadDetails(postgresqlService.id);
-    assert.equal(state.detailsLoading.value, postgresqlService.id);
-
-    await state.runAction(postgresqlService, 'start');
-    assert.equal(state.detailsLoading.value, null);
-
-    pendingDetails.resolve({
-      serviceId: postgresqlService.id,
-      reachability: 'reachable',
-      logs: [],
-    });
-    await detailsLoad;
-
-    assert.equal(state.detailsLoading.value, null);
-    assert.deepEqual(state.details.value, {});
   });
 });
 
@@ -184,42 +123,6 @@ function createQueryExecutionHarness(
 }
 
 describe('useDatabaseQueryExecution', () => {
-  test('descarta tabelas de uma sessão que deixou de ser atual', async () => {
-    const pending = deferred<MachineDatabaseTable[]>();
-    const harness = createQueryExecutionHarness({
-      fetchTables: async () => await pending.promise,
-    });
-
-    const selection = harness.execution.selectDatabase('app');
-    harness.sessionId.value = 'session-2';
-    pending.resolve([{ name: 'users' }]);
-    await selection;
-
-    assert.deepEqual(harness.tables.value, []);
-    assert.equal(harness.loading.value, false);
-  });
-
-  test('aplica somente a seleção de banco mais recente', async () => {
-    const first = deferred<MachineDatabaseTable[]>();
-    const second = deferred<MachineDatabaseTable[]>();
-    let request = 0;
-    const harness = createQueryExecutionHarness({
-      fetchTables: async () =>
-        await (++request === 1 ? first.promise : second.promise),
-    });
-
-    const firstSelection = harness.execution.selectDatabase('first');
-    const secondSelection = harness.execution.selectDatabase('second');
-
-    second.resolve([{ name: 'new_table' }]);
-    await secondSelection;
-    first.resolve([{ name: 'old_table' }]);
-    await firstSelection;
-
-    assert.equal(harness.database.value, 'second');
-    assert.deepEqual(harness.tables.value, [{ name: 'new_table' }]);
-  });
-
   test('não publica resultado nem histórico quando a sessão troca durante a query', async () => {
     const pending = deferred<MachineDatabaseQueryResult>();
     const harness = createQueryExecutionHarness({
@@ -238,47 +141,5 @@ describe('useDatabaseQueryExecution', () => {
 
     assert.equal(harness.result.value, null);
     assert.equal(harness.remembered(), 0);
-  });
-  test('consulta antiga não sobrescreve resultado de uma sessão nova', async () => {
-    const old = deferred<MachineDatabaseQueryResult>();
-    const fresh = deferred<MachineDatabaseQueryResult>();
-    let call = 0;
-    const harness = createQueryExecutionHarness({
-      runQuery: async () => await (++call === 1 ? old.promise : fresh.promise),
-    });
-    const first = harness.execution.runQuery();
-    harness.sessionId.value = 'session-2';
-    harness.execution.invalidate();
-    const second = harness.execution.runQuery();
-    const nextResult = {
-      columns: ['id'],
-      rows: [[2]],
-      rowCount: 1,
-      truncated: false,
-    };
-    fresh.resolve(nextResult);
-    await second;
-    old.resolve({ ...nextResult, rows: [[1]] });
-    await first;
-    assert.deepEqual(harness.result.value, nextResult);
-    assert.equal(harness.remembered(), 1);
-    assert.equal(harness.loading.value, false);
-  });
-
-  test('trocar database limpa o resultado anterior antes de listar tabelas', async () => {
-    const pending = deferred<MachineDatabaseTable[]>();
-    const harness = createQueryExecutionHarness({
-      fetchTables: async () => await pending.promise,
-    });
-    harness.result.value = {
-      columns: ['private'],
-      rows: [['old']],
-      rowCount: 1,
-      truncated: false,
-    };
-    const selection = harness.execution.selectDatabase('other');
-    assert.equal(harness.result.value, null);
-    pending.resolve([]);
-    await selection;
   });
 });

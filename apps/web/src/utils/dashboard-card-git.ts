@@ -2,7 +2,7 @@ import type { ProjectGitOverview } from '@dev-dashboard/contracts';
 import { fetchProjectGit } from '../api';
 
 export type CardGitState =
-  | { kind: 'branch'; branch: string }
+  | { kind: 'branch'; branch: string; dirty: boolean }
   | { kind: 'detached' }
   | { kind: 'none' }
   | { kind: 'unknown' };
@@ -14,7 +14,7 @@ const TTL = 30_000;
 export function resolveCardGit(overview: ProjectGitOverview): CardGitState {
   if (!overview.repository) return { kind: 'none' };
   if (overview.detached || !overview.branch) return { kind: 'detached' };
-  return { kind: 'branch', branch: overview.branch };
+  return { kind: 'branch', branch: overview.branch, dirty: !overview.clean };
 }
 
 export async function getCardGit(projectId: string): Promise<CardGitState> {

@@ -27,7 +27,7 @@ Nunca automatizar `rm -rf` nos locks como rotina de inicialização do Dashboard
 ## Limites antes da ativação de Start/Stop
 
 - Os leases funcionam apenas entre **chamadores cooperantes** com a mesma raiz de estado e o mesmo protocolo; `docker compose` usado pelo terminal, ferramentas externas, outra raiz de estado e mutações do Process Manager não ficam automaticamente bloqueados.
-- O owner `DockerComposeLifecycleService` é agora o ponto de aquisição de `compose-project:<projectId>` no app. Os caminhos de Compose e os nós Compose dos Stacks passam por essa mesma instância de owner; Start, Stop e Restart adquirem a lease antes de preflight/comando. O coordenador confirmado mantém apenas locks `resource:<serviceRef>` + Environment Instance, para evitar aquisição aninhada da mesma chave. A cooperação cobre esses fluxos Compose, não ferramentas externas nem processos do Process Manager.
+- O owner `DockerComposeLifecycleService` é agora o ponto de aquisição de `compose-project:<projectId>` no app. Os caminhos de Compose passam por essa instância de owner; Start, Stop e Restart adquirem a lease antes de preflight/comando. O coordenador confirmado mantém apenas locks `resource:<serviceRef>` + Environment Instance, para evitar aquisição aninhada da mesma chave. A cooperação cobre esses fluxos Compose, não ferramentas externas nem processos do Process Manager.
 - Não são locks distribuídos em múltiplas máquinas/NFS, nem um sistema de renovação ou fencing token. Nenhuma mutação deve ser exposta publicamente até haver proteção para todos os fluxos correspondentes.
 - Persistência de Job, reattach, timeouts/cancelamento e reconciliação de alterações parciais continuam pendentes na #1116.
 

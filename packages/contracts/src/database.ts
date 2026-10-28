@@ -57,7 +57,8 @@ export interface MachineDatabaseServiceDetails {
   logs: string[];
 }
 
-export type MachineDatabaseExplorerDriver = 'mysql' | 'mariadb' | 'postgresql';
+export type MachineDatabaseExplorerDriver =
+  'mysql' | 'mariadb' | 'postgresql' | 'redis';
 
 export interface MachineDatabaseConnection {
   driver: MachineDatabaseExplorerDriver;

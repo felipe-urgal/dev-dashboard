@@ -25,8 +25,9 @@ describe('Git dos cards', () => {
         repository: true,
         branch: 'main',
         detached: false,
+        clean: false,
       } as never),
-    ).toEqual({ kind: 'branch', branch: 'main' });
+    ).toEqual({ kind: 'branch', branch: 'main', dirty: true });
   });
   it('falha de leitura nunca é Sem Git e chamadas simultâneas reutilizam request', async () => {
     fetchProjectGit.mockRejectedValue(new Error('offline'));

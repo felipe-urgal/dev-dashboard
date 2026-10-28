@@ -17,7 +17,6 @@ import {
   HomeIcon,
   MagnifyingGlassIcon,
   QueueListIcon,
-  RectangleGroupIcon,
 } from '@heroicons/vue/24/outline';
 
 import { projectToolIcons } from '../project-tool-icons';
@@ -52,7 +51,6 @@ const iconByName: Record<CommandPaletteNavigationIcon, Component> = {
   ...projectToolIcons,
   home: HomeIcon,
   activity: QueueListIcon,
-  stacks: RectangleGroupIcon,
   database: CircleStackIcon,
   workspace: FolderIcon,
   project: FolderIcon,

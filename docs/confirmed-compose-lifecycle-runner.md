@@ -17,7 +17,7 @@ Esta etapa da [#1116](https://github.com/felipe-urgal/dev-dashboard/issues/1116)
 
 - **Nenhuma chamada é conectada ao `buildApp`** nem existe rota de execução; testes de adapter usam os owners simulados.
 - O PR #1129 acrescentou leases locais entre processos cooperantes, e a integração posterior com o owner Compose coloca a chave física de projeto no `DockerComposeLifecycleService`. O coordinator não tenta adquiri-la novamente. Chamadas externas ao Dashboard e mutações Process Manager continuam fora desse protocolo; antes de disponibilizar execução pública, faltam autorização, Jobs/recovery e validação integral.
-- Ainda faltam proteção end-to-end de produção, limites/timeout, Activity **Jobs** persistente com reattach/cancelamento, testes E2E Linux com fixtures, integração Stack e interface.
+- Ainda faltam proteção end-to-end de produção, limites/timeout, Activity **Jobs** persistente com reattach/cancelamento, testes E2E Linux com fixtures, e interface.
 - O hook de Activity grava eventos de step, **não** implementa Jobs duráveis nem recuperação automática.
 - Não habilitar start/stop através do Dashboard antes de concluir esses itens e a confirmação explícita do usuário.
 

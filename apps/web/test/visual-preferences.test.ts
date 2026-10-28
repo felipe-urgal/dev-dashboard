@@ -33,22 +33,27 @@ describe('preferências visuais', () => {
     expect(document.documentElement.dataset.theme).toBe('light');
   });
 
-  it('expõe estado selecionado e persiste escolhas entre montagens', async () => {
+  it('alterna o tema com um botão e persiste a escolha entre montagens', async () => {
     const first = mount(VisualPreferences);
-    const buttons = first.findAll('button');
 
-    await buttons[1]!.trigger('click');
+    expect(first.get('button').attributes('aria-label')).toBe(
+      'Mudar para o tema claro',
+    );
+    await first.get('button').trigger('click');
 
-    expect(buttons[1]!.attributes('aria-pressed')).toBe('true');
     expect(document.documentElement.dataset.theme).toBe('light');
+    expect(first.get('button').attributes('aria-label')).toBe(
+      'Mudar para o tema escuro',
+    );
     first.unmount();
 
     // Simula o boot real do app: um novo carregamento relê a preferência
-    // persistida em localStorage antes de a sidebar montar de novo.
+    // persistida em localStorage antes de montar de novo.
     loadVisualPreferences();
 
     const restored = mount(VisualPreferences);
-    const restoredButtons = restored.findAll('button');
-    expect(restoredButtons[1]!.attributes('aria-pressed')).toBe('true');
+    expect(restored.get('button').attributes('aria-label')).toBe(
+      'Mudar para o tema escuro',
+    );
   });
 });

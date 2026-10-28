@@ -1,6 +1,6 @@
 # Guard de ownership para mutações Compose — #1116
 
-Esta etapa reforça o `ServiceResourceOperationLock` compartilhado pelas rotas Docker Compose e pelos nós Compose de Stacks. O callback protegido recebe um `ServiceResourceLeaseGuard` capaz de verificar a titularidade do conjunto de locks já adquirido.
+Esta etapa reforça o `ServiceResourceOperationLock` compartilhado pelas rotas Docker Compose. O callback protegido recebe um `ServiceResourceLeaseGuard` capaz de verificar a titularidade do conjunto de locks já adquirido.
 
 ## Protocolo cooperante
 
@@ -9,7 +9,7 @@ Esta etapa reforça o `ServiceResourceOperationLock` compartilhado pelas rotas D
 3. O owner `DockerComposeLifecycleService` passa o guard pela cadeia de Start, Stop e Restart. Depois de consultar provider/ownership/preflight, e **antes de chamar o runner de comandos Compose**, ele exige `guard.assertOwned()`. Se a evidência estiver ausente, trocada, corrompida, inacessível ou for um symlink, a mutação falha fechada sem enviar novo comando.
 4. O `finally` não remove um marcador cujo `holder` ou `key` não corresponda à aquisição original. Leases alheios e inconsistentes ficam intactos para reconciliação.
 
-O construtor sem `stateDirectory` continua usando o lock em memória para testes/consumidores antigos. Na composição padrão da API, Compose e Stacks já compartilham um diretório de estado local (PR #1130). Os locks continuam **sem roubo ou expiração automática**.
+O construtor sem `stateDirectory` continua usando o lock em memória para testes/consumidores antigos. Na composição padrão da API, o Compose usa um diretório de estado local (PR #1130). Os locks continuam **sem roubo ou expiração automática**.
 
 ## Limitação de fencing
 

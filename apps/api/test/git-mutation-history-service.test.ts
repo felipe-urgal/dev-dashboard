@@ -4,7 +4,11 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { GitMutationHistoryService } from '../src/services/git-mutation-history-service.js';
+import {
+  enforceLimits,
+  GitMutationHistoryService,
+} from '../src/services/git-mutation-history-service.js';
+import type { GitMutationHistoryEvent } from '@dev-dashboard/contracts';
 
 async function withStateDirectory<T>(
   fn: (stateDirectory: string) => Promise<T>,
@@ -161,26 +165,37 @@ test('limite de 200 eventos por projeto é respeitado, preservando os mais recen
   });
 });
 
-test('limite global de 2000 eventos corta os mais antigos entre projetos', async () => {
-  await withStateDirectory(async (stateDirectory) => {
-    const service = new GitMutationHistoryService(stateDirectory);
-    // 11 projetos * 200 = 2200 tentativas; o limite global de 2000 corta as mais antigas.
-    for (let project = 0; project < 11; project += 1) {
-      for (let index = 0; index < 200; index += 1) {
-        await service.record({
-          projectId: `p${project}`,
-          operationId: 'commit',
-          result: 'succeeded',
-        });
-      }
-    }
-    let total = 0;
-    for (let project = 0; project < 11; project += 1) {
-      const page = await service.history(`p${project}`, 1, 500);
-      total += page.total;
-    }
-    assert.equal(total, 2000);
-  });
+test('limite global de 2000 eventos corta os mais antigos entre projetos', () => {
+  // 11 projetos * 200 = 2200 eventos, do mais novo para o mais antigo.
+  const events = Array.from({ length: 2200 }, (_, index) => ({
+    id: `e${index}`,
+    projectId: `p${index % 11}`,
+    operationId: 'commit',
+    result: 'succeeded',
+  })) as unknown as GitMutationHistoryEvent[];
+
+  const kept = enforceLimits(events);
+
+  assert.equal(kept.length, 2000);
+  assert.deepEqual(
+    kept.map((event) => event.id),
+    events.slice(0, 2000).map((event) => event.id),
+  );
+});
+
+test('limite por projeto de 200 eventos mantém os mais novos de cada um', () => {
+  const events = Array.from({ length: 450 }, (_, index) => ({
+    id: `e${index}`,
+    projectId: 'p1',
+    operationId: 'commit',
+    result: 'succeeded',
+  })) as unknown as GitMutationHistoryEvent[];
+
+  const kept = enforceLimits(events);
+
+  assert.equal(kept.length, 200);
+  assert.equal(kept[0]?.id, 'e0');
+  assert.equal(kept[199]?.id, 'e199');
 });
 
 test('nenhum evento contém caminho absoluto, comando livre, credencial ou conteúdo de arquivo', async () => {

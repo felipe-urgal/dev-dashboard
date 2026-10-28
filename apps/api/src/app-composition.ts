@@ -46,7 +46,6 @@ import { DockerComposeLifecycleConfirmationService } from './services/docker-com
 import { DockerComposeLifecycleExecutionService } from './services/docker-compose-lifecycle-execution-service.js';
 import { DockerComposeLifecycleService } from './services/docker-compose-lifecycle-service.js';
 import { ConfirmedLifecycleJobJournal } from './services/confirmed-lifecycle-job-journal.js';
-import type { StackOperationJournal } from './services/stack-operation-journal.js';
 import { ServiceResourceOperationLock } from './services/service-resource-operation-lock.js';
 import { DockerComposeOwnershipStore } from './services/docker-compose-ownership-store.js';
 import { DockerComposeRecoveryService } from './services/docker-compose-recovery-service.js';
@@ -173,7 +172,6 @@ export interface AppCompositionOptions {
     ConfirmedLifecycleJobJournal,
     'get' | 'list' | 'activityJobs'
   >;
-  stackOperationJobs?: Pick<StackOperationJournal, 'activityJobs'>;
   agentBrowserRuntime?: AgentBrowserRuntimePort;
   agentRuntimeApiService?: AgentRuntimeApiServicePort;
 }
@@ -487,7 +485,6 @@ export function createAppComposition(
       devContainerLifecycleExecutionService,
       dockerComposeLifecycleExecutionService,
       confirmedLifecycleJobs,
-      ...(options.stackOperationJobs ? [options.stackOperationJobs] : []),
       deploymentService,
       ...(migrationMutationExecutionService
         ? [migrationMutationExecutionService]

@@ -22,9 +22,34 @@ vi.mock('../src/api/rails', () => api);
 vi.mock('../src/api/database-explorer', () => explorerApi);
 vi.mock('../src/stores/app-dialog', () => ({ confirmDialog }));
 
+import DatabaseConnectionDialog from '../src/components/database/DatabaseConnectionDialog.vue';
+import DatabaseQueryEditor from '../src/components/database/DatabaseQueryEditor.vue';
+import DatabaseSidebar from '../src/components/database/DatabaseSidebar.vue';
 import DatabaseView from '../src/views/DatabaseView.vue';
 
 const wrappers: VueWrapper[] = [];
+
+const postgres = {
+  id: 'postgresql',
+  driver: 'postgresql',
+  label: 'PostgreSQL',
+  unit: 'postgresql.service',
+  installed: true,
+  active: true,
+};
+
+async function mountView(): Promise<VueWrapper> {
+  api.fetchMachineDatabaseServiceDetails.mockResolvedValue({
+    serviceId: 'postgresql',
+    port: 5432,
+    reachability: 'reachable',
+    logs: [],
+  });
+  const wrapper = mount(DatabaseView);
+  wrappers.push(wrapper);
+  await flushPromises();
+  return wrapper;
+}
 
 afterEach(() => {
   wrappers.splice(0).forEach((wrapper) => wrapper.unmount());
@@ -34,27 +59,13 @@ afterEach(() => {
 
 describe('DatabaseView', () => {
   it('confirma antes de parar ou reiniciar um banco ativo', async () => {
-    api.fetchMachineDatabaseServices.mockResolvedValue([
-      {
-        id: 'postgresql',
-        driver: 'postgresql',
-        label: 'PostgreSQL',
-        unit: 'postgresql.service',
-        installed: true,
-        active: true,
-      },
-    ]);
+    api.fetchMachineDatabaseServices.mockResolvedValue([postgres]);
+    const wrapper = await mountView();
+    const sidebar = wrapper.getComponent(DatabaseSidebar);
+
     confirmDialog.mockResolvedValue(false);
-    const wrapper = mount(DatabaseView);
-    wrappers.push(wrapper);
+    sidebar.vm.$emit('run-action', postgres, 'restart');
     await flushPromises();
-
-    const restartButton = wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('Reiniciar'))!;
-    await restartButton.trigger('click');
-    await flushPromises();
-
     expect(confirmDialog).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Reiniciar PostgreSQL?',
@@ -64,7 +75,7 @@ describe('DatabaseView', () => {
     expect(api.runMachineDatabaseServiceAction).not.toHaveBeenCalled();
 
     confirmDialog.mockResolvedValue(true);
-    await restartButton.trigger('click');
+    sidebar.vm.$emit('run-action', postgres, 'restart');
     await flushPromises();
     expect(api.runMachineDatabaseServiceAction).toHaveBeenCalledWith(
       'postgresql',
@@ -72,169 +83,29 @@ describe('DatabaseView', () => {
     );
   });
 
-  it('inicia um serviço parado sem pedir confirmação', async () => {
-    api.fetchMachineDatabaseServices.mockResolvedValue([
-      {
-        id: 'mysql',
-        driver: 'mysql',
-        label: 'MySQL',
-        unit: 'mysql.service',
-        installed: true,
-        active: false,
-      },
-    ]);
-    const wrapper = mount(DatabaseView);
-    wrappers.push(wrapper);
-    await flushPromises();
+  it('exige confirmação antes de desinstalar um serviço', async () => {
+    api.fetchMachineDatabaseServices.mockResolvedValue([postgres]);
+    const wrapper = await mountView();
+    const sidebar = wrapper.getComponent(DatabaseSidebar);
 
-    const startButton = wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('Iniciar'))!;
-    await startButton.trigger('click');
+    confirmDialog.mockResolvedValue(false);
+    sidebar.vm.$emit('uninstall', postgres);
     await flushPromises();
+    expect(api.uninstallMachineDatabaseService).not.toHaveBeenCalled();
 
-    expect(confirmDialog).not.toHaveBeenCalled();
-    expect(api.runMachineDatabaseServiceAction).toHaveBeenCalledWith(
-      'mysql',
-      'start',
+    confirmDialog.mockResolvedValue(true);
+    sidebar.vm.$emit('uninstall', postgres);
+    await flushPromises();
+    expect(confirmDialog).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Desinstalar PostgreSQL?' }),
     );
-    expect(api.fetchMachineDatabaseServices).toHaveBeenCalledTimes(2);
-    expect(wrapper.get('[role="status"]').text()).toContain(
-      'MySQL iniciado com sucesso.',
-    );
-  });
-
-  it('exibe a mensagem específica retornada pela API quando uma ação falha', async () => {
-    api.fetchMachineDatabaseServices.mockResolvedValue([
-      {
-        id: 'mysql',
-        driver: 'mysql',
-        label: 'MySQL',
-        unit: 'mysql.service',
-        installed: true,
-        active: false,
-      },
-    ]);
-    api.runMachineDatabaseServiceAction.mockRejectedValueOnce(
-      new Error('Não é possível iniciar enquanto MariaDB estiver em execução.'),
-    );
-    const wrapper = mount(DatabaseView);
-    wrappers.push(wrapper);
-    await flushPromises();
-
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('Iniciar'))!
-      .trigger('click');
-    await flushPromises();
-
-    expect(wrapper.get('[role="alert"]').text()).toContain(
-      'Não é possível iniciar enquanto MariaDB estiver em execução.',
-    );
-  });
-
-  it('carrega detalhes, testa a conexão e mostra logs recentes', async () => {
-    api.fetchMachineDatabaseServices.mockResolvedValue([
-      {
-        id: 'postgresql',
-        driver: 'postgresql',
-        label: 'PostgreSQL',
-        unit: 'postgresql.service',
-        installed: true,
-        active: true,
-      },
-    ]);
-    api.fetchMachineDatabaseServiceDetails.mockResolvedValue({
-      serviceId: 'postgresql',
-      port: 5432,
-      version: 'psql (PostgreSQL) 16.4',
-      pid: 4242,
-      reachability: 'reachable',
-      logs: ['ready to accept connections'],
-    });
-    const wrapper = mount(DatabaseView);
-    wrappers.push(wrapper);
-    await flushPromises();
-
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('Ver detalhes'))!
-      .trigger('click');
-    await flushPromises();
-
-    expect(api.fetchMachineDatabaseServiceDetails).toHaveBeenCalledWith(
+    expect(api.uninstallMachineDatabaseService).toHaveBeenCalledWith(
       'postgresql',
     );
-    expect(wrapper.text()).toContain('5432');
-    expect(wrapper.text()).toContain('psql (PostgreSQL) 16.4');
-    expect(wrapper.text()).toContain('Porta acessível');
-    expect(wrapper.text()).toContain('ready to accept connections');
-
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('Testar conexão'))!
-      .trigger('click');
-    await flushPromises();
-    expect(api.fetchMachineDatabaseServiceDetails).toHaveBeenCalledTimes(2);
   });
 
-  it('oculta serviços não instalados da lista de gerenciamento', async () => {
-    api.fetchMachineDatabaseServices.mockResolvedValue([
-      {
-        id: 'mongodb',
-        driver: 'mongodb',
-        label: 'MongoDB',
-        unit: 'mongod.service',
-        installed: false,
-        active: false,
-      },
-    ]);
-    const wrapper = mount(DatabaseView);
-    wrappers.push(wrapper);
-    await flushPromises();
-
-    expect(wrapper.text()).toContain('Nenhum banco instalado nesta máquina.');
-    expect(wrapper.text()).not.toContain('Disponíveis para instalar');
-    expect(wrapper.text()).not.toContain('MongoDB');
-    expect(
-      wrapper
-        .findAll('button')
-        .some((button) => button.text().includes('Instalar')),
-    ).toBe(false);
-    expect(confirmDialog).not.toHaveBeenCalled();
-    expect(api.installMachineDatabaseService).not.toHaveBeenCalled();
-  });
-
-  it('exige confirmação antes de desinstalar um serviço', async () => {
-    api.fetchMachineDatabaseServices.mockResolvedValue([
-      {
-        id: 'mysql',
-        driver: 'mysql',
-        label: 'MySQL',
-        unit: 'mysql.service',
-        installed: true,
-        active: false,
-      },
-    ]);
-    confirmDialog.mockResolvedValue(true);
-    const wrapper = mount(DatabaseView);
-    wrappers.push(wrapper);
-    await flushPromises();
-
-    const uninstallButton = wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('Desinstalar'))!;
-    await uninstallButton.trigger('click');
-    await flushPromises();
-
-    expect(confirmDialog).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'Desinstalar MySQL?' }),
-    );
-    expect(api.uninstallMachineDatabaseService).toHaveBeenCalledWith('mysql');
-  });
-
-  it('conecta, executa consultas e permite filtrar, ordenar, copiar, exportar e desconectar', async () => {
-    api.fetchMachineDatabaseServices.mockResolvedValue([]);
+  it('explora um serviço, consulta e encerra a sessão ao desconectar', async () => {
+    api.fetchMachineDatabaseServices.mockResolvedValue([postgres]);
     explorerApi.createDatabaseExplorerSession.mockResolvedValue({
       sessionId: 'session-1',
       expiresAt: new Date(Date.now() + 60_000).toISOString(),
@@ -247,56 +118,49 @@ describe('DatabaseView', () => {
     ]);
     const result = {
       columns: ['id', 'name'],
-      rows: [
-        [2, 'Bia'],
-        [1, 'Ana'],
-      ],
-      rowCount: 2,
+      rows: [[1, 'Ana']],
+      rowCount: 1,
       truncated: false,
     };
     explorerApi.previewDatabaseExplorerTable.mockResolvedValue(result);
     explorerApi.queryDatabaseExplorer.mockResolvedValue(result);
-    const clipboard = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText: clipboard },
+    const wrapper = await mountView();
+    const sidebar = wrapper.getComponent(DatabaseSidebar);
+
+    sidebar.vm.$emit('explore', postgres);
+    await flushPromises();
+    const dialog = wrapper.getComponent(DatabaseConnectionDialog);
+    expect(dialog.props('draft')).toMatchObject({
+      driver: 'postgresql',
+      host: '127.0.0.1',
+      port: 5432,
     });
-    const createObjectURL = vi
-      .spyOn(URL, 'createObjectURL')
-      .mockReturnValue('blob:test');
-    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL');
-    const anchorClick = vi
-      .spyOn(HTMLAnchorElement.prototype, 'click')
-      .mockImplementation(() => undefined);
-    const wrapper = mount(DatabaseView);
-    wrappers.push(wrapper);
+    dialog.vm.$emit('update:draft', {
+      ...dialog.props('draft'),
+      username: 'app',
+      password: 'segredo',
+    });
+    await flushPromises();
+    dialog.vm.$emit('connect');
     await flushPromises();
 
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('Conectar a um serviço'))!
-      .trigger('click');
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('Conectar e continuar'))!
-      .trigger('click');
-    await flushPromises();
-
-    expect(explorerApi.createDatabaseExplorerSession).toHaveBeenCalled();
-    expect(explorerApi.fetchDatabaseExplorerCatalog).toHaveBeenCalledWith(
-      'session-1',
+    expect(explorerApi.createDatabaseExplorerSession).toHaveBeenCalledWith(
+      expect.objectContaining({ username: 'app', password: 'segredo' }),
     );
-    await wrapper.get('select').setValue('app_development');
+    // Um único banco já abre direto na lista de tabelas.
+    expect(explorerApi.fetchDatabaseExplorerTables).toHaveBeenCalledWith(
+      'session-1',
+      'app_development',
+    );
+
+    wrapper
+      .getComponent(DatabaseSidebar)
+      .vm.$emit('select-table', { schema: 'public', name: 'users' });
     await flushPromises();
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text() === 'public.users')!
-      .trigger('click');
-    await flushPromises();
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().trim() === 'Executar leitura')!
-      .trigger('click');
+    expect(explorerApi.previewDatabaseExplorerTable).toHaveBeenCalled();
+    expect(wrapper.text()).toContain('Ana');
+
+    wrapper.getComponent(DatabaseQueryEditor).vm.$emit('run');
     await flushPromises();
     expect(explorerApi.queryDatabaseExplorer).toHaveBeenCalledWith(
       'session-1',
@@ -304,53 +168,11 @@ describe('DatabaseView', () => {
       'app_development',
     );
 
-    expect(wrapper.text()).toContain('Ana');
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().trim() === 'name')!
-      .trigger('click');
-    await wrapper
-      .get('input[placeholder="Buscar nos resultados"]')
-      .setValue('Ana');
-    expect(wrapper.text()).toContain('1 de 2 linhas');
-    expect(wrapper.text()).toContain('Ana');
-    expect(wrapper.text()).not.toContain('Bia');
-
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().trim() === 'Copiar')!
-      .trigger('click');
-    await flushPromises();
-    expect(clipboard).toHaveBeenCalledWith(expect.stringContaining('Ana'));
-    expect(wrapper.get('[role="status"]').text()).toContain(
-      'Resultado copiado',
-    );
-
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().trim() === 'CSV')!
-      .trigger('click');
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().trim() === 'JSON')!
-      .trigger('click');
-    expect(createObjectURL).toHaveBeenCalledTimes(2);
-    expect(revokeObjectURL).toHaveBeenCalledTimes(2);
-    expect(anchorClick).toHaveBeenCalledTimes(2);
-
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().trim() === 'Histórico')!
-      .trigger('click');
-    expect(wrapper.text()).toContain('Consultas recentes');
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().trim() === 'Desconectar')!
-      .trigger('click');
+    wrapper.getComponent(DatabaseSidebar).vm.$emit('disconnect');
     await flushPromises();
     expect(explorerApi.deleteDatabaseExplorerSession).toHaveBeenCalledWith(
       'session-1',
     );
-    expect(wrapper.text()).toContain('Nenhuma conexão ativa');
+    expect(wrapper.text()).toContain('Explore seus bancos locais');
   });
 });

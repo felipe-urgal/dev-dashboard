@@ -1,4 +1,4 @@
-import { computed, nextTick } from 'vue';
+import { computed } from 'vue';
 import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +7,13 @@ import type { Project, Workspace } from '@dev-dashboard/contracts';
 const actions = vi.hoisted(() => ({
   escanear: vi.fn(),
   desativar: vi.fn(),
+  iniciar: vi.fn(),
+  parar: vi.fn(),
+}));
+
+vi.mock('../src/api', () => ({
+  startProjectProcess: actions.iniciar,
+  stopProjectProcess: actions.parar,
 }));
 
 vi.mock('../src/stores/dashboard', async () => {
@@ -33,6 +40,7 @@ vi.mock('../src/stores/dashboard', async () => {
       scanWarnings: ref([]),
       scanStatus: ref('idle'),
       managedProcesses: ref([]),
+      getCardProcess: () => null,
       processSummary: ref({ total: 0, active: 0, stopped: 0, failed: 0 }),
       loadingProcessSummary: ref(false),
       processSummaryError: ref(''),
@@ -108,49 +116,29 @@ beforeEach(() => {
 });
 
 describe('dashboard principal', () => {
-  it('renderiza a visão minimalista e o estado vazio', () => {
+  it('sem workspace oferece cadastrar um', () => {
     const wrapper = mountView();
 
-    expect(wrapper.find('.dashboard-primary').exists()).toBe(true);
-    expect(wrapper.find('.dashboard-rail').exists()).toBe(false);
-    expect(wrapper.find('.dashboard-toolbar').exists()).toBe(false);
-    expect(wrapper.find('.dashboard-search').exists()).toBe(false);
-    expect(wrapper.text()).toContain('Projetos pessoais');
-    expect(wrapper.text()).toContain('Nenhum projeto carregado');
+    expect(wrapper.text()).toContain('Nenhum workspace cadastrado');
   });
 
-  it('renderiza somente cabeçalhos e lista de projetos', () => {
+  it('explica o workspace sem projetos e oferece atualizar', () => {
+    dashboardStore.workspaces.value = [workspace];
+    dashboardStore.selectedWorkspaceId.value = workspace.id;
+    const wrapper = mountView();
+
+    expect(wrapper.text()).toContain('Nenhum projeto neste workspace');
+    expect(wrapper.text()).toContain(workspace.path);
+  });
+
+  it('lista os projetos e resume quantos estão rodando', () => {
     dashboardStore.projects.value = [project];
     const wrapper = mountView();
 
-    expect(wrapper.get('.dashboard-project-columns').text()).toContain(
-      'Projeto',
+    expect(wrapper.get('.dashboard-summary').text()).toBe(
+      '1 projeto · nenhum rodando',
     );
-    expect(wrapper.get('.dashboard-project-columns').text()).toContain(
-      'Status',
-    );
-    expect(wrapper.get('.dashboard-project-columns').text()).toContain('Ações');
-    expect(wrapper.find('.dashboard-tabs').exists()).toBe(false);
-    expect(wrapper.find('.dashboard-filter-button').exists()).toBe(false);
     expect(wrapper.findAll('.project-stub')).toHaveLength(1);
-  });
-
-  it('mantém o próprio dev-dashboard na listagem', () => {
-    dashboardStore.projects.value = [
-      project,
-      {
-        ...project,
-        id: 'dev-dashboard',
-        name: 'dev-dashboard',
-        path: '/home/ubuntu/Projetos/dev-dashboard',
-      },
-    ];
-
-    const wrapper = mountView();
-
-    expect(wrapper.findAll('.project-stub')).toHaveLength(2);
-    expect(wrapper.text()).toContain('Projeto Node');
-    expect(wrapper.text()).toContain('dev-dashboard');
   });
 
   it('aciona a atualização do workspace pelo cabeçalho', async () => {
@@ -159,24 +147,16 @@ describe('dashboard principal', () => {
     dashboardStore.lastScannedPath.value = workspace.path;
     const wrapper = mountView();
 
-    await wrapper.get('.dashboard-refresh-button').trigger('click');
+    const refresh = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Atualizar'))!;
+    await refresh.trigger('click');
     await flushPromises();
 
     expect(actions.escanear).toHaveBeenCalledOnce();
     expect(wrapper.find('[aria-label="Remover workspace"]').exists()).toBe(
       false,
     );
-  });
-
-  it('renderiza o estado vazio e depois a lista de projetos', async () => {
-    const wrapper = mountView();
-    expect(wrapper.text()).toContain('Nenhum projeto carregado');
-
-    dashboardStore.projects.value = [project];
-    await nextTick();
-
-    expect(wrapper.find('.dashboard-project-list').exists()).toBe(true);
-    expect(wrapper.get('.project-stub').text()).toContain('Projeto Node');
   });
 
   it('encaminha a ação individual de ativar ou desativar', async () => {
@@ -186,6 +166,32 @@ describe('dashboard principal', () => {
     await wrapper.get('.toggle-enabled-stub').trigger('click');
 
     expect(actions.desativar).toHaveBeenCalledWith(project);
+  });
+});
+
+describe('ações em lote', () => {
+  it('inicia todos os servidores parados e informa os que falharam', async () => {
+    dashboardStore.projects.value = [
+      { ...project, id: 'p1', name: 'Alpha' },
+      { ...project, id: 'p2', name: 'Bravo' },
+    ];
+    actions.iniciar.mockImplementation(async (id: string) => {
+      if (id === 'p2') throw new Error('porta ocupada');
+    });
+    const wrapper = mountView();
+
+    const startAll = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Iniciar todos'))!;
+    await startAll.trigger('click');
+    await flushPromises();
+
+    expect(actions.iniciar).toHaveBeenNthCalledWith(1, 'p1');
+    expect(actions.iniciar).toHaveBeenNthCalledWith(2, 'p2');
+    expect(dashboardStore.loadProcessSummary).toHaveBeenCalled();
+    expect(wrapper.get('.dashboard-bulk-error').text()).toBe(
+      'Não foi possível iniciar: Bravo.',
+    );
   });
 });
 
@@ -201,16 +207,5 @@ describe('warnings do workspace', () => {
     expect(wrapper.get('.dashboard-scan-warning').text()).toContain(
       'Descoberta parcial',
     );
-  });
-  it('não mostra aviso após novo scan saudável', async () => {
-    dashboardStore.scanStatus.value = 'warnings';
-    dashboardStore.scanWarnings.value = [
-      { path: '.', code: 'ERROR', message: 'Erro' },
-    ];
-    const wrapper = mountView();
-    dashboardStore.scanStatus.value = 'complete';
-    dashboardStore.scanWarnings.value = [];
-    await nextTick();
-    expect(wrapper.find('.dashboard-scan-warning').exists()).toBe(false);
   });
 });

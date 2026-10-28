@@ -15,11 +15,6 @@ async function mountPalette(
     routes: [
       { path: '/', name: 'dashboard', component: { template: '<div />' } },
       {
-        path: '/activity',
-        name: 'activity',
-        component: { template: '<div />' },
-      },
-      {
         path: '/database',
         name: 'database',
         component: { template: '<div />' },
@@ -205,7 +200,7 @@ describe('paleta global de navegação', () => {
     );
     await flushPromises();
 
-    expect(router.currentRoute.value.name).toBe('activity');
+    expect(router.currentRoute.value.name).toBe('database');
     expectPaletteHidden();
 
     (wrapper.vm as unknown as { show: () => void }).show();

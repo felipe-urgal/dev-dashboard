@@ -53,3 +53,8 @@ kbd {
     transition-delay: 0s !important;
   }
 }
+
+/* Item destrutivo em menus teleportados (NDropdown). */
+.ui-menu-danger {
+  color: var(--danger-text);
+}

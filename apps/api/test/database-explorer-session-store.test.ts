@@ -30,7 +30,7 @@ test('mantém a credencial somente no store e devolve uma cópia da conexão', (
   store.close();
 });
 
-test('remove sessão expirada ao consultar', () => {
+test('remove sessão ociosa ao consultar', () => {
   let now = 1_000;
   const store = new DatabaseExplorerSessionStore({
     ttlMs: 500,
@@ -43,6 +43,25 @@ test('remove sessão expirada ao consultar', () => {
 
   assert.equal(store.get('session-expired'), undefined);
   assert.equal(store.delete('session-expired'), false);
+  store.close();
+});
+
+test('cada uso renova a sessão: só expira quando fica ociosa', () => {
+  let now = 1_000;
+  const store = new DatabaseExplorerSessionStore({
+    ttlMs: 500,
+    now: () => now,
+    generateSessionId: () => 'session-active',
+  });
+  store.create({ driver: 'postgresql', password: 'segredo' });
+
+  for (let step = 0; step < 5; step += 1) {
+    now += 400;
+    assert.equal(store.get('session-active')?.password, 'segredo');
+  }
+
+  now += 501;
+  assert.equal(store.get('session-active'), undefined);
   store.close();
 });
 

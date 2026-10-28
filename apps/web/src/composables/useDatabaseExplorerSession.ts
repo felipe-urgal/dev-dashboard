@@ -46,43 +46,21 @@ export function useDatabaseExplorerSession(
   const expiresAt = ref<string | null>(null);
   const connection = ref<DatabaseExplorerConnectionMetadata | null>(null);
 
-  let expiryTimer: ReturnType<typeof setTimeout> | null = null;
   let generation = 0;
-
-  function clearExpiryTimer(): void {
-    if (expiryTimer) clearTimeout(expiryTimer);
-    expiryTimer = null;
-  }
 
   function clearLocalSession(expired = false): void {
     generation += 1;
-    clearExpiryTimer();
     sessionId.value = null;
     expiresAt.value = null;
     connection.value = null;
     if (expired) options.onExpired?.();
   }
 
-  function scheduleExpiry(value: string, expectedSessionId: string): void {
-    clearExpiryTimer();
-    const timestamp = Date.parse(value);
-    if (!Number.isFinite(timestamp)) return;
-
-    expiryTimer = setTimeout(
-      () => {
-        if (sessionId.value !== expectedSessionId) return;
-        clearLocalSession(true);
-        void deleteBestEffort(expectedSessionId);
-      },
-      Math.max(0, timestamp - Date.now()),
-    );
-  }
-
   async function deleteBestEffort(id: string): Promise<void> {
     try {
       await deleteDatabaseExplorerSession(id);
     } catch {
-      // O servidor ainda aplica TTL absoluto; cleanup best-effort é usado
+      // O servidor derruba sessões ociosas; cleanup best-effort é usado
       // somente para sessão temporária, substituída ou desmontagem da view.
     }
   }
@@ -92,8 +70,6 @@ export function useDatabaseExplorerSession(
   ): Promise<MachineDatabaseCatalogItem[]> {
     const requestGeneration = ++generation;
     const previousSessionId = sessionId.value;
-    const previousExpiresAt = expiresAt.value;
-    clearExpiryTimer();
 
     let created: { sessionId: string; expiresAt: string } | undefined;
 
@@ -105,7 +81,6 @@ export function useDatabaseExplorerSession(
       sessionId.value = created.sessionId;
       expiresAt.value = created.expiresAt;
       connection.value = connectionWithoutSecret(input);
-      scheduleExpiry(created.expiresAt, created.sessionId);
 
       if (previousSessionId && previousSessionId !== created.sessionId) {
         void deleteBestEffort(previousSessionId);
@@ -115,14 +90,6 @@ export function useDatabaseExplorerSession(
     } catch (error) {
       if (created && sessionId.value !== created.sessionId) {
         await deleteBestEffort(created.sessionId);
-      }
-      if (
-        requestGeneration === generation &&
-        previousSessionId &&
-        previousExpiresAt &&
-        sessionId.value === previousSessionId
-      ) {
-        scheduleExpiry(previousExpiresAt, previousSessionId);
       }
       throw error;
     }

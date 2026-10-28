@@ -3,6 +3,7 @@ import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import type { MachineDatabaseConnection } from '@dev-dashboard/contracts';
 
 import type { SavedDatabaseConnection } from '../../composables/useDatabaseSavedConnections';
+import UiButton from '../ui/UiButton.vue';
 
 const props = defineProps<{
   open: boolean;
@@ -134,20 +135,24 @@ onBeforeUnmount(() => {
       tabindex="-1"
       @keydown="handleDialogKeydown"
     >
-      <div class="database-modal-heading">
+      <header>
         <div>
-          <span class="database-machine-eyebrow">Conexão local</span>
+          <span class="database-connection-eyebrow">Conexão local</span>
           <h2 id="database-connection-title">Conectar a um serviço</h2>
           <p>As credenciais são usadas somente nesta sessão.</p>
         </div>
-        <button type="button" aria-label="Fechar" @click="emit('close')">
-          ×
-        </button>
-      </div>
+        <UiButton
+          icon
+          variant="ghost"
+          aria-label="Fechar"
+          @click="emit('close')"
+          >×</UiButton
+        >
+      </header>
       <div class="database-connection-form">
-        <div v-if="savedConnections.length" class="database-saved-connections">
+        <div v-if="savedConnections.length" class="database-connection-wide">
           <label for="database-saved-connection">Conexão salva</label>
-          <div class="database-saved-connection-control">
+          <div class="database-connection-saved">
             <select
               id="database-saved-connection"
               :value="selectedSavedConnectionId"
@@ -162,14 +167,12 @@ onBeforeUnmount(() => {
                 {{ saved.label }}
               </option>
             </select>
-            <button
+            <UiButton
               v-if="selectedSavedConnectionId"
-              type="button"
-              class="database-saved-remove"
               @click="emit('remove-saved', selectedSavedConnectionId)"
             >
               Remover
-            </button>
+            </UiButton>
           </div>
         </div>
         <label
@@ -186,6 +189,7 @@ onBeforeUnmount(() => {
             <option value="postgresql">PostgreSQL</option>
             <option value="mysql">MySQL</option>
             <option value="mariadb">MariaDB</option>
+            <option value="redis">Redis</option>
           </select></label
         >
         <label
@@ -205,7 +209,11 @@ onBeforeUnmount(() => {
         <label
           >Usuário<input
             :value="draft.username ?? ''"
-            placeholder="ex.: felipe, root ou postgres"
+            :placeholder="
+              draft.driver === 'redis'
+                ? 'Opcional (ACL do Redis)'
+                : 'ex.: felipe, root ou postgres'
+            "
             autocomplete="off"
             @input="updateDraft({ username: inputValue($event) })"
         /></label>
@@ -217,40 +225,170 @@ onBeforeUnmount(() => {
             @input="updateDraft({ password: inputValue($event) })"
         /></label>
         <label
-          >Banco (opcional)<input
+          >{{
+            draft.driver === 'redis' ? 'Banco lógico' : 'Banco'
+          }}
+          (opcional)<input
             :value="draft.database ?? ''"
-            placeholder="Vazio lista todos"
+            :placeholder="
+              draft.driver === 'redis' ? 'db0' : 'Vazio lista todos'
+            "
             autocomplete="off"
             @input="updateDraft({ database: inputValue($event) })"
         /></label>
       </div>
-      <p v-if="error" class="database-machine-details-error" role="alert">
+      <p v-if="error" class="database-connection-error" role="alert">
         {{ error }}
       </p>
       <p
         v-if="testMessage"
-        class="database-machine-success"
+        class="database-connection-success"
         role="status"
         aria-live="polite"
       >
         {{ testMessage }}
       </p>
-      <div class="database-modal-actions">
-        <button type="button" @click="emit('close')">Cancelar</button>
-        <button type="button" :disabled="loading" @click="emit('save')">
+      <footer>
+        <UiButton @click="emit('close')">Cancelar</UiButton>
+        <UiButton :disabled="loading" @click="emit('save')">
           Salvar sem senha
-        </button>
-        <button type="button" :disabled="loading" @click="emit('test')">
-          {{ loading ? 'Testando…' : 'Testar conexão' }}</button
-        ><button
-          type="button"
-          class="database-primary-button"
+        </UiButton>
+        <UiButton :disabled="loading" @click="emit('test')">
+          {{ loading ? 'Testando…' : 'Testar conexão' }}
+        </UiButton>
+        <UiButton
+          variant="primary"
+          :busy="loading"
           :disabled="loading"
           @click="emit('connect')"
         >
-          {{ loading ? 'Conectando…' : 'Conectar e continuar' }}
-        </button>
-      </div>
+          {{ loading ? 'Conectando…' : 'Conectar' }}
+        </UiButton>
+      </footer>
     </section>
   </div>
 </template>
+
+<style scoped>
+.database-modal-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 55%);
+}
+
+.database-connection-modal {
+  display: grid;
+  width: min(560px, 100%);
+  max-height: calc(100vh - 32px);
+  gap: 16px;
+  padding: 22px;
+  overflow-y: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  background: var(--surface-1);
+  box-shadow: var(--shadow-2);
+}
+
+header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+header h2 {
+  margin: 2px 0 4px;
+  font-size: 18px;
+}
+
+header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.database-connection-eyebrow {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.database-connection-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.database-connection-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.database-connection-wide {
+  grid-column: 1 / -1;
+}
+
+input,
+select {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  color: var(--text);
+  background: var(--surface-0);
+  font: inherit;
+  font-size: 14px;
+}
+
+input:focus-visible,
+select:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.database-connection-saved {
+  display: flex;
+  gap: 8px;
+}
+
+.database-connection-saved select {
+  flex: 1;
+}
+
+footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.database-connection-error,
+.database-connection-success {
+  margin: 0;
+  font-size: 13px;
+}
+
+.database-connection-error {
+  color: var(--danger-text);
+}
+
+.database-connection-success {
+  color: var(--success-text);
+}
+
+@media (max-width: 560px) {
+  .database-connection-form {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
