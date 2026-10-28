@@ -51,15 +51,16 @@ function isValidEvent(value: unknown): value is GitMutationHistoryEvent {
  * `events` já está ordenado do mais novo para o mais antigo — a primeira
  * ocorrência de cada projeto dentro do limite global é sempre preservada.
  */
-function enforceLimits(
+export function enforceLimits(
   events: readonly GitMutationHistoryEvent[],
+  limits = { project: PROJECT_EVENT_LIMIT, global: GLOBAL_EVENT_LIMIT },
 ): GitMutationHistoryEvent[] {
   const perProjectCount = new Map<string, number>();
   const kept: GitMutationHistoryEvent[] = [];
   for (const event of events) {
-    if (kept.length >= GLOBAL_EVENT_LIMIT) break;
+    if (kept.length >= limits.global) break;
     const count = perProjectCount.get(event.projectId) ?? 0;
-    if (count >= PROJECT_EVENT_LIMIT) continue;
+    if (count >= limits.project) continue;
     perProjectCount.set(event.projectId, count + 1);
     kept.push(event);
   }
