@@ -1,21 +1,26 @@
 <script setup lang="ts">
-import {
-  EllipsisHorizontalIcon,
-  LockClosedIcon,
-  PencilSquareIcon,
-  PlusIcon,
-  ShareIcon,
-  TrashIcon,
-  XMarkIcon,
-} from '@heroicons/vue/24/outline';
-import { computed, nextTick, ref } from 'vue';
-import { NModal } from 'naive-ui';
+import { computed, ref } from 'vue';
 
 import type {
-  GitBranch,
   ProjectGitOverview,
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
+
+import {
+  buildBranchRows,
+  countBranches,
+  filterBranchRows,
+  groupBranchRows,
+  isProtectedBranch,
+  type BranchFilter,
+  type BranchMenuAction,
+  type BranchRow,
+} from '../utils/git-branches';
+import GitBranchDialogs, {
+  type BranchDialog,
+} from './git-branches/GitBranchDialogs.vue';
+import GitBranchRow from './git-branches/GitBranchRow.vue';
+import GitBranchToolbar from './git-branches/GitBranchToolbar.vue';
 
 const props = defineProps<{
   overview: ProjectGitOverview;
@@ -44,318 +49,261 @@ const emit = defineEmits<{
   publish: [name: string];
   track: [remoteBranch: string];
   'delete-remote': [remoteBranch: string];
+  'open-pull-request': [];
 }>();
 
-type BranchModal = 'create' | 'rename' | 'delete' | 'delete-remote' | null;
-type OpenBranchModal = Exclude<BranchModal, null>;
+/** A seção "Somente no origin" encolhe quando passa disso. */
+const REMOTE_COLLAPSE_AFTER = 6;
+const REMOTE_COLLAPSED_SIZE = 3;
 
-interface BranchRow {
-  name: string;
-  local?: GitBranch;
-  origin?: GitBranch;
-}
+const query = ref('');
+const filter = ref<BranchFilter>('all');
+const remoteExpanded = ref(false);
 
-interface BranchPrefix {
-  value: string;
-  label: string;
-}
-
-const prefixes: BranchPrefix[] = [
-  { value: 'feature/', label: 'Nova função' },
-  { value: 'bugfix/', label: 'Correção comum' },
-  { value: 'hotfix/', label: 'Correção urgente' },
-  { value: 'docs/', label: 'Documentação' },
-  { value: 'refactor/', label: 'Melhoria interna' },
-  { value: 'test/', label: 'Testes' },
-];
-
-const modal = ref<BranchModal>(null);
-const modalDialog = ref<HTMLElement | null>(null);
-const selectedBranch = ref('');
-const branchPrefix = ref(prefixes[0]!.value);
-const branchSuffix = ref('');
-const renamedBranch = ref('');
-const deleteConfirmation = ref('');
-let previousFocus: HTMLElement | null = null;
+const dialog = ref<BranchDialog | null>(null);
+const dialogRow = ref<BranchRow | null>(null);
 
 const actionsBusy = computed(() => props.busy || props.remoteRefreshing);
 
-const rows = computed<BranchRow[]>(() => {
-  const byName = new Map<string, BranchRow>();
-  const originBranches = (props.workspace?.branches ?? []).filter(
-    (branch) => branch.kind === 'remote' && branch.remote === 'origin',
-  );
-  const claimedOriginBranches = new Set<string>();
-
-  for (const local of (props.workspace?.branches ?? []).filter(
-    (branch) => branch.kind === 'local',
-  )) {
-    const row: BranchRow = { name: local.name, local };
-    const trackedOrigin = local.upstream?.startsWith('origin/')
-      ? originBranches.find((remote) => remote.name === local.upstream)
-      : originBranches.find((remote) => remote.shortName === local.name);
-    if (trackedOrigin) {
-      row.origin = trackedOrigin;
-      claimedOriginBranches.add(trackedOrigin.name);
-    }
-    byName.set(local.name, row);
-  }
-
-  for (const origin of originBranches) {
-    if (claimedOriginBranches.has(origin.name)) continue;
-    byName.set(origin.shortName, {
-      name: origin.shortName,
-      origin,
-    });
-  }
-
-  return [...byName.values()].sort((left, right) => {
-    if (left.local?.current !== right.local?.current) {
-      return left.local?.current ? -1 : 1;
-    }
-    return left.name.localeCompare(right.name, 'pt-BR');
-  });
-});
-
-const fullBranchName = computed(() => {
-  const suffix = branchSuffix.value.trim().replace(/^\/+/, '');
-  return suffix ? `${branchPrefix.value}${suffix}` : branchPrefix.value;
-});
-
-const selectedRow = computed(() =>
-  rows.value.find((row) => row.name === selectedBranch.value),
+const allRows = computed(() => buildBranchRows(props.workspace));
+const counts = computed(() => countBranches(allRows.value));
+const visible = computed(() =>
+  groupBranchRows(
+    filterBranchRows(allRows.value, {
+      query: query.value,
+      filter: filter.value,
+    }),
+  ),
 );
 
-const canSubmitCreate = computed(() => {
-  const suffix = branchSuffix.value.trim().replace(/^\/+/, '');
-  return Boolean(suffix) && fullBranchName.value.length <= 200;
-});
-
-const canSubmitRename = computed(() => {
-  const nextName = renamedBranch.value.trim();
-  return (
-    Boolean(nextName) &&
-    nextName !== selectedBranch.value &&
-    nextName.length <= 200
-  );
-});
-
-const deleteConfirmationTarget = computed(() => {
-  if (modal.value === 'delete-remote') {
-    return selectedRow.value?.origin?.shortName ?? selectedBranch.value;
-  }
-  return selectedBranch.value;
-});
-
-const canSubmitDelete = computed(
-  () => deleteConfirmation.value === deleteConfirmationTarget.value,
+const searching = computed(
+  () => query.value.trim() !== '' || filter.value === 'remote',
+);
+const remoteCollapsible = computed(
+  () =>
+    !searching.value && visible.value.remoteOnly.length > REMOTE_COLLAPSE_AFTER,
+);
+const remoteRows = computed(() =>
+  remoteCollapsible.value && !remoteExpanded.value
+    ? visible.value.remoteOnly.slice(0, REMOTE_COLLAPSED_SIZE)
+    : visible.value.remoteOnly,
 );
 
-function isProtected(row: BranchRow): boolean {
-  const originDefault = props.workspace?.remotes.find(
-    (remote) => remote.name === 'origin',
-  )?.defaultBranch;
-  return (
-    row.name === 'main' ||
-    row.name === 'master' ||
-    Boolean(originDefault && row.name === originDefault)
-  );
-}
-
-function operationFor(row: BranchRow, kind?: string): boolean {
-  return (
-    props.operation?.branch === row.name &&
-    (!kind || props.operation.kind === kind)
-  );
-}
-
-function commitLabel(count: number): string {
-  return count === 1 ? 'commit' : 'commits';
-}
-
-function stateLabel(row: BranchRow): string {
-  if (row.local && row.origin) {
-    if (row.local.ahead > 0 && row.local.behind > 0) return 'Divergente';
-    if (row.local.behind > 0) {
-      return `${row.local.behind} ${commitLabel(row.local.behind)} atrás`;
-    }
-    if (row.local.ahead > 0) {
-      return `${row.local.ahead} ${commitLabel(row.local.ahead)} à frente`;
-    }
-    return 'Em dia';
-  }
-  if (row.local) return 'Somente local';
-  return 'Somente remota';
-}
-
-function stateTone(row: BranchRow): string {
-  if (row.local && row.origin) {
-    if (row.local.behind > 0) return 'warning';
-    if (row.local.ahead > 0) return 'ahead';
-    return 'synced';
-  }
-  if (row.local) return 'local';
-  return 'remote';
-}
-
-function rowCommit(row: BranchRow) {
-  return row.local?.latestCommit ?? row.origin?.latestCommit;
-}
-
-function formatCommitAge(authoredAt: string | undefined): string {
-  if (!authoredAt) return 'Data indisponível';
-  const timestamp = Date.parse(authoredAt);
-  if (!Number.isFinite(timestamp)) return 'Data indisponível';
-
-  const elapsed = Math.max(0, Date.now() - timestamp);
-  const minutes = Math.floor(elapsed / 60_000);
-  if (minutes < 1) return 'agora';
-  if (minutes < 60) return `há ${minutes} min`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `há ${hours} h`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `há ${days} ${days === 1 ? 'dia' : 'dias'}`;
-
-  const months = Math.floor(days / 30);
-  if (months < 12) return `há ${months} ${months === 1 ? 'mês' : 'meses'}`;
-
-  const years = Math.floor(months / 12);
-  return `há ${years} ${years === 1 ? 'ano' : 'anos'}`;
-}
-
-function hasMenuActions(row: BranchRow): boolean {
-  return Boolean(
-    (row.local && !row.origin) ||
-    (row.local && !isProtected(row)) ||
-    (row.origin && !isProtected(row)),
-  );
-}
-
-const deleteSubmitLabel = computed(() =>
-  modal.value === 'delete-remote'
-    ? 'Remover do origin'
-    : 'Remover branch local',
+const noResults = computed(
+  () =>
+    !props.loading &&
+    visible.value.current.length +
+      visible.value.local.length +
+      visible.value.remoteOnly.length ===
+      0,
 );
 
-const modalTitle = computed(() => {
-  switch (modal.value) {
-    case 'create':
-      return 'Nova branch';
-    case 'rename':
-      return 'Renomear branch';
-    case 'delete-remote':
-      return 'Remover branch remota';
-    default:
-      return 'Remover branch local';
-  }
-});
+const currentBranchName = computed(
+  () => props.overview.branch ?? 'a branch atual',
+);
 
-function focusModalAutofocus(): void {
-  void nextTick(() => {
-    modalDialog.value
-      ?.querySelector<HTMLElement>('[data-branch-modal-autofocus]')
-      ?.focus();
-  });
+function operationKindFor(row: BranchRow): string | undefined {
+  return props.operation?.branch === row.name
+    ? props.operation.kind
+    : undefined;
 }
 
-function openModal(nextModal: OpenBranchModal): void {
-  if (typeof document !== 'undefined') {
-    previousFocus =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-  }
-  modal.value = nextModal;
-  focusModalAutofocus();
+function protectedRow(row: BranchRow): boolean {
+  return isProtectedBranch(row, props.workspace);
 }
 
-function finishModal(): void {
-  modal.value = null;
-  const focusTarget = previousFocus;
-  previousFocus = null;
-  if (!focusTarget) return;
-  void nextTick(() => {
-    if (focusTarget.isConnected) focusTarget.focus();
-  });
+function openCreate(): void {
+  dialogRow.value = null;
+  dialog.value = 'create';
 }
 
-function handleModalKeydown(event: KeyboardEvent): void {
-  if (event.key !== 'Tab') return;
-  const dialog = modalDialog.value;
-  if (!dialog) return;
-  const focusable = [
-    ...dialog.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled])',
-    ),
-  ];
-  if (focusable.length === 0) return;
-  const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
-  if (event.shiftKey && currentIndex <= 0) {
-    event.preventDefault();
-    focusable.at(-1)?.focus();
-  } else if (!event.shiftKey && currentIndex === focusable.length - 1) {
-    event.preventDefault();
-    focusable[0]?.focus();
-  }
+function handleMenu(row: BranchRow, action: BranchMenuAction): void {
+  dialogRow.value = row;
+  dialog.value = action;
 }
 
-function openCreateModal(): void {
-  selectedBranch.value = '';
-  branchPrefix.value = prefixes[0]!.value;
-  branchSuffix.value = '';
-  openModal('create');
-}
-
-function openRenameModal(row: BranchRow): void {
-  selectedBranch.value = row.name;
-  renamedBranch.value = row.name;
-  openModal('rename');
-}
-
-function openDeleteModal(row: BranchRow): void {
-  selectedBranch.value = row.name;
-  deleteConfirmation.value = '';
-  openModal('delete');
-}
-
-function openDeleteRemoteModal(row: BranchRow): void {
-  selectedBranch.value = row.name;
-  deleteConfirmation.value = '';
-  openModal('delete-remote');
-}
-
-function closeModal(): void {
+function closeDialog(): void {
   if (props.busy) return;
-  finishModal();
+  dialog.value = null;
 }
 
-function submitCreate(): void {
-  if (!canSubmitCreate.value || actionsBusy.value) return;
-  emit('create', fullBranchName.value);
-  finishModal();
+function finish(): void {
+  dialog.value = null;
 }
 
-function submitRename(): void {
-  if (!canSubmitRename.value || actionsBusy.value) return;
-  emit('rename', selectedBranch.value, renamedBranch.value.trim());
-  finishModal();
+function submitRename(nextName: string): void {
+  if (dialogRow.value) emit('rename', dialogRow.value.name, nextName);
+  finish();
 }
 
-function submitDelete(): void {
-  if (!canSubmitDelete.value || actionsBusy.value) return;
-  if (modal.value === 'delete-remote') {
-    const remoteBranch = selectedRow.value?.origin?.name;
-    if (!remoteBranch) return;
-    emit('delete-remote', remoteBranch);
+function submitRemove(): void {
+  const row = dialogRow.value;
+  if (!row) return;
+
+  if (dialog.value === 'delete-remote') {
+    if (row.origin) emit('delete-remote', row.origin.name);
   } else {
-    emit('delete', selectedBranch.value);
+    emit('delete', row.name);
   }
-  finishModal();
+  finish();
 }
 </script>
 
-<template src="./ProjectGitBranchesPage.template.html"></template>
+<template>
+  <section class="git-branches-page">
+    <GitBranchToolbar
+      v-model:query="query"
+      v-model:filter="filter"
+      :local-count="counts.local"
+      :remote-only-count="counts.remoteOnly"
+      :disabled="actionsBusy"
+      :creating="operation?.kind === 'create'"
+      @create="openCreate"
+    />
 
-<style scoped src="./ProjectGitBranchesPage.css"></style>
+    <p v-if="loading" class="git-branches-note">Atualizando branches…</p>
+    <p v-else-if="allRows.length === 0" class="git-branches-note">
+      Nenhuma branch disponível.
+    </p>
+    <p v-else-if="noResults" class="git-branches-note">
+      Nenhuma branch encontrada.
+    </p>
+
+    <section
+      v-if="visible.current.length > 0"
+      class="git-branches-section"
+      aria-label="Branch atual"
+    >
+      <header>Branch atual</header>
+      <GitBranchRow
+        v-for="row in visible.current"
+        :key="row.name"
+        :row="row"
+        :is-protected="protectedRow(row)"
+        :operation-kind="operationKindFor(row)"
+        :disabled="actionsBusy"
+        @open-pull-request="emit('open-pull-request')"
+        @menu-select="(action) => handleMenu(row, action)"
+      />
+    </section>
+
+    <section
+      v-if="visible.local.length > 0"
+      class="git-branches-section"
+      aria-label="Locais"
+    >
+      <header>
+        Locais <span>{{ visible.local.length }}</span>
+      </header>
+      <GitBranchRow
+        v-for="row in visible.local"
+        :key="row.name"
+        :row="row"
+        :is-protected="protectedRow(row)"
+        :operation-kind="operationKindFor(row)"
+        :disabled="actionsBusy"
+        @switch="emit('switch', row.name)"
+        @publish="emit('publish', row.name)"
+        @menu-select="(action) => handleMenu(row, action)"
+      />
+    </section>
+
+    <section
+      v-if="visible.remoteOnly.length > 0"
+      class="git-branches-section"
+      aria-label="Somente no origin"
+    >
+      <header>
+        Somente no origin <span>{{ visible.remoteOnly.length }}</span>
+        <button
+          v-if="remoteCollapsible"
+          type="button"
+          class="git-branches-toggle"
+          @click="remoteExpanded = !remoteExpanded"
+        >
+          {{
+            remoteExpanded
+              ? 'Mostrar menos'
+              : `Ver todas (${visible.remoteOnly.length})`
+          }}
+        </button>
+      </header>
+      <GitBranchRow
+        v-for="row in remoteRows"
+        :key="row.name"
+        :row="row"
+        :is-protected="protectedRow(row)"
+        :operation-kind="operationKindFor(row)"
+        :disabled="actionsBusy"
+        @track="row.origin && emit('track', row.origin.name)"
+        @menu-select="(action) => handleMenu(row, action)"
+      />
+    </section>
+
+    <GitBranchDialogs
+      :dialog="dialog"
+      :target="dialogRow?.name ?? ''"
+      :remote-target="dialogRow?.origin?.shortName ?? dialogRow?.name ?? ''"
+      :current-branch="currentBranchName"
+      :busy="actionsBusy"
+      @close="closeDialog"
+      @create="(name) => (emit('create', name), finish())"
+      @rename="submitRename"
+      @remove="submitRemove"
+    />
+  </section>
+</template>
+
+<style scoped>
+.git-branches-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.git-branches-note {
+  margin: 0;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--text-muted);
+  background: var(--surface-1);
+  text-align: center;
+}
+
+.git-branches-section {
+  /* Recorta o destaque da linha atual nos cantos arredondados. */
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-1);
+}
+
+.git-branches-section > header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 650;
+}
+
+.git-branches-section > header span {
+  color: var(--text-dim);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.git-branches-toggle {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  color: var(--text-dim);
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-decoration: underline;
+  cursor: pointer;
+}
+</style>

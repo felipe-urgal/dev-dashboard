@@ -68,7 +68,9 @@ test.describe('navegação principal', () => {
       'aria-current',
       'page',
     );
-    await expect(page.locator('.branch-create-button')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Nova branch' }),
+    ).toBeVisible();
   });
 
   test('abre a aba Agente pelo detalhe do projeto', async ({ page }) => {

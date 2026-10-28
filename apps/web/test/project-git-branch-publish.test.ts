@@ -141,10 +141,10 @@ test('publica uma branch somente local diretamente pela linha da branch', async 
   await flushPromises();
 
   const localOnlyRow = wrapper
-    .findAll('.branch-table-row')
+    .findAll('[data-branch]')
     .find((row) => row.text().includes('bugfix/ajustar-pesquisas'));
   assert.ok(localOnlyRow);
-  assert.match(localOnlyRow.text(), /Somente local/);
+  assert.match(localOnlyRow.text(), /Não publicada/);
 
   const publishButton = localOnlyRow
     .findAll('button')
@@ -176,7 +176,7 @@ test('publica uma branch somente local diretamente pela linha da branch', async 
   );
 
   const mainRow = wrapper
-    .findAll('.branch-table-row')
+    .findAll('[data-branch]')
     .find((row) => row.text().includes('main'));
   assert.ok(mainRow);
   assert.doesNotMatch(mainRow.text(), /Publicar/);

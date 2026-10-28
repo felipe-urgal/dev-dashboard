@@ -1,339 +1,309 @@
+import { mount } from '@vue/test-utils';
+import { NDropdown } from 'naive-ui';
+import { describe, expect, it } from 'vitest';
+
 import type {
-  GitCommit,
+  GitBranch,
   ProjectGitOverview,
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
-import { afterEach, expect, it } from 'vitest';
 
 import ProjectGitBranchesPage from '../src/components/ProjectGitBranchesPage.vue';
 
-const wrappers: VueWrapper[] = [];
-
-const latestCommit: GitCommit = {
+const commit = {
   hash: 'abc123456789',
   shortHash: 'abc1234',
-  subject: 'fix: estabiliza branches',
-  authorName: 'Dashboard Test',
-  authorEmail: 'dashboard@example.test',
-  authoredAt: '2026-08-26T10:00:00.000Z',
+  subject: 'commit de teste',
+  authorName: 'Dev',
+  authorEmail: 'dev@example.test',
+  authoredAt: '2026-07-31T10:00:00.000Z',
 };
 
-const overview: ProjectGitOverview = {
+const branch = (overrides: Partial<GitBranch>): GitBranch => ({
+  name: 'main',
+  shortName: 'main',
+  kind: 'local',
+  current: false,
+  ahead: 0,
+  behind: 0,
+  latestCommit: commit,
+  ...overrides,
+});
+
+const remote = (name: string): GitBranch =>
+  branch({
+    name: `origin/${name}`,
+    shortName: name,
+    kind: 'remote',
+    remote: 'origin',
+  });
+
+const overview = {
   repository: true,
-  branch: 'bugfix/ajustar-layout',
+  branch: 'main',
   detached: false,
-  upstream: 'origin/bugfix/ajustar-layout',
+  upstream: 'origin/main',
   ahead: 0,
   behind: 0,
   clean: true,
   files: [],
-  latestCommit,
-  recentCommits: [latestCommit],
+  recentCommits: [],
+} as ProjectGitOverview;
+
+const workspace: ProjectGitWorkspace = {
+  branches: [
+    branch({ current: true, upstream: 'origin/main' }),
+    remote('main'),
+    remote('feature/remota'),
+    branch({ name: 'bugfix/local', shortName: 'bugfix/local' }),
+  ],
+  remotes: [
+    {
+      name: 'origin',
+      fetchUrl: 'a',
+      pushUrl: 'a',
+      role: 'origin',
+      defaultBranch: 'main',
+    },
+  ],
 };
 
-function mountBranches(
-  workspace: ProjectGitWorkspace,
-  extraProps: Record<string, unknown> = {},
-): VueWrapper {
-  const wrapper = mount(ProjectGitBranchesPage, {
-    attachTo: document.body,
+function mountPage(overrides: Record<string, unknown> = {}) {
+  return mount(ProjectGitBranchesPage, {
     props: {
       overview,
       workspace,
       loading: false,
       busy: false,
       remoteRefreshing: false,
-      ...extraProps,
+      ...overrides,
     },
+    global: { stubs: { Teleport: true } },
   });
-  wrappers.push(wrapper);
-  return wrapper;
 }
 
-function rowByName(wrapper: VueWrapper, name: string) {
-  const row = wrapper
-    .findAll('.branch-table-row')
-    .find((candidate) => candidate.text().includes(name));
-  if (!row) throw new Error(`Branch não encontrada: ${name}`);
-  return row;
-}
+const rowOf = (wrapper: ReturnType<typeof mountPage>, name: string) =>
+  wrapper.find(`[data-branch="${name}"]`);
 
-afterEach(() => {
-  for (const wrapper of wrappers.splice(0)) wrapper.unmount();
-  document.body.innerHTML = '';
-});
+describe('ProjectGitBranchesPage', () => {
+  it('traz uma branch só remota para local pela ação da linha', async () => {
+    const wrapper = mountPage();
 
-it('mantém Branches focado em CRUD e publicação inicial', async () => {
-  const workspace: ProjectGitWorkspace = {
-    branches: [
-      {
-        kind: 'local',
-        name: 'bugfix/ajustar-layout',
-        shortName: 'bugfix/ajustar-layout',
-        current: true,
-        upstream: 'origin/bugfix/ajustar-layout',
-        ahead: 2,
-        behind: 0,
-        latestCommit,
-      },
-      {
-        kind: 'remote',
-        name: 'origin/bugfix/ajustar-layout',
-        shortName: 'bugfix/ajustar-layout',
-        current: false,
-        remote: 'origin',
-        ahead: 0,
-        behind: 0,
-        latestCommit,
-      },
-      {
-        kind: 'local',
-        name: 'feature/local-only',
-        shortName: 'feature/local-only',
-        current: false,
-        ahead: 0,
-        behind: 0,
-        latestCommit,
-      },
-    ],
-    remotes: [
-      {
-        name: 'origin',
-        fetchUrl: 'git@example.com:fork/repo.git',
-        pushUrl: 'git@example.com:fork/repo.git',
-        role: 'origin',
-        defaultBranch: 'main',
-      },
-    ],
-  };
+    await rowOf(wrapper, 'feature/remota')
+      .findAll('button')
+      .find((button) => button.text() === 'Trazer para local')!
+      .trigger('click');
 
-  const wrapper = mountBranches(workspace);
-  const published = rowByName(wrapper, 'bugfix/ajustar-layout');
-  await published.find('.branch-menu-trigger').trigger('click');
-  expect(published.text()).not.toContain('Squash');
-  expect(published.text()).not.toContain('Reenviar');
-  expect(published.text()).not.toMatch(/\bEnviar\b/);
-
-  const localOnly = rowByName(wrapper, 'feature/local-only');
-  await localOnly.find('.branch-menu-trigger').trigger('click');
-  expect(localOnly.text()).toContain('Publicar');
-  expect(wrapper.find('button[aria-label="Atualizar remotas"]').exists()).toBe(
-    false,
-  );
-});
-
-it('pareia branch local renomeada com o origin que ela continua acompanhando', () => {
-  const workspace: ProjectGitWorkspace = {
-    branches: [
-      {
-        kind: 'local',
-        name: 'feature/new-name',
-        shortName: 'feature/new-name',
-        current: true,
-        upstream: 'origin/feature/old-name',
-        ahead: 0,
-        behind: 0,
-        latestCommit,
-      },
-      {
-        kind: 'remote',
-        name: 'origin/feature/old-name',
-        shortName: 'feature/old-name',
-        current: false,
-        remote: 'origin',
-        ahead: 0,
-        behind: 0,
-        latestCommit,
-      },
-    ],
-    remotes: [],
-  };
-
-  const wrapper = mountBranches(workspace);
-
-  expect(wrapper.findAll('.branch-table-row')).toHaveLength(1);
-  expect(wrapper.text()).toContain('feature/new-name');
-  expect(wrapper.text()).toContain('acompanha origin/feature/old-name');
-  expect(wrapper.text()).toContain('Em dia');
-});
-
-it('protege a default branch real do origin mesmo quando se chama develop', () => {
-  const workspace: ProjectGitWorkspace = {
-    branches: [
-      {
-        kind: 'local',
-        name: 'develop',
-        shortName: 'develop',
-        current: true,
-        upstream: 'origin/develop',
-        ahead: 0,
-        behind: 0,
-        latestCommit,
-      },
-      {
-        kind: 'remote',
-        name: 'origin/develop',
-        shortName: 'develop',
-        current: false,
-        remote: 'origin',
-        ahead: 0,
-        behind: 0,
-        latestCommit,
-      },
-    ],
-    remotes: [
-      {
-        name: 'origin',
-        fetchUrl: 'git@example.com:fork/repo.git',
-        pushUrl: 'git@example.com:fork/repo.git',
-        role: 'origin',
-        defaultBranch: 'develop',
-      },
-    ],
-  };
-
-  const wrapper = mountBranches(workspace);
-  const row = rowByName(wrapper, 'develop');
-
-  expect(row.find('.branch-protected-icon').exists()).toBe(true);
-  expect(row.find('.branch-menu-trigger').exists()).toBe(false);
-});
-
-it('mostra o estado de operação apenas na branch envolvida', () => {
-  const workspace: ProjectGitWorkspace = {
-    branches: [
-      {
-        kind: 'local',
-        name: 'main',
-        shortName: 'main',
-        current: true,
-        ahead: 0,
-        behind: 0,
-        latestCommit,
-      },
-      {
-        kind: 'local',
-        name: 'feature/target',
-        shortName: 'feature/target',
-        current: false,
-        ahead: 0,
-        behind: 0,
-        latestCommit,
-      },
-      {
-        kind: 'local',
-        name: 'feature/other',
-        shortName: 'feature/other',
-        current: false,
-        ahead: 0,
-        behind: 0,
-        latestCommit,
-      },
-    ],
-    remotes: [],
-  };
-
-  const wrapper = mountBranches(workspace, {
-    busy: true,
-    operation: { kind: 'switch', branch: 'feature/target' },
+    expect(wrapper.emitted('track')).toEqual([['origin/feature/remota']]);
   });
 
-  expect(rowByName(wrapper, 'feature/target').text()).toContain('Trocando…');
-  expect(rowByName(wrapper, 'feature/other').text()).toContain('Trocar');
-  expect(rowByName(wrapper, 'feature/other').text()).not.toContain('Trocando…');
-});
-
-it('continua criando branch pelo modal com prefixo', async () => {
-  const workspace: ProjectGitWorkspace = {
-    branches: [],
-    remotes: [],
-  };
-  const wrapper = mountBranches(workspace);
-
-  await wrapper.get('.branch-create-button').trigger('click');
-  await flushPromises();
-
-  const input = document.querySelector<HTMLInputElement>(
-    'input[aria-label="Nome"]',
-  );
-  expect(input).not.toBeNull();
-  input!.value = 'novo-login';
-  input!.dispatchEvent(new Event('input', { bubbles: true }));
-  await flushPromises();
-
-  const submit = [
-    ...document.querySelectorAll<HTMLButtonElement>('button'),
-  ].find((button) => button.textContent?.trim() === 'Criar e trocar');
-  expect(submit).toBeDefined();
-  submit!.click();
-  await flushPromises();
-
-  expect(wrapper.emitted('create')).toEqual([['feature/novo-login']]);
-});
-
-it('confirma pelo nome remoto real depois de renomear a branch local', async () => {
-  const workspace: ProjectGitWorkspace = {
-    branches: [
-      {
-        kind: 'local',
-        name: 'feature/new-name',
-        shortName: 'feature/new-name',
-        current: false,
-        upstream: 'origin/feature/old-name',
-        ahead: 0,
-        behind: 0,
-        latestCommit,
+  it('publica uma branch local e troca para outra pela ação da linha', async () => {
+    const wrapper = mountPage({
+      workspace: {
+        ...workspace,
+        branches: [
+          ...workspace.branches,
+          remote('outra'),
+          branch({
+            name: 'outra',
+            shortName: 'outra',
+            upstream: 'origin/outra',
+          }),
+        ],
       },
-      {
-        kind: 'remote',
-        name: 'origin/feature/old-name',
-        shortName: 'feature/old-name',
-        current: false,
-        remote: 'origin',
-        ahead: 0,
-        behind: 0,
-        latestCommit,
+    });
+
+    await rowOf(wrapper, 'bugfix/local')
+      .findAll('button')
+      .find((button) => button.text() === 'Publicar')!
+      .trigger('click');
+    await rowOf(wrapper, 'outra')
+      .findAll('button')
+      .find((button) => button.text() === 'Trocar')!
+      .trigger('click');
+
+    expect(wrapper.emitted('publish')).toEqual([['bugfix/local']]);
+    expect(wrapper.emitted('switch')).toEqual([['outra']]);
+  });
+
+  it('remover do origin exige digitar o nome e emite o remoto', async () => {
+    const wrapper = mountPage();
+
+    rowOf(wrapper, 'feature/remota')
+      .findComponent(NDropdown)
+      .vm.$emit('select', 'delete-remote');
+    await wrapper.vm.$nextTick();
+
+    const dialog = wrapper.find('.git-branch-dialog');
+    expect(dialog.text()).toContain('Remover branch remota');
+
+    const submit = dialog.find('button[type="submit"]');
+    expect(submit.attributes('disabled')).toBeDefined();
+
+    await dialog.find('input').setValue('feature/remota');
+    await dialog.trigger('submit');
+
+    expect(wrapper.emitted('delete-remote')).toEqual([
+      ['origin/feature/remota'],
+    ]);
+  });
+
+  it('a branch protegida e a atual não oferecem remoção', () => {
+    const wrapper = mountPage();
+
+    // main: atual e protegida → sem menu; só-local comum ainda tem menu.
+    expect(rowOf(wrapper, 'main').findComponent(NDropdown).exists()).toBe(
+      false,
+    );
+    expect(
+      rowOf(wrapper, 'bugfix/local').findComponent(NDropdown).exists(),
+    ).toBe(true);
+  });
+
+  it('busca e filtros reduzem a lista e a branch atual abre o Pull Request', async () => {
+    const wrapper = mountPage();
+
+    await wrapper.find('input[type="search"]').setValue('remota');
+    expect(
+      wrapper
+        .findAll('[data-branch]')
+        .map((row) => row.attributes('data-branch')),
+    ).toEqual(['feature/remota']);
+
+    await wrapper.find('input[type="search"]').setValue('');
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Abrir Pull Request')!
+      .trigger('click');
+    expect(wrapper.emitted('open-pull-request')).toHaveLength(1);
+  });
+
+  it('o botão Nova branch fica bloqueado enquanto outra operação roda', () => {
+    const wrapper = mountPage({ busy: true });
+
+    expect(
+      wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Nova branch')!
+        .attributes('disabled'),
+    ).toBeDefined();
+  });
+
+  describe('regras de pareamento, proteção e confirmação', () => {
+    const renamed: ProjectGitWorkspace = {
+      branches: [
+        branch({
+          name: 'feature/new-name',
+          shortName: 'feature/new-name',
+          upstream: 'origin/feature/old-name',
+        }),
+        remote('feature/old-name'),
+      ],
+      remotes: [],
+    };
+
+    it('pareia a branch local renomeada com o origin que ela acompanha', () => {
+      const wrapper = mountPage({ workspace: renamed });
+
+      expect(wrapper.findAll('[data-branch]')).toHaveLength(1);
+      expect(wrapper.text()).toContain('feature/new-name');
+      expect(wrapper.text()).toContain('acompanha origin/feature/old-name');
+    });
+
+    it('confirma a remoção pelo nome remoto real, não pelo nome local', async () => {
+      const wrapper = mountPage({ workspace: renamed });
+
+      rowOf(wrapper, 'feature/new-name')
+        .findComponent(NDropdown)
+        .vm.$emit('select', 'delete-remote');
+      await wrapper.vm.$nextTick();
+
+      const dialog = wrapper.find('.git-branch-dialog');
+      expect(dialog.text()).toContain('feature/old-name');
+      const submit = dialog.find('button[type="submit"]');
+
+      await dialog.find('input').setValue('feature/new-name');
+      expect(submit.attributes('disabled')).toBeDefined();
+
+      await dialog.find('input').setValue('feature/old-name');
+      expect(submit.attributes('disabled')).toBeUndefined();
+
+      await dialog.trigger('submit');
+      expect(wrapper.emitted('delete-remote')).toEqual([
+        ['origin/feature/old-name'],
+      ]);
+    });
+
+    it('protege a branch padrão real do origin mesmo se não for main', () => {
+      const wrapper = mountPage({
+        overview: { ...overview, branch: 'develop' },
+        workspace: {
+          branches: [
+            branch({
+              name: 'develop',
+              shortName: 'develop',
+              current: true,
+              upstream: 'origin/develop',
+            }),
+            remote('develop'),
+          ],
+          remotes: [
+            {
+              name: 'origin',
+              fetchUrl: 'a',
+              pushUrl: 'a',
+              role: 'origin',
+              defaultBranch: 'develop',
+            },
+          ],
+        },
+      });
+
+      expect(rowOf(wrapper, 'develop').text()).toContain('protegida');
+      expect(rowOf(wrapper, 'develop').findComponent(NDropdown).exists()).toBe(
+        false,
+      );
+    });
+  });
+
+  it('mostra o estado de operação só na branch envolvida', () => {
+    const local = (name: string) =>
+      branch({ name, shortName: name, upstream: `origin/${name}` });
+    const wrapper = mountPage({
+      workspace: {
+        branches: [
+          branch({ current: true }),
+          local('feature/target'),
+          remote('feature/target'),
+          local('feature/other'),
+          remote('feature/other'),
+        ],
+        remotes: [],
       },
-    ],
-    remotes: [],
-  };
+      busy: true,
+      operation: { kind: 'switch', branch: 'feature/target' },
+    });
 
-  const wrapper = mountBranches(workspace);
-  const row = rowByName(wrapper, 'feature/new-name');
+    expect(rowOf(wrapper, 'feature/target').text()).toContain('Trocando…');
+    expect(rowOf(wrapper, 'feature/other').text()).not.toContain('Trocando…');
+  });
 
-  await row.find('.branch-menu-trigger').trigger('click');
-  const removeRemote = row
-    .findAll('button')
-    .find((button) => button.text().includes('Remover do origin'));
-  expect(removeRemote).toBeDefined();
-  await removeRemote!.trigger('click');
-  await flushPromises();
+  it('cria a branch com o prefixo escolhido', async () => {
+    const wrapper = mountPage({ workspace: { branches: [], remotes: [] } });
 
-  expect(document.body.textContent).toContain('feature/old-name');
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Nova branch')!
+      .trigger('click');
 
-  const input = document.querySelector<HTMLInputElement>(
-    'input[aria-label="Nome da branch"]',
-  );
-  expect(input).not.toBeNull();
+    const dialog = wrapper.find('.git-branch-dialog');
+    await dialog
+      .findAll('.git-branch-chips button')
+      .find((button) => button.text() === 'bugfix/')!
+      .trigger('click');
+    await dialog.find('input[aria-label="Nome"]').setValue('novo-login');
+    await dialog.trigger('submit');
 
-  input!.value = 'feature/new-name';
-  input!.dispatchEvent(new Event('input', { bubbles: true }));
-  await flushPromises();
-  const submit = document.querySelector<HTMLButtonElement>(
-    '.branch-modal .danger-button',
-  );
-  expect(submit).not.toBeNull();
-  expect(submit?.disabled).toBe(true);
-
-  input!.value = 'feature/old-name';
-  input!.dispatchEvent(new Event('input', { bubbles: true }));
-  await flushPromises();
-  expect(submit?.disabled).toBe(false);
-
-  submit!.click();
-  await flushPromises();
-  expect(wrapper.emitted('delete-remote')).toEqual([
-    ['origin/feature/old-name'],
-  ]);
+    expect(wrapper.emitted('create')).toEqual([['bugfix/novo-login']]);
+  });
 });

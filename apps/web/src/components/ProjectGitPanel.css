@@ -12,6 +12,11 @@
   background: var(--surface-1);
 }
 
+.git-modern-panel.git-modern-panel-flat {
+  /* A Sincronização desenha os próprios cartões sobre o fundo da página. */
+  background: transparent;
+}
+
 .git-modern-messages {
   display: grid;
   gap: var(--space-3);
@@ -95,7 +100,6 @@
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
   background: var(--accent-soft);
   color: var(--accent);
-  
 }
 
 .git-summary-page {
@@ -138,13 +142,6 @@
   font-size: var(--font-lg);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.status-good {
-  color: var(--success-text) !important;
-}
-.status-warning {
-  color: var(--warning-text) !important;
 }
 
 .git-command-card label {
@@ -225,19 +222,11 @@ textarea {
   gap: var(--space-3);
 }
 
-.remote-card code,
 .git-table-row code {
   overflow: hidden;
   color: var(--text-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.remote-comparison {
-  display: grid;
-  gap: 4px;
-  background: var(--surface-2);
-  padding: var(--space-3);
 }
 
 .git-card-actions {
