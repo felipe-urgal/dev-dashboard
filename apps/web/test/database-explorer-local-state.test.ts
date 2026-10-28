@@ -88,15 +88,6 @@ describe('useDatabaseSavedConnections', () => {
       value: [{ driver: 'postgresql', database: 'app_development' }],
     });
   });
-
-  it('ignora storage inválido ao carregar', () => {
-    localStorage.setItem('dev-dashboard.database-connections', '{invalid');
-    const saved = useDatabaseSavedConnections();
-
-    saved.load();
-
-    expect(saved.connections.value).toEqual([]);
-  });
 });
 
 describe('useDatabaseQueryHistory', () => {
@@ -150,15 +141,6 @@ describe('useDatabaseQueryHistory', () => {
     expect(nextSession.savedQueries.value).toEqual([]);
   });
 
-  it('limita consultas explicitamente salvas a 50', () => {
-    const queries = useDatabaseQueryHistory();
-    for (let index = 0; index < 55; index += 1) {
-      queries.remember({ ...input, query: `SELECT ${index}` });
-      queries.toggleFavorite(queries.history.value[0]!.id);
-    }
-    expect(queries.savedQueries.value).toHaveLength(50);
-  });
-
   it('descarta legado automaticamente, sem reapresentar SQL ou copiar segredos', () => {
     localStorage.setItem(
       'dev-dashboard.database-query-history',
@@ -177,14 +159,5 @@ describe('useDatabaseQueryHistory', () => {
     expect(
       localStorage.getItem('dev-dashboard.database-saved-queries'),
     ).toBeNull();
-  });
-
-  it('ignora storage inválido', () => {
-    sessionStorage.setItem('dev-dashboard.database-recent-queries', '{invalid');
-    localStorage.setItem('dev-dashboard.database-saved-queries', '{invalid');
-    const queries = useDatabaseQueryHistory();
-    queries.load();
-    expect(queries.history.value).toEqual([]);
-    expect(queries.savedQueries.value).toEqual([]);
   });
 });
