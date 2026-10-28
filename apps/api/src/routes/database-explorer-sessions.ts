@@ -26,7 +26,7 @@ interface SessionParams {
 }
 
 interface SessionConnectionBody {
-  driver: 'mysql' | 'mariadb' | 'postgresql';
+  driver: 'mysql' | 'mariadb' | 'postgresql' | 'redis';
   host?: string;
   port?: number;
   username?: string;
@@ -82,7 +82,7 @@ const sessionConnectionBodySchema = {
   properties: {
     driver: {
       type: 'string',
-      enum: ['mysql', 'mariadb', 'postgresql'],
+      enum: ['mysql', 'mariadb', 'postgresql', 'redis'],
     },
     host: { type: 'string', minLength: 1, maxLength: 255 },
     port: { type: 'integer', minimum: 1, maximum: 65535 },

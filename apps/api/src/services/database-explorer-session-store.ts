@@ -2,7 +2,11 @@ import { randomUUID } from 'node:crypto';
 
 import type { MachineDatabaseConnection } from '@dev-dashboard/contracts';
 
-export const DATABASE_EXPLORER_SESSION_TTL_MS = 15 * 60 * 1000;
+/**
+ * Ociosidade máxima da sessão: cada uso renova o prazo, então a sessão só cai
+ * quando fica esquecida. A credencial vive apenas em memória.
+ */
+export const DATABASE_EXPLORER_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
 export interface DatabaseExplorerSessionDescriptor {
   sessionId: string;
@@ -44,15 +48,11 @@ export class DatabaseExplorerSessionStore {
   ): DatabaseExplorerSessionDescriptor {
     const sessionId = this.generateUniqueSessionId();
     const expiresAtMs = this.now() + this.ttlMs;
-    const timeout = setTimeout(() => {
-      this.sessions.delete(sessionId);
-    }, this.ttlMs);
-    timeout.unref?.();
 
     this.sessions.set(sessionId, {
       connection: { ...connection },
       expiresAtMs,
-      timeout,
+      timeout: this.scheduleExpiry(sessionId),
     });
 
     return {
@@ -70,6 +70,7 @@ export class DatabaseExplorerSessionStore {
       return undefined;
     }
 
+    this.touch(sessionId, session);
     return { ...session.connection };
   }
 
@@ -84,6 +85,24 @@ export class DatabaseExplorerSessionStore {
     for (const [sessionId, session] of this.sessions) {
       this.removeRecord(sessionId, session);
     }
+  }
+
+  private scheduleExpiry(sessionId: string): ReturnType<typeof setTimeout> {
+    const timeout = setTimeout(() => {
+      this.sessions.delete(sessionId);
+    }, this.ttlMs);
+    timeout.unref?.();
+    return timeout;
+  }
+
+  /** Cada uso renova a ociosidade da sessão. */
+  private touch(
+    sessionId: string,
+    session: DatabaseExplorerSessionRecord,
+  ): void {
+    clearTimeout(session.timeout);
+    session.expiresAtMs = this.now() + this.ttlMs;
+    session.timeout = this.scheduleExpiry(sessionId);
   }
 
   private generateUniqueSessionId(): string {

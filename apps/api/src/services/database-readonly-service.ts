@@ -11,6 +11,7 @@ import {
 } from './database-explorer-adapter.js';
 import { MysqlExplorerAdapter } from './mysql-explorer-adapter.js';
 import { PostgresExplorerAdapter } from './postgres-explorer-adapter.js';
+import { RedisExplorerAdapter } from './redis-explorer-adapter.js';
 
 export { DatabaseExplorerAdapterError as DatabaseReadonlyError };
 
@@ -26,13 +27,16 @@ const blockedMysqlFunctions =
 export interface DatabaseReadonlyServiceOptions {
   postgresAdapter?: DatabaseExplorerAdapter;
   mysqlAdapter?: DatabaseExplorerAdapter;
+  redisAdapter?: DatabaseExplorerAdapter;
 }
 
 function validateConnection(connection: MachineDatabaseConnection): void {
-  if (!['mysql', 'mariadb', 'postgresql'].includes(connection.driver)) {
+  if (
+    !['mysql', 'mariadb', 'postgresql', 'redis'].includes(connection.driver)
+  ) {
     throw new DatabaseExplorerAdapterError(
       'unsupported-driver',
-      'Este explorador suporta somente MySQL, MariaDB e PostgreSQL.',
+      'Este explorador suporta somente MySQL, MariaDB, PostgreSQL e Redis.',
     );
   }
   const host = connection.host?.trim() || '127.0.0.1';
@@ -211,17 +215,20 @@ function boundedReadOnlyQuery(
 export class DatabaseReadonlyService {
   private readonly postgresAdapter: DatabaseExplorerAdapter;
   private readonly mysqlAdapter: DatabaseExplorerAdapter;
+  private readonly redisAdapter: DatabaseExplorerAdapter;
 
   public constructor(options: DatabaseReadonlyServiceOptions = {}) {
     this.postgresAdapter =
       options.postgresAdapter ?? new PostgresExplorerAdapter();
     this.mysqlAdapter = options.mysqlAdapter ?? new MysqlExplorerAdapter();
+    this.redisAdapter = options.redisAdapter ?? new RedisExplorerAdapter();
   }
 
   private adapterFor(
     connection: MachineDatabaseConnection,
   ): DatabaseExplorerAdapter {
     validateConnection(connection);
+    if (connection.driver === 'redis') return this.redisAdapter;
     return connection.driver === 'postgresql'
       ? this.postgresAdapter
       : this.mysqlAdapter;
@@ -260,9 +267,12 @@ export class DatabaseReadonlyService {
     query: string,
     signal?: AbortSignal,
   ): Promise<MachineDatabaseQueryResult> {
+    // Redis não usa SQL: o adaptador valida o comando contra a lista de leitura.
     return this.adapterFor(connection).query(
       connection,
-      boundedReadOnlyQuery(query, connection.driver),
+      connection.driver === 'redis'
+        ? query
+        : boundedReadOnlyQuery(query, connection.driver),
       signal,
     );
   }

@@ -34,6 +34,8 @@ interface UseDatabaseQueryExecutionOptions {
   clearCopiedMessage: () => void;
   rememberQuery: () => void;
   handleSessionError: (error: unknown) => boolean;
+  /** Texto do editor ao escolher uma tabela (ex.: `GET chave` no Redis). */
+  queryForTable?: (table: MachineDatabaseTable) => string;
   dependencies?: Partial<DatabaseQueryExecutionDependencies>;
 }
 
@@ -58,6 +60,7 @@ export function useDatabaseQueryExecution(
     ...options.dependencies,
   };
 
+  const queryForTable = options.queryForTable ?? buildTableQuery;
   let operationGeneration = 0;
 
   function isCurrent(generation: number, expectedSessionId: string): boolean {
@@ -120,7 +123,7 @@ export function useDatabaseQueryExecution(
     options.setResult(null);
     options.setDuration(null);
     options.table.value = table.name;
-    options.query.value = buildTableQuery(table);
+    options.query.value = queryForTable(table);
     void previewTable();
   }
 
@@ -132,7 +135,7 @@ export function useDatabaseQueryExecution(
     );
     if (!table) return;
 
-    options.query.value = buildTableQuery(table);
+    options.query.value = queryForTable(table);
     options.resetResultPresentation();
     const generation = beginOperation();
     const startedAt = performance.now();
@@ -166,7 +169,7 @@ export function useDatabaseQueryExecution(
     const expectedSessionId = options.sessionId.value;
     if (!expectedSessionId) return;
     if (!options.query.value.trim()) {
-      options.error.value = 'Informe uma consulta SELECT ou WITH.';
+      options.error.value = 'Informe uma consulta para executar.';
       return;
     }
 
