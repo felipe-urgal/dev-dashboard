@@ -24,6 +24,7 @@ import type {
 import { gitFileToneFor } from '../utils/status-tones';
 import GitPdfDiffPreview from './GitPdfDiffPreview.vue';
 import StatusBadge from './StatusBadge.vue';
+import UiButton from './ui/UiButton.vue';
 
 const props = defineProps<{
   entry: GitDiffFileEntry;
@@ -136,16 +137,14 @@ const emit = defineEmits<{
         ></i>
       </span>
 
-      <label class="git-diff-viewed">
-        <input
-          type="checkbox"
-          :checked="entry.viewed"
-          @change="
-            emit('toggle-viewed', ($event.target as HTMLInputElement).checked)
-          "
-        />
-        Revisado
-      </label>
+      <UiButton
+        size="sm"
+        :aria-pressed="entry.viewed"
+        :class="{ 'git-diff-viewed': entry.viewed }"
+        @click="emit('toggle-viewed', !entry.viewed)"
+      >
+        {{ entry.viewed ? '✓ Revisado' : 'Marcar como revisado' }}
+      </UiButton>
     </div>
   </header>
 

@@ -50,34 +50,23 @@
   color: var(--danger-text);
 }
 
-.git-diff-metrics[hidden],
-.git-diff-status-filter[hidden] {
+.git-diff-metrics[hidden] {
   display: none !important;
 }
 
-.git-diff-heading-actions,
-.git-diff-toolbar {
+.git-diff-heading-actions {
   gap: 8px !important;
 }
 
-.git-diff-scope-switch button,
-.git-diff-refresh-button,
-.git-diff-view-switch button,
 .git-diff-copy-button {
   min-height: 34px;
   padding: 6px 9px !important;
   font-size: var(--font-xs) !important;
 }
 
-.git-diff-toolbar input,
-.git-diff-toolbar select,
 .git-diff-content-search input {
   min-height: 36px !important;
   padding-block: 7px !important;
-}
-
-.git-diff-toolbar {
-  align-items: stretch !important;
 }
 
 .git-diff-page.has-single-diff-file .git-diff-file-search {
@@ -213,21 +202,14 @@
 
 @media (max-width: 760px) {
   .git-diff-page-heading,
-  .git-diff-toolbar,
-  .git-diff-file-header {
+.git-diff-file-header {
     align-items: stretch !important;
     flex-direction: column;
   }
 
   .git-diff-heading-actions,
-  .git-diff-scope-switch,
-  .git-diff-content-search {
+.git-diff-content-search {
     width: 100% !important;
-  }
-
-  .git-diff-scope-switch button,
-  .git-diff-view-switch button {
-    flex: 1;
   }
 
   .git-diff-workspace {

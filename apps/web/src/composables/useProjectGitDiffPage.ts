@@ -15,6 +15,14 @@ import {
   fetchProjectGitFileDiff,
   fetchProjectGitFileLines,
 } from '../api';
+import {
+  availableStatuses,
+  filterDiffItems,
+  groupDiffItems,
+  neighborPath,
+  nextUnreviewedPath,
+  type DiffStatusFilter,
+} from '../utils/git-diff-tree';
 import type { GitDiffHunk, GitUnifiedDiffLine } from '../utils/git-diff-view';
 import {
   annotateGitDiffWordChanges,
@@ -24,6 +32,11 @@ import {
   renderGitDiffLineHtml,
   splitGitDiffHunks,
 } from '../utils/git-diff-view';
+import {
+  persistReviewedPaths,
+  readReviewedPaths,
+  reviewStorageKey,
+} from './useDiffReviewStorage';
 
 export interface GitDiffHunkState {
   hunk: GitDiffHunk;
@@ -48,10 +61,8 @@ export interface GitDiffFileEntry {
 
 export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
   type DiffViewMode = 'unified' | 'split';
-  type DiffStatusFilter = 'all' | GitFileStatus;
 
   const VIEW_MODE_KEY = 'dev-dashboard-git-diff-view-mode';
-  const REVIEW_STORAGE_PREFIX = 'dev-dashboard-git-diff-reviewed';
   /** Quantas linhas cada clique nas setas do cabeçalho `@@` traz. */
   const CONTEXT_EXPANSION_STEP = 20;
   /** Diffs carregados em paralelo — cada um é um `git diff` no projeto. */
@@ -79,6 +90,9 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
   const overview = ref<ProjectGitOverview | null>(null);
   const entries = ref<FileEntry[]>([]);
   const statusFilter = ref<DiffStatusFilter>('all');
+  const fileQuery = ref('');
+  /** Arquivo em foco: destaque na lista e alvo dos atalhos J, K e R. */
+  const activePath = ref<string | null>(null);
   const viewMode = ref<DiffViewMode>(readStoredViewMode());
   const loadingSnapshot = ref(false);
   const snapshotError = ref('');
@@ -105,18 +119,6 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
     'type-changed': 'Tipo alterado',
   };
 
-  const statusOptions: Array<{ value: DiffStatusFilter; label: string }> = [
-    { value: 'all', label: 'Todos os status' },
-    { value: 'modified', label: 'Modificados' },
-    { value: 'added', label: 'Adicionados' },
-    { value: 'deleted', label: 'Removidos' },
-    { value: 'renamed', label: 'Renomeados' },
-    { value: 'copied', label: 'Copiados' },
-    { value: 'untracked', label: 'Não rastreados' },
-    { value: 'conflicted', label: 'Com conflito' },
-    { value: 'type-changed', label: 'Tipo alterado' },
-  ];
-
   function readStoredViewMode(): DiffViewMode {
     try {
       return window.localStorage.getItem(VIEW_MODE_KEY) === 'split'
@@ -135,71 +137,13 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
     }
   }
 
-  function snapshotSignature(files: readonly GitDiffFile[]): string {
-    const serialized = [...files]
-      .sort((left, right) => left.path.localeCompare(right.path))
-      .map((file) =>
-        [
-          file.path,
-          file.previousPath ?? '',
-          file.status,
-          file.additions,
-          file.deletions,
-          file.binary ? 1 : 0,
-        ].join(':'),
-      )
-      .join('\n');
-
-    let hash = 2_166_136_261;
-    for (let index = 0; index < serialized.length; index += 1) {
-      hash ^= serialized.charCodeAt(index);
-      hash = Math.imul(hash, 16_777_619);
-    }
-    return (hash >>> 0).toString(36);
-  }
-
-  function reviewStorageKey(files: readonly GitDiffFile[]): string {
-    return [
-      REVIEW_STORAGE_PREFIX,
-      encodeURIComponent(props.projectId),
-      scope.value,
-      snapshotSignature(files),
-    ].join(':');
-  }
-
-  function readReviewedPaths(files: readonly GitDiffFile[]): Set<string> {
-    activeReviewStorageKey = reviewStorageKey(files);
-    try {
-      const stored = window.sessionStorage.getItem(activeReviewStorageKey);
-      if (!stored) return new Set();
-      const parsed = JSON.parse(stored) as unknown;
-      return new Set(
-        Array.isArray(parsed)
-          ? parsed.filter((value): value is string => typeof value === 'string')
-          : [],
-      );
-    } catch {
-      return new Set();
-    }
-  }
-
-  function persistReviewedPaths(): void {
-    if (!activeReviewStorageKey) return;
-    try {
-      const reviewed = entries.value
+  function persistReviewed(): void {
+    persistReviewedPaths(
+      activeReviewStorageKey,
+      entries.value
         .filter((entry) => entry.viewed)
-        .map((entry) => entry.file.path);
-      if (reviewed.length === 0) {
-        window.sessionStorage.removeItem(activeReviewStorageKey);
-      } else {
-        window.sessionStorage.setItem(
-          activeReviewStorageKey,
-          JSON.stringify(reviewed),
-        );
-      }
-    } catch {
-      // Estado de revisão é apenas conveniência da sessão.
-    }
+        .map((entry) => entry.file.path),
+    );
   }
 
   const branchLabel = computed(() => {
@@ -216,16 +160,28 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
     return 'A árvore de trabalho está igual ao último commit.';
   });
 
+  const listItems = computed(() =>
+    entries.value.map((entry) => ({ file: entry.file, viewed: entry.viewed })),
+  );
+
+  const visibleListItems = computed(() =>
+    filterDiffItems(listItems.value, {
+      query: fileQuery.value,
+      status: statusFilter.value,
+    }),
+  );
+
   const visibleEntries = computed(() => {
-    return entries.value.filter((entry) => {
-      if (
-        statusFilter.value !== 'all' &&
-        entry.file.status !== statusFilter.value
-      )
-        return false;
-      return true;
-    });
+    const paths = new Set(visibleListItems.value.map((item) => item.file.path));
+    return entries.value.filter((entry) => paths.has(entry.file.path));
   });
+
+  const fileGroups = computed(() => groupDiffItems(visibleListItems.value));
+
+  /** Status que existem no diff atual, para os chips de filtro. */
+  const statusChips = computed(() =>
+    availableStatuses(entries.value.map((entry) => entry.file)),
+  );
 
   /** Com um único arquivo alterado, o filtro de status não tem o que filtrar. */
   const hasSingleChangedFile = computed(() => entries.value.length <= 1);
@@ -566,7 +522,12 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
         controller.signal,
       );
       if (controller.signal.aborted) return;
-      const reviewedPaths = readReviewedPaths(result.files);
+      activeReviewStorageKey = reviewStorageKey(
+        props.projectId,
+        scope.value,
+        result.files,
+      );
+      const reviewedPaths = readReviewedPaths(activeReviewStorageKey);
       snapshot.value = result;
       entries.value = result.files.map((file) =>
         buildEntry(file, reviewedPaths.has(file.path)),
@@ -596,6 +557,7 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
     if (scope.value === nextScope) return;
     scope.value = nextScope;
     statusFilter.value = 'all';
+    activePath.value = null;
     snapshot.value = null;
     entries.value = [];
     activeReviewStorageKey = '';
@@ -625,7 +587,53 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
   function toggleViewed(entry: FileEntry, viewed: boolean): void {
     entry.viewed = viewed;
     entry.collapsed = viewed;
-    persistReviewedPaths();
+    persistReviewed();
+  }
+
+  /** Leva o arquivo para a tela, abrindo-o e pedindo o diff se preciso. */
+  function focusFile(filePath: string): void {
+    const entry = entries.value.find((item) => item.file.path === filePath);
+    if (!entry) return;
+
+    activePath.value = filePath;
+    entry.collapsed = false;
+    requestFileDiff(entry);
+    void nextTick(() => {
+      cardElements
+        .get(filePath)
+        ?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+    });
+  }
+
+  /** Marca como revisado e, ao concluir, segue para o próximo pendente. */
+  function reviewAndAdvance(entry: FileEntry, viewed: boolean): void {
+    toggleViewed(entry, viewed);
+    if (!viewed) return;
+
+    const next = nextUnreviewedPath(
+      visibleEntries.value.map((item) => ({
+        path: item.file.path,
+        viewed: item.viewed,
+      })),
+      entry.file.path,
+    );
+    if (next) focusFile(next);
+  }
+
+  function moveActive(delta: -1 | 1): void {
+    const target = neighborPath(
+      visibleEntries.value.map((entry) => entry.file.path),
+      activePath.value,
+      delta,
+    );
+    if (target) focusFile(target);
+  }
+
+  function toggleActiveViewed(): void {
+    const entry = entries.value.find(
+      (item) => item.file.path === activePath.value,
+    );
+    if (entry) reviewAndAdvance(entry, !entry.viewed);
   }
 
   function selectViewMode(mode: DiffViewMode): void {
@@ -651,6 +659,8 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
     () => {
       scope.value = 'combined';
       statusFilter.value = 'all';
+      fileQuery.value = '';
+      activePath.value = null;
       activeReviewStorageKey = '';
       void refresh();
     },
@@ -675,6 +685,8 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
     overview,
     entries,
     statusFilter,
+    fileQuery,
+    activePath,
     viewMode,
     loadingSnapshot,
     snapshotError,
@@ -686,12 +698,13 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
     observer,
     copyTimer,
     statusLabels,
-    statusOptions,
     readStoredViewMode,
     emptyMessage,
     persistViewMode,
     branchLabel,
     visibleEntries,
+    fileGroups,
+    statusChips,
     hasSingleChangedFile,
     totalAdditions,
     totalDeletions,
@@ -726,6 +739,10 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
     toggleCollapsed,
     toggleAll,
     toggleViewed,
+    focusFile,
+    reviewAndAdvance,
+    moveActive,
+    toggleActiveViewed,
     selectViewMode,
     copyPath,
   };
