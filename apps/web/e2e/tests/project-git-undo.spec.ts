@@ -48,11 +48,8 @@ test.describe('Desfazer do projeto', () => {
       .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
       .click();
     await openProjectTool(page, 'Git', 'Desfazer');
-    await page.getByRole('tab', { name: /Alterações locais/ }).click();
 
-    const stagedRow = page.locator('.git-undo-files article', {
-      has: page.getByText('package.json', { exact: true }),
-    });
+    const stagedRow = page.locator('[data-path="package.json"]');
     await expect(
       stagedRow.getByRole('button', { name: 'Tirar do staged' }),
     ).toBeVisible();
@@ -61,11 +58,11 @@ test.describe('Desfazer do projeto', () => {
       page.getByText(/removido do staged sem perder conteúdo/),
     ).toBeVisible();
 
-    const lockfileRow = page.locator('.git-undo-files article', {
-      has: page.getByText('package-lock.json', { exact: true }),
-    });
-    await lockfileRow
-      .getByRole('button', { name: 'Descartar alterações' })
+    const lockfileRow = page.locator('[data-path="package-lock.json"]');
+    await lockfileRow.getByLabel('Mais ações para package-lock.json').click();
+    await page
+      .getByText('Descartar alterações', { exact: false })
+      .first()
       .click();
     await page
       .getByRole('dialog')
@@ -77,10 +74,9 @@ test.describe('Desfazer do projeto', () => {
       ),
     ).toBeVisible();
 
-    const untrackedRow = page.locator('.git-undo-files article', {
-      has: page.getByText('undo-untracked.txt', { exact: true }),
-    });
-    await untrackedRow.getByRole('button', { name: 'Excluir arquivo' }).click();
+    const untrackedRow = page.locator('[data-path="undo-untracked.txt"]');
+    await untrackedRow.getByLabel('Mais ações para undo-untracked.txt').click();
+    await page.getByText('Excluir arquivo', { exact: false }).first().click();
     await page
       .getByRole('dialog')
       .getByRole('button', { name: 'Excluir arquivo' })

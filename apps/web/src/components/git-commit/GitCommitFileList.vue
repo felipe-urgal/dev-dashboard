@@ -21,7 +21,10 @@ function letterOf(file: GitFileChange): string {
   <aside class="git-commit-files" aria-label="O que entra no commit">
     <header>
       O que entra no commit
-      <small>{{ scope.tracked.length }} arquivos</small>
+      <small>
+        {{ scope.tracked.length }}
+        {{ scope.tracked.length === 1 ? 'arquivo' : 'arquivos' }}
+      </small>
     </header>
 
     <template v-if="scope.conflicts.length > 0">
