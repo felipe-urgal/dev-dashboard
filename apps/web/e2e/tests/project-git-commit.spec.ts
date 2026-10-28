@@ -22,7 +22,7 @@ test.describe('Commit do projeto', () => {
 
     // Vazio: a fixture chega com a árvore de trabalho limpa (task 107 deixa
     // a branch "main" sem pendências ao final do seu próprio teste).
-    const submitButton = page.locator('.git-commit-submit');
+    const submitButton = page.getByRole('button', { name: /^Criar commit/ });
     await expect(submitButton).toBeDisabled();
 
     // Suja uma alteração rastreada diretamente no disco da fixture (não há
@@ -65,7 +65,7 @@ test.describe('Commit do projeto', () => {
     ).toBeVisible();
     await expect(submitButton).toBeDisabled();
     await expect(
-      page.getByText('1 arquivo não rastreado fica de fora'),
+      page.getByText('Não rastreadas · ficam de fora'),
     ).toBeVisible();
 
     const { stdout: untrackedStatus } = await execFileAsync(
@@ -95,7 +95,9 @@ test.describe('Commit do projeto', () => {
 
     await page.reload();
     await openProjectTool(page, 'Git', 'Commit');
-    const amendButton = page.locator('.git-commit-amend');
+    const amendButton = page.getByRole('button', {
+      name: 'Alterar último commit (amend)',
+    });
     await expect(amendButton).toBeEnabled();
     await amendButton.click();
     await expect(
