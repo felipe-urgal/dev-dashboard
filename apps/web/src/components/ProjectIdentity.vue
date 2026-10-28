@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import { ShareIcon } from '@heroicons/vue/24/outline';
 
-defineProps<{
-  name: string;
-  branch: string;
-  /** `undefined` enquanto o estado do Git não carregou. */
-  clean?: boolean | undefined;
-}>();
+withDefaults(
+  defineProps<{
+    name: string;
+    /** Na barra global o nome já está no seletor de projeto. */
+    showName?: boolean;
+    branch: string;
+    /** `undefined` enquanto o estado do Git não carregou. */
+    clean?: boolean | undefined;
+  }>(),
+  { showName: true },
+);
 </script>
 
 <template>
   <div class="project-identity" aria-current="page">
-    <h2>{{ name }}</h2>
+    <h2 v-if="showName">{{ name }}</h2>
     <span
       v-if="branch"
       class="project-identity-branch"

@@ -330,6 +330,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
     <template v-else>
       <Teleport to="#topbar-project">
         <ProjectIdentity
+          :show-name="false"
           :name="project.name"
           :branch="gitBranch"
           :clean="gitOverview?.clean"

@@ -10,9 +10,11 @@ import { dashboardStore } from './stores/dashboard';
 import { nativeNotificationStore } from './stores/native-notifications';
 import CommandPalette from './components/CommandPalette.vue';
 import VisualPreferences from './components/VisualPreferences.vue';
+import ProjectSwitcher from './components/ProjectSwitcher.vue';
 import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
 import WorkspaceSwitcher from './components/WorkspaceSwitcher.vue';
 import { createNaiveThemeOverrides } from './utils/naive-theme';
+import { resolveProjectSwitchTarget } from './utils/project-switch';
 import {
   currentTheme,
   loadVisualPreferences,
@@ -39,8 +41,46 @@ nativeNotificationStore.setNavigator((target) => {
   void router.push(target);
 });
 
-const { knownProjects, workspaces, selectedWorkspaceId, switchWorkspace } =
-  dashboardStore;
+const {
+  knownProjects,
+  sortedProjects,
+  workspaces,
+  selectedWorkspaceId,
+  switchWorkspace,
+  getCardProcess,
+} = dashboardStore;
+
+const currentProjectId = computed(() =>
+  isProjectRoute.value ? String(route.params.projectId ?? '') : '',
+);
+
+// Dentro de um projeto, o seletor lista os projetos do workspace ativo.
+const currentProject = computed(() =>
+  sortedProjects.value.find((project) => project.id === currentProjectId.value),
+);
+
+const runningProjectIds = computed(
+  () =>
+    new Set(
+      sortedProjects.value
+        .filter((project) => {
+          const status = getCardProcess(project.id)?.status;
+          return status === 'running' || status === 'starting';
+        })
+        .map((project) => project.id),
+    ),
+);
+
+function switchProject(projectId: string): void {
+  const target = sortedProjects.value.find((item) => item.id === projectId);
+  if (!target) return;
+  void router.push(
+    resolveProjectSwitchTarget(
+      { routeName: String(route.name ?? ''), query: route.query },
+      target,
+    ),
+  );
+}
 
 function openWorkspaceManager(): void {
   workspaceManagerOpen.value = true;
@@ -68,7 +108,25 @@ onMounted(() => {
 
         <div class="sidebar-section topbar-workspace">
           <span class="sidebar-label">Workspace ativo</span>
+          <ProjectSwitcher
+            v-if="currentProject"
+            :projects="sortedProjects"
+            :current-id="currentProject.id"
+            :workspaces="workspaces"
+            :selected-workspace-id="selectedWorkspaceId"
+            :running-ids="runningProjectIds"
+            @select="switchProject"
+            @home="router.push({ name: 'dashboard' })"
+            @select-workspace="
+              (id) => {
+                switchWorkspace(id);
+                void router.push({ name: 'dashboard' });
+              }
+            "
+            @add-workspace="openWorkspaceManager"
+          />
           <WorkspaceSwitcher
+            v-else
             :workspaces="workspaces"
             :selected-id="selectedWorkspaceId"
             @select="switchWorkspace"
