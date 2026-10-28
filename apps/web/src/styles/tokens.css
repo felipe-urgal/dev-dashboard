@@ -3,23 +3,23 @@
 
   /* Surfaces — escala neutra levemente azulada (tema escuro). */
   --surface-0: #1f2430;
-  --surface-1: #272d3a;
-  --surface-2: #313847;
-  --surface-3: #3d4556;
+  --surface-1: #2a3140;
+  --surface-2: #363e50;
+  --surface-3: #444d62;
 
   /* Compatibilidade para componentes que ainda usam os aliases legados. */
   --surface-color: var(--surface-1);
   --surface-muted: var(--surface-2);
 
   /* Borders */
-  --border: #3f4757;
-  --border-strong: #5a6578;
+  --border: #4a5368;
+  --border-strong: #6a7590;
   --border-color: var(--border);
 
   /* Text */
   --text: #f0f6fc;
-  --text-muted: #b4bdca;
-  --text-dim: #99a4b4;
+  --text-muted: #bcc5d1;
+  --text-dim: #a6b0bf;
   --text-color: var(--text);
   --text-secondary: var(--text-muted);
 
@@ -42,8 +42,7 @@
   --font-family:
     system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
-  --font-family-mono:
-    'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --font-family-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
   --font-family-code: ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-label: 11px;
   --font-control: 12px;

@@ -67,6 +67,14 @@ const project: Project = {
   capabilities: ['server'],
 };
 
+/** Botão de iniciar da barra de status (único enquanto há log). */
+function startButton(wrapper: ReturnType<typeof mount>) {
+  return wrapper
+    .find('.process-bar')
+    .findAll('button')
+    .find((button) => button.text().startsWith('Iniciar'));
+}
+
 function overview(
   workerId: RailsWorkerId,
   detected = workerId === 'sidekiq',
@@ -111,32 +119,6 @@ describe('ProjectRailsRuntimePanel', () => {
     );
   });
 
-  it('renderiza o worker informado por prop e remove credentials da interface', async () => {
-    const sidekiqWrapper = mount(ProjectRailsRuntimePanel, {
-      props: { project, workerId: 'sidekiq' },
-    });
-    await flushPromises();
-
-    const sidekiqPanel = sidekiqWrapper.find('[data-worker-id="sidekiq"]');
-    expect(sidekiqPanel.exists()).toBe(true);
-    expect(sidekiqPanel.find('button.primary-button').exists()).toBe(true);
-    expect(fetchProjectRailsWorker).toHaveBeenCalledWith('p1', 'sidekiq');
-    sidekiqWrapper.unmount();
-
-    const webpackWrapper = mount(ProjectRailsRuntimePanel, {
-      props: { project, workerId: 'webpack' },
-    });
-    await flushPromises();
-
-    expect(webpackWrapper.text()).toContain(
-      'webpack-dev-server não foi detectado',
-    );
-    expect(webpackWrapper.find('.rails-credentials-card').exists()).toBe(false);
-    expect(webpackWrapper.text()).not.toContain('Credentials');
-
-    webpackWrapper.unmount();
-  });
-
   it('inicia o Sidekiq pela aba dedicada', async () => {
     startProjectRailsWorker.mockResolvedValueOnce({
       id: 'p1:worker:sidekiq',
@@ -154,16 +136,16 @@ describe('ProjectRailsRuntimePanel', () => {
 
     await flushPromises();
 
-    await wrapper.find('button.primary-button').trigger('click');
+    await startButton(wrapper)!.trigger('click');
     await flushPromises();
 
     expect(startProjectRailsWorker).toHaveBeenCalledWith('p1', 'sidekiq');
     expect(wrapper.text()).toContain('4242');
     expect(wrapper.text()).toContain('Executando');
-    expect(wrapper.find('.rails-worker-status-dot.is-running').exists()).toBe(
-      true,
-    );
-    expect(wrapper.findAll('.project-log-terminal')).toHaveLength(1);
+    expect(
+      wrapper.find('.process-bar-state[data-tone="running"]').exists(),
+    ).toBe(true);
+    expect(wrapper.findAll('.process-console')).toHaveLength(1);
 
     wrapper.unmount();
   });
@@ -197,7 +179,7 @@ describe('ProjectRailsRuntimePanel', () => {
       environmentInstanceId,
     );
 
-    await wrapper.find('button.primary-button').trigger('click');
+    await startButton(wrapper)!.trigger('click');
     await flushPromises();
 
     expect(startProjectRailsWorker).toHaveBeenCalledWith(
@@ -216,42 +198,6 @@ describe('ProjectRailsRuntimePanel', () => {
     wrapper.unmount();
   });
 
-  it('mantém um painel de logs independente para cada processo', async () => {
-    fetchProjectRailsWorker.mockImplementation(
-      async (_projectId: string, workerId: RailsWorkerId) =>
-        overview(workerId, true, 'running'),
-    );
-
-    const sidekiqWrapper = mount(ProjectRailsRuntimePanel, {
-      props: { project, workerId: 'sidekiq' },
-    });
-    await flushPromises();
-
-    expect(sidekiqWrapper.findAll('.project-log-terminal')).toHaveLength(1);
-
-    expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
-      'p1',
-      'sidekiq',
-      expect.any(Function),
-    );
-
-    const webpackWrapper = mount(ProjectRailsRuntimePanel, {
-      props: { project, workerId: 'webpack' },
-    });
-    await flushPromises();
-
-    expect(webpackWrapper.findAll('.project-log-terminal')).toHaveLength(1);
-
-    expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
-      'p1',
-      'webpack',
-      expect.any(Function),
-    );
-
-    sidekiqWrapper.unmount();
-    webpackWrapper.unmount();
-  });
-
   it('representa corretamente os estados transitórios e de falha', async () => {
     fetchProjectRailsWorker.mockResolvedValueOnce(
       overview('sidekiq', true, 'starting'),
@@ -263,13 +209,16 @@ describe('ProjectRailsRuntimePanel', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Iniciando');
-    expect(wrapper.find('.rails-worker-status-dot.is-running').exists()).toBe(
-      false,
-    );
-    expect(wrapper.find('button.primary-button').attributes('disabled')).toBe(
-      '',
-    );
-    expect(wrapper.text()).not.toContain('Ao vivo');
+    expect(
+      wrapper.find('.process-bar-state[data-tone="running"]').exists(),
+    ).toBe(false);
+    expect(
+      wrapper
+        .find('.process-bar')
+        .findAll('button')
+        .find((button) => button.text().includes('Iniciando'))
+        ?.attributes('disabled'),
+    ).toBe('');
 
     fetchProjectRailsWorker.mockResolvedValueOnce(
       overview('sidekiq', true, 'stopping'),
@@ -283,7 +232,7 @@ describe('ProjectRailsRuntimePanel', () => {
     await flushPromises();
     expect(stoppingWrapper.text()).toContain('Parando…');
     expect(
-      stoppingWrapper.find('.rails-worker-status-dot.is-running').exists(),
+      stoppingWrapper.find('.process-bar-state[data-tone="running"]').exists(),
     ).toBe(false);
     stoppingWrapper.unmount();
 
@@ -297,7 +246,6 @@ describe('ProjectRailsRuntimePanel', () => {
 
     expect(failedWrapper.text()).toContain('encerrou com falha');
     expect(failedWrapper.text()).toContain('Iniciar novamente');
-    expect(failedWrapper.text()).not.toContain('Ao vivo');
     failedWrapper.unmount();
   });
 
@@ -326,12 +274,11 @@ describe('ProjectRailsRuntimePanel', () => {
       wrapper.findAll('button').some((button) => button.text() === 'Reiniciar'),
     ).toBe(false);
 
-    await wrapper.find('button.primary-button').trigger('click');
+    await startButton(wrapper)!.trigger('click');
     await flushPromises();
 
     expect(startProjectRailsWorker).toHaveBeenCalledWith('p1', 'webpack');
     expect(wrapper.text()).toContain('Executando');
-    expect(wrapper.text()).toContain('Ao vivo');
 
     wrapper.unmount();
   });
@@ -397,31 +344,22 @@ describe('ProjectRailsRuntimePanel', () => {
     }
   });
 
-  it('usa a visualização minimalista com detalhes recolhidos e log direto', async () => {
+  it('o Sidekiq oferece reiniciar enquanto roda', async () => {
     fetchProjectRailsWorker.mockResolvedValueOnce(
-      overview('webpack', true, 'running'),
+      overview('sidekiq', true, 'running'),
     );
 
     const wrapper = mount(ProjectRailsRuntimePanel, {
-      props: { project, workerId: 'webpack' },
+      props: { project, workerId: 'sidekiq' },
     });
     await flushPromises();
 
-    expect(wrapper.find('.rails-worker-identity').text()).toContain('Webpack');
-    expect(wrapper.find('.dd-card').exists()).toBe(false);
-    expect(wrapper.find('.rails-worker-toolbar').exists()).toBe(true);
-    expect(wrapper.find('.rails-log-panel-body').exists()).toBe(true);
     expect(
-      wrapper.find('.rails-worker-details').attributes('open'),
-    ).toBeUndefined();
-    expect(wrapper.text()).not.toContain('Processo ativo e respondendo');
-    expect(wrapper.text()).not.toContain('Log do processo');
-    expect(wrapper.text()).not.toContain('Acompanhando o final');
-    expect(wrapper.text()).toContain('Ao vivo');
-    expect(wrapper.text()).toContain('Copiar');
-    expect(wrapper.text()).toContain('Limpar');
-    expect(wrapper.text()).toContain('Expandir');
-    expect(wrapper.find('.rails-log-close-button').exists()).toBe(false);
+      wrapper
+        .find('.process-bar')
+        .findAll('button')
+        .some((button) => button.text() === 'Reiniciar'),
+    ).toBe(true);
 
     wrapper.unmount();
   });

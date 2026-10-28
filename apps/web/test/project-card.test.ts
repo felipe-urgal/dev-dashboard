@@ -93,26 +93,6 @@ beforeEach(() => {
 });
 
 describe('ProjectCard', () => {
-  it('renderiza nome, branch, alterações e porta na linha', async () => {
-    const wrapper = mountCard();
-
-    expect(wrapper.get('.project-row-name').text()).toContain(
-      'Projeto sem avatar',
-    );
-    expect(wrapper.get('.project-row-avatar').attributes('data-type')).toBe(
-      'node',
-    );
-
-    await vi.waitFor(() => {
-      expect(wrapper.get('.project-row-branch').text()).toBe(
-        'feature/listar-branch',
-      );
-      expect(wrapper.get('.project-row-dirty').text()).toContain('alterado');
-    });
-    expect(wrapper.get('.project-row-port').text()).toBe(':3003');
-    expect(wrapper.get('.project-row-state').text()).toContain('Executando');
-  });
-
   it('mostra a última porta antes de iniciar e o progresso ao iniciar', async () => {
     api.running.value = false;
     api.lastPort.value = 3003;

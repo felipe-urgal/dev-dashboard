@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { gotoBootstrapped } from '../fixtures/navigate';
+import { gotoBootstrapped, openProjectTool } from '../fixtures/navigate';
 
 test('executa build confirmado por PTY e restaura o resultado após reload', async ({
   page,
@@ -10,10 +10,7 @@ test('executa build confirmado por PTY e restaura o resultado após reload', asy
     .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
     .click();
 
-  await page
-    .getByRole('button', { name: 'Desenvolvimento', exact: true })
-    .click();
-  await page.getByRole('link', { name: 'Dependências', exact: true }).click();
+  await openProjectTool(page, 'Desenvolvimento', 'Dependências');
 
   await expect(page.getByLabel('Saúde das dependências')).toContainText('npm');
   await expect(page.getByLabel('Saúde das dependências')).toContainText(

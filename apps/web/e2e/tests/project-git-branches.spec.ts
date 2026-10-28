@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { gotoBootstrapped } from '../fixtures/navigate';
+import { gotoBootstrapped, openProjectTool } from '../fixtures/navigate';
 
 test.describe('Mutações de branch Git do projeto', () => {
   test('cria, troca e recusa nome duplicado; projeto sem Git fica vazio', async ({
@@ -11,7 +11,7 @@ test.describe('Mutações de branch Git do projeto', () => {
     await page
       .getByRole('link', { name: 'Ver detalhes de sample-rails-app' })
       .click();
-    await page.getByRole('link', { name: 'Git' }).click();
+    await openProjectTool(page, 'Git', 'Sincronização');
     await expect(
       page.getByText('Este projeto não é um repositório Git.'),
     ).toBeVisible();
@@ -21,8 +21,7 @@ test.describe('Mutações de branch Git do projeto', () => {
     await page
       .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
       .click();
-    await page.getByRole('link', { name: 'Git' }).click();
-    await page.getByRole('button', { name: 'Branches' }).click();
+    await openProjectTool(page, 'Git', 'Branches');
 
     await expect(
       page.locator('.branch-table-row', {
@@ -139,7 +138,7 @@ test.describe('Mutações de branch Git do projeto', () => {
     await page
       .getByRole('link', { name: 'Ver detalhes de sample-rails-app' })
       .click();
-    await page.getByRole('link', { name: 'Git' }).click();
+    await openProjectTool(page, 'Git', 'Sincronização');
     await expect(
       page.getByText('Este projeto não é um repositório Git.'),
     ).toBeVisible();

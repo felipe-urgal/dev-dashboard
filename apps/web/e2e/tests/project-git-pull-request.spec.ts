@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 
 import { expect, test } from '@playwright/test';
 
-import { gotoBootstrapped } from '../fixtures/navigate';
+import { gotoBootstrapped, openProjectTool } from '../fixtures/navigate';
 import { readRuntimeInfo } from '../fixtures/runtime-info';
 
 const execFileAsync = promisify(execFile);
@@ -43,8 +43,7 @@ test.describe('Pull Request do projeto', () => {
       await page
         .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
         .click();
-      await page.getByRole('button', { name: 'Git' }).click();
-      await page.getByRole('link', { name: 'Pull Request' }).click();
+      await openProjectTool(page, 'Git', 'Pull Request');
 
       await expect(
         page.getByText('Não foi possível verificar automaticamente'),

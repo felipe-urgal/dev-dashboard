@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 
 import { expect, test } from '@playwright/test';
 
-import { gotoBootstrapped } from '../fixtures/navigate';
+import { gotoBootstrapped, openProjectTool } from '../fixtures/navigate';
 import { readRuntimeInfo } from '../fixtures/runtime-info';
 
 const execFileAsync = promisify(execFile);
@@ -18,8 +18,7 @@ test.describe('Commit do projeto', () => {
     await page
       .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
       .click();
-    await page.getByRole('link', { name: 'Git' }).click();
-    await page.getByRole('button', { name: 'Commit', exact: true }).click();
+    await openProjectTool(page, 'Git', 'Commit');
 
     // Vazio: a fixture chega com a árvore de trabalho limpa (task 107 deixa
     // a branch "main" sem pendências ao final do seu próprio teste).
@@ -48,7 +47,7 @@ test.describe('Commit do projeto', () => {
     );
     await writeFile(untrackedPath, 'não deve entrar automaticamente\n');
     await page.reload();
-    await page.getByRole('button', { name: 'Commit', exact: true }).click();
+    await openProjectTool(page, 'Git', 'Commit');
 
     // Sucesso: cria o commit com a alteração rastreada.
     await page
@@ -95,7 +94,7 @@ test.describe('Commit do projeto', () => {
     });
 
     await page.reload();
-    await page.getByRole('button', { name: 'Commit', exact: true }).click();
+    await openProjectTool(page, 'Git', 'Commit');
     const amendButton = page.locator('.git-commit-amend');
     await expect(amendButton).toBeEnabled();
     await amendButton.click();
@@ -125,7 +124,7 @@ test.describe('Commit do projeto', () => {
     await page
       .getByRole('link', { name: 'Ver detalhes de sample-rails-app' })
       .click();
-    await page.getByRole('link', { name: 'Git' }).click();
+    await openProjectTool(page, 'Git', 'Sincronização');
     await expect(
       page.getByText('Este projeto não é um repositório Git.'),
     ).toBeVisible();

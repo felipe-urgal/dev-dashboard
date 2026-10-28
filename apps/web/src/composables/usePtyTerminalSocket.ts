@@ -1,14 +1,6 @@
-import '@xterm/xterm/css/xterm.css';
-
-import { FitAddon } from '@xterm/addon-fit';
-import { Terminal } from '@xterm/xterm';
 import { onBeforeUnmount, ref } from 'vue';
 
-import {
-  copyTextToClipboard,
-  isTerminalCopyShortcut,
-} from '../utils/terminal-clipboard';
-import { MAX_TERMINAL_SCROLLBACK_LINES } from '../utils/terminal-limits';
+import { useXtermSession } from './useXtermSession';
 
 /**
  * Conexão WebSocket + terminal (xterm.js) compartilhada pelos painéis que
@@ -19,114 +11,35 @@ import { MAX_TERMINAL_SCROLLBACK_LINES } from '../utils/terminal-limits';
  * (ex. qual operação está rodando); a montagem do terminal e a escrita da
  * saída são genéricas e ficam aqui.
  */
-export function usePtyTerminalSocket<TSnapshot extends { buffer: string }>(
-  handlers: {
-    onReady: (snapshot: TSnapshot) => void;
-    onExit: (
-      exitCode: number | null,
-      exitSignal: number | null,
-      snapshot?: TSnapshot,
-    ) => void;
-    onError: (message: string) => void;
-    onOpen?: () => void;
-    onClose?: () => void;
-  },
-  options: { enableClipboard?: boolean } = {},
-) {
+export function usePtyTerminalSocket<
+  TSnapshot extends { buffer: string },
+>(handlers: {
+  onReady: (snapshot: TSnapshot) => void;
+  onExit: (
+    exitCode: number | null,
+    exitSignal: number | null,
+    snapshot?: TSnapshot,
+  ) => void;
+  onError: (message: string) => void;
+  onOpen?: () => void;
+  onClose?: () => void;
+}) {
   const terminalContainer = ref<HTMLDivElement | null>(null);
   const connecting = ref(false);
 
-  let terminal: Terminal | undefined;
-  let fitAddon: FitAddon | undefined;
-  let resizeObserver: ResizeObserver | undefined;
   let socket: WebSocket | undefined;
   const manuallyClosedSockets = new WeakSet<WebSocket>();
 
-  const macOS =
-    typeof navigator !== 'undefined' &&
-    /Mac|iPhone|iPad|iPod/.test(navigator.platform);
-  const copyShortcutLabel = macOS ? '⌘C' : 'Ctrl+C';
-
-  function hasTerminalSelection(): boolean {
-    return terminal?.hasSelection() ?? false;
+  function sendResize(size: { cols: number; rows: number }): void {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    socket.send(JSON.stringify({ type: 'resize', ...size }));
   }
 
-  async function copyTerminalSelection(): Promise<boolean> {
-    const selection = terminal?.getSelection() ?? '';
-    if (!selection) return false;
-
-    const copied = await copyTextToClipboard(selection);
-    if (copied) terminal?.focus();
-    return copied;
-  }
-
-  function sendResize(): void {
-    if (!terminal || !socket || socket.readyState !== WebSocket.OPEN) return;
-    socket.send(
-      JSON.stringify({
-        type: 'resize',
-        cols: terminal.cols,
-        rows: terminal.rows,
-      }),
-    );
-  }
-
-  function mountTerminal(): void {
-    if (!terminalContainer.value || terminal) return;
-    terminal = new Terminal({
-      convertEol: true,
-      disableStdin: true,
-      fontSize: 13,
-      fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
-      lineHeight: 1.35,
-      theme: { background: '#10131c', foreground: '#dbe0f2' },
-      // Mantém uma janela recente no navegador. O buffer destacável completo
-      // continua limitado e persistido no backend para reconexão.
-      scrollback: MAX_TERMINAL_SCROLLBACK_LINES,
-    });
-    fitAddon = new FitAddon();
-    terminal.loadAddon(fitAddon);
-    terminal.open(terminalContainer.value);
-    fitAddon.fit();
-
-    if (options.enableClipboard) {
-      terminal.attachCustomKeyEventHandler((event) => {
-        if (
-          event.type !== 'keydown' ||
-          !terminal ||
-          !isTerminalCopyShortcut(event, terminal.hasSelection(), macOS)
-        ) {
-          return true;
-        }
-
-        void copyTerminalSelection();
-        return false;
-      });
-    }
-
-    sendResize();
-    // No primeiro paint o container às vezes ainda não assumiu a largura
-    // final (troca de aba, layout do Card ainda assentando) e o fit()
-    // acima mede menos colunas do que caberiam — reaplica no próximo frame,
-    // quando o layout já estabilizou.
-    requestAnimationFrame(() => {
-      fitAddon?.fit();
-      sendResize();
-    });
-    resizeObserver = new ResizeObserver(() => {
-      fitAddon?.fit();
-      sendResize();
-    });
-    resizeObserver.observe(terminalContainer.value);
-  }
-
-  function disposeTerminal(): void {
-    resizeObserver?.disconnect();
-    resizeObserver = undefined;
-    terminal?.dispose();
-    terminal = undefined;
-    fitAddon = undefined;
-  }
+  const session = useXtermSession({
+    container: terminalContainer,
+    lineHeight: 1.35,
+    onResize: sendResize,
+  });
 
   function disconnect(): void {
     const current = socket;
@@ -168,22 +81,22 @@ export function usePtyTerminalSocket<TSnapshot extends { buffer: string }>(
         const snapshot = message.snapshot;
         handlers.onReady(snapshot);
         requestAnimationFrame(() => {
-          mountTerminal();
-          if (snapshot.buffer) terminal?.write(snapshot.buffer);
+          session.mount();
+          if (snapshot.buffer) session.write(snapshot.buffer);
         });
       } else if (
         message.type === 'output' &&
         typeof message.data === 'string'
       ) {
-        mountTerminal();
-        terminal?.write(message.data);
+        session.mount();
+        session.write(message.data);
       } else if (message.type === 'exit') {
         handlers.onExit(
           message.exitCode ?? null,
           message.exitSignal ?? null,
           message.snapshot,
         );
-        terminal?.write(
+        session.write(
           `\r\n\x1b[90m[execução encerrada, código ${message.exitCode ?? '—'}]\x1b[0m\r\n`,
         );
       } else if (
@@ -209,19 +122,16 @@ export function usePtyTerminalSocket<TSnapshot extends { buffer: string }>(
     });
   }
 
-  onBeforeUnmount(() => {
-    disconnect();
-    disposeTerminal();
-  });
+  onBeforeUnmount(disconnect);
 
   return {
     terminalContainer,
     connecting,
     connect,
     disconnect,
-    disposeTerminal,
-    hasTerminalSelection,
-    copyTerminalSelection,
-    copyShortcutLabel,
+    disposeTerminal: session.dispose,
+    hasTerminalSelection: session.hasSelection,
+    copyTerminalSelection: session.copySelection,
+    copyShortcutLabel: session.copyShortcutLabel,
   };
 }

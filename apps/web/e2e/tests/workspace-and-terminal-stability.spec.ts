@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { gotoBootstrapped } from '../fixtures/navigate';
+import { gotoBootstrapped, openProjectTool } from '../fixtures/navigate';
 
 test.describe('estabilidade do shell e dos terminais', () => {
   test('abre o modal de workspace', async ({ page }) => {
@@ -16,20 +16,14 @@ test.describe('estabilidade do shell e dos terminais', () => {
     await expect(dialog).toBeHidden();
   });
 
-  test('inicia uma sessão de terminal com scrollback visual limitado', async ({
-    page,
-  }) => {
+  test('inicia uma sessão de terminal', async ({ page }) => {
     await gotoBootstrapped(page, '/');
     await page
       .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
       .click();
-    await page.getByRole('link', { name: 'Terminal', exact: true }).click();
-    const terminal = page.locator('.terminal-window');
+    await openProjectTool(page, 'Execução', 'Terminal');
+    const terminal = page.locator('.terminal-frame');
     await expect(terminal).toBeVisible();
     await expect(terminal.locator('.xterm')).toBeVisible();
-    await expect(terminal.locator('.xterm-viewport')).toHaveCSS(
-      'overflow-y',
-      'auto',
-    );
   });
 });

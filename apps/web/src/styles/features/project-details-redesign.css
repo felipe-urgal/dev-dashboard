@@ -1,77 +1,3 @@
-/*
- * Normalizações do novo shell de detalhes.
- * Estas regras removem estilos legados globais que ainda tratavam as abas
- * como botões e mantinham o link de retorno acima do cabeçalho do projeto.
- */
-
-.project-details-page > .details-back-link {
-  display: none !important;
-}
-
-.project-details-tabs {
-  display: flex !important;
-  min-width: 0;
-  align-items: center !important;
-  gap: 8px !important;
-  overflow-x: auto;
-  padding: 12px !important;
-  background: color-mix(in srgb, var(--surface-1) 96%, transparent) !important;
-  scrollbar-width: none;
-  scroll-snap-type: x proximity;
-}
-
-.project-details-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.project-details-tabs .project-details-tab {
-  position: relative;
-  display: inline-flex;
-  min-height: 38px !important;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  scroll-snap-align: start;
-  border: 1px solid transparent !important;
-  border-radius: var(--radius-md) !important;
-  background: transparent !important;
-  color: var(--text-muted) !important;
-  box-shadow: none !important;
-  padding: 0 14px !important;
-  font-size: var(--font-sm) !important;
-  font-weight: var(--font-weight-strong) !important;
-  line-height: 1;
-  text-decoration: none;
-  white-space: nowrap;
-  transition:
-    border-color 150ms ease,
-    background 150ms ease,
-    color 150ms ease,
-    transform 150ms ease !important;
-}
-
-.project-details-tabs .project-details-tab::after {
-  display: none !important;
-}
-
-.project-details-tabs .project-details-tab:hover {
-  border-color: var(--border) !important;
-  background: var(--surface-2) !important;
-  color: var(--text) !important;
-  transform: translateY(-1px);
-}
-
-.project-details-tabs .project-details-tab-active {
-  border-color: color-mix(in srgb, var(--accent) 38%, var(--border)) !important;
-  background: var(--accent-soft) !important;
-  color: var(--accent) !important;
-}
-
-.project-details-tabs .project-details-tab:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  outline-offset: 2px;
-}
-
 .server-config-card .server-card-header p,
 .server-status-card .server-card-header p,
 .server-activity-card .server-card-header p {
@@ -101,37 +27,8 @@
   max-height: 150px !important;
 }
 
-@media (max-width: 720px) {
-  .project-details-tabs {
-    margin-inline: -2px !important;
-    padding: 5px !important;
-  }
-
-  .project-details-tabs .project-details-tab {
-    min-height: 36px !important;
-    padding-inline: 12px !important;
-    font-size: var(--font-xs) !important;
-  }
-}
-
 @media (min-width: 721px) {
   .project-details-page {
     gap: 0 !important;
-  }
-}
-
-
-/* No desktop, as abas viram a sidebar fixa do projeto. O alinhamento central
-   do tabbar horizontal fazia a árvore inteira ficar centralizada verticalmente;
-   ao expandir um submenu, o bloco crescia para cima e para baixo. Mantemos a
-   navegação ancorada no topo e deixamos somente a área rolável crescer. */
-@media (min-width: 901px) {
-  .project-details-page-ready .project-details-tabs {
-    display: block !important;
-    align-items: stretch !important;
-    gap: 0 !important;
-    overflow-x: hidden;
-    padding: 20px 12px 12px !important;
-    scroll-snap-type: none;
   }
 }

@@ -1,9 +1,17 @@
 <script setup lang="ts">
-import '@xterm/xterm/css/xterm.css';
-
-import { FitAddon } from '@xterm/addon-fit';
-import { Terminal } from '@xterm/xterm';
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue';
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  XMarkIcon,
+} from '@heroicons/vue/24/outline';
 
 import type { Project, ProjectTerminalKind } from '@dev-dashboard/contracts';
 
@@ -12,12 +20,11 @@ import {
   prepareProjectTerminalConfirmation,
   projectTerminalWebSocketUrl,
 } from '../api';
-import {
-  copyTextToClipboard,
-  isTerminalCopyShortcut,
-} from '../utils/terminal-clipboard';
-import { MAX_TERMINAL_SCROLLBACK_LINES } from '../utils/terminal-limits';
-import ProjectTerminalWindowBar from './ProjectTerminalWindowBar.vue';
+import { useXtermSession } from '../composables/useXtermSession';
+import { terminalThemes } from '../utils/terminal-theme';
+import { currentTheme } from '../utils/visual-preferences';
+import TerminalToolbar from './terminal/TerminalToolbar.vue';
+import UiButton from './ui/UiButton.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -41,25 +48,75 @@ const errorMessage = ref('');
 const lastExitCode = ref<number | null | undefined>(undefined);
 const closedByUser = ref(false);
 const maximized = ref(false);
-const terminalFontSize = ref(13);
 const hasAutoStarted = ref(false);
-const terminalContextMenu = ref<{ left: number; top: number } | null>(null);
-const macOS =
-  typeof navigator !== 'undefined' &&
-  /Mac|iPhone|iPad|iPod/.test(navigator.platform);
-const copyShortcutLabel = macOS ? '⌘C' : 'Ctrl+C';
+const searchOpen = ref(false);
+const searchQuery = ref('');
+const searchInput = ref<HTMLInputElement | null>(null);
 
 const terminalContainer = ref<HTMLDivElement | null>(null);
-let terminal: Terminal | undefined;
-let fitAddon: FitAddon | undefined;
 let socket: WebSocket | undefined;
-let resizeObserver: ResizeObserver | undefined;
 let sessionGeneration = 0;
 let statusGeneration = 0;
 
-async function loadStatus(): Promise<void> {
+const session = useXtermSession({
+  container: terminalContainer,
+  interactive: true,
+  onInput: (data) => {
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'input', data }));
+    }
+  },
+  onFind: () => openSearch(),
+  onResize: ({ cols, rows }) => {
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'resize', cols, rows }));
+    }
+  },
+});
+
+function openSearch(): void {
+  searchOpen.value = true;
+  void nextTick(() => {
+    searchInput.value?.focus();
+    searchInput.value?.select();
+  });
+}
+
+function closeSearch(): void {
+  searchOpen.value = false;
+  session.clearSearch();
+  session.focus();
+}
+
+function toggleSearch(): void {
+  if (searchOpen.value) closeSearch();
+  else openSearch();
+}
+
+function runSearch(direction: 'next' | 'previous', incremental = false): void {
+  session.find(searchQuery.value, direction, incremental);
+}
+
+const searchCountLabel = computed(() => {
+  if (!searchQuery.value) return '';
+  const { index, count } = session.searchResults.value;
+  return count === 0 ? 'sem resultados' : `${index + 1} de ${count}`;
+});
+
+const stageBackground = computed(
+  () => terminalThemes[currentTheme.value].background,
+);
+const location = computed(() =>
+  props.project.path.replace(/^\/home\/[^/]+/, '~'),
+);
+const kindLabel = computed(() =>
+  props.kind === 'rails-console' ? 'rails console' : 'shell',
+);
+
+/** `silent` reconsulta a disponibilidade sem trocar a tela por "verificando". */
+async function loadStatus(silent = false): Promise<void> {
   const generation = ++statusGeneration;
-  loadingStatus.value = true;
+  if (!silent) loadingStatus.value = true;
 
   try {
     const status = await fetchProjectTerminalStatus(
@@ -80,9 +137,7 @@ async function loadStatus(): Promise<void> {
         ? error.message
         : 'Não foi possível consultar a disponibilidade desta sessão.';
   } finally {
-    if (generation === statusGeneration) {
-      loadingStatus.value = false;
-    }
+    if (generation === statusGeneration) loadingStatus.value = false;
   }
 
   if (
@@ -97,135 +152,20 @@ async function loadStatus(): Promise<void> {
   }
 }
 
-function sendResize(): void {
-  if (!terminal || !socket || socket.readyState !== WebSocket.OPEN) return;
-  socket.send(
-    JSON.stringify({
-      type: 'resize',
-      cols: terminal.cols,
-      rows: terminal.rows,
-    }),
-  );
-}
-
-function writeTerminalOutput(data: string): void {
-  if (!terminal) return;
-
-  const shouldFollowOutput =
-    terminal.buffer.active.viewportY === terminal.buffer.active.baseY;
-  terminal.write(data, () => {
-    if (shouldFollowOutput) {
-      terminal?.scrollToBottom();
-    }
-  });
-}
-
-function mountTerminal(): void {
-  if (!terminalContainer.value) return;
-  terminal = new Terminal({
-    convertEol: true,
-    scrollback: MAX_TERMINAL_SCROLLBACK_LINES,
-    fontSize: terminalFontSize.value,
-    fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
-    theme: { background: '#10131c', foreground: '#dbe0f2' },
-  });
-  fitAddon = new FitAddon();
-  terminal.loadAddon(fitAddon);
-  terminal.open(terminalContainer.value);
-  fitAddon.fit();
-  terminal.focus();
-
-  terminal.attachCustomKeyEventHandler((event) => {
-    if (
-      event.type !== 'keydown' ||
-      !terminal ||
-      !isTerminalCopyShortcut(event, terminal.hasSelection(), macOS)
-    ) {
-      return true;
-    }
-
-    void copyTerminalSelection();
-    return false;
-  });
-
-  terminal.onData((data) => {
-    terminal?.scrollToBottom();
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'input', data }));
-    }
-  });
-
-  resizeObserver = new ResizeObserver(() => {
-    fitAddon?.fit();
-    sendResize();
-  });
-  resizeObserver.observe(terminalContainer.value);
-}
-
-function closeTerminalContextMenu(): void {
-  terminalContextMenu.value = null;
-}
-
-async function copyTerminalSelection(): Promise<void> {
-  const selection = terminal?.getSelection() ?? '';
-  closeTerminalContextMenu();
-  if (!selection) return;
-
-  await copyTextToClipboard(selection);
-  terminal?.focus();
-}
-
-function openTerminalContextMenu(event: MouseEvent): void {
-  if (!terminal?.hasSelection()) {
-    closeTerminalContextMenu();
-    return;
-  }
-
-  event.preventDefault();
-
-  const margin = 8;
-  const menuWidth = 156;
-  const menuHeight = 40;
-  terminalContextMenu.value = {
-    left: Math.max(
-      margin,
-      Math.min(event.clientX, window.innerWidth - menuWidth - margin),
-    ),
-    top: Math.max(
-      margin,
-      Math.min(event.clientY, window.innerHeight - menuHeight - margin),
-    ),
-  };
-}
-
-function disposeTerminal(): void {
-  closeTerminalContextMenu();
-  resizeObserver?.disconnect();
-  resizeObserver = undefined;
-  terminal?.dispose();
-  terminal = undefined;
-  fitAddon = undefined;
-}
-
 function disconnect(): void {
   sessionGeneration += 1;
-  socket?.close(1000, 'Sessão encerrada pelo usuário');
+  const current = socket;
   socket = undefined;
+  current?.close(1000, 'Sessão encerrada pelo usuário');
 }
 
 function closeSession(): void {
-  sessionGeneration += 1;
+  disconnect();
   closedByUser.value = true;
   lastExitCode.value = undefined;
-
-  const currentSocket = socket;
-  socket = undefined;
-  currentSocket?.close(1000, 'Sessão encerrada pelo usuário');
-
   sessionState.value = 'closed';
   maximized.value = false;
-  disposeTerminal();
-  void loadStatus();
+  void loadStatus(true);
 }
 
 async function startSession(): Promise<void> {
@@ -234,6 +174,7 @@ async function startSession(): Promise<void> {
   lastExitCode.value = undefined;
   closedByUser.value = false;
   sessionState.value = 'connecting';
+  session.reset();
 
   try {
     const confirmation = await prepareProjectTerminalConfirmation(
@@ -243,21 +184,21 @@ async function startSession(): Promise<void> {
     );
     if (generation !== sessionGeneration) return;
 
-    const url = projectTerminalWebSocketUrl(
-      props.project.id,
-      props.kind,
-      confirmation.token,
-      props.environmentInstanceId,
+    const newSocket = new WebSocket(
+      projectTerminalWebSocketUrl(
+        props.project.id,
+        props.kind,
+        confirmation.token,
+        props.environmentInstanceId,
+      ),
     );
-    const newSocket = new WebSocket(url);
     socket = newSocket;
 
     newSocket.addEventListener('open', () => {
       if (socket !== newSocket) return;
       sessionState.value = 'connected';
       requestAnimationFrame(() => {
-        mountTerminal();
-        sendResize();
+        if (session.mount()) session.refit();
       });
     });
 
@@ -275,7 +216,7 @@ async function startSession(): Promise<void> {
         return;
       }
       if (message.type === 'output' && typeof message.data === 'string') {
-        writeTerminalOutput(message.data);
+        session.write(message.data);
       } else if (message.type === 'exit') {
         lastExitCode.value =
           typeof message.code === 'number' ? message.code : null;
@@ -292,8 +233,7 @@ async function startSession(): Promise<void> {
       socket = undefined;
       sessionState.value = 'closed';
       maximized.value = false;
-      disposeTerminal();
-      void loadStatus();
+      void loadStatus(true);
     });
 
     newSocket.addEventListener('error', () => {
@@ -311,28 +251,27 @@ async function startSession(): Promise<void> {
   }
 }
 
-function toggleMaximized(): void {
-  maximized.value = !maximized.value;
-  requestAnimationFrame(() => {
-    fitAddon?.fit();
-    sendResize();
-  });
+async function restartSession(): Promise<void> {
+  disconnect();
+  await startSession();
 }
 
-function setTerminalFontSize(size: number): void {
-  terminalFontSize.value = Math.min(20, Math.max(11, size));
-  if (!terminal) return;
-  terminal.options.fontSize = terminalFontSize.value;
-  requestAnimationFrame(() => {
-    fitAddon?.fit();
-    sendResize();
-  });
+function toggleMaximized(): void {
+  maximized.value = !maximized.value;
+  requestAnimationFrame(session.refit);
+}
+
+async function copySelection(): Promise<void> {
+  await session.copySelection();
 }
 
 function handleKeydown(event: KeyboardEvent): void {
-  if (event.key !== 'Escape') return;
-  closeTerminalContextMenu();
-  if (maximized.value) maximized.value = false;
+  if (event.key === 'Escape' && maximized.value) maximized.value = false;
+  if (event.key === 'Enter' && sessionState.value === 'closed') {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('button, a, input, select, textarea')) return;
+    void startSession();
+  }
 }
 
 watch(
@@ -340,7 +279,8 @@ watch(
     `${props.project.id}:${props.kind}:${props.environmentInstanceId ?? 'primary'}`,
   () => {
     disconnect();
-    disposeTerminal();
+    session.dispose();
+    searchOpen.value = false;
     sessionState.value = 'idle';
     maximized.value = false;
     errorMessage.value = '';
@@ -354,15 +294,12 @@ watch(
 onMounted(() => {
   void loadStatus();
   window.addEventListener('keydown', handleKeydown);
-  window.addEventListener('click', closeTerminalContextMenu);
 });
 
 onBeforeUnmount(() => {
   statusGeneration += 1;
   disconnect();
-  disposeTerminal();
   window.removeEventListener('keydown', handleKeydown);
-  window.removeEventListener('click', closeTerminalContextMenu);
 });
 </script>
 
@@ -374,41 +311,25 @@ onBeforeUnmount(() => {
       role="status"
       aria-live="polite"
     >
-      <span class="terminal-state-dot" aria-hidden="true"></span>
+      <span class="terminal-state-dot" aria-hidden="true" />
       <p>Verificando disponibilidade da sessão…</p>
     </div>
 
-    <div v-else-if="!supported" class="terminal-state terminal-state-error">
-      <strong>Terminal indisponível para este projeto.</strong>
+    <div v-else-if="!supported" class="terminal-state">
+      <strong>Terminal indisponível para este projeto</strong>
       <p>{{ statusMessage }}</p>
+      <UiButton @click="loadStatus()">Verificar de novo</UiButton>
     </div>
 
-    <div
-      v-else-if="sessionState === 'idle' || sessionState === 'closed'"
-      class="terminal-state terminal-state-ready"
-    >
-      <div class="terminal-state-copy">
-        <template v-if="sessionState === 'closed'">
-          <strong>Sessão encerrada</strong>
-          <p>
-            <template v-if="closedByUser">Encerrada por você.</template>
-            <template v-else-if="lastExitCode !== undefined">
-              Processo finalizado com código {{ lastExitCode ?? '—' }}.
-            </template>
-            <template v-else>A conexão com o terminal foi encerrada.</template>
-          </p>
-        </template>
-        <template v-else>
-          <strong>{{ description }}</strong>
-          <p class="terminal-warning">
-            Esta sessão permite comandos interativos no ambiente selecionado.
-            Execute apenas comandos em que você confia.
-          </p>
-        </template>
-      </div>
-      <button type="button" class="primary-button" @click="startSession">
-        {{ sessionState === 'closed' ? 'Abrir nova sessão' : 'Iniciar sessão' }}
-      </button>
+    <div v-else-if="sessionState === 'idle'" class="terminal-state">
+      <strong>{{ description }}</strong>
+      <p class="terminal-warning">
+        Esta sessão permite comandos interativos no ambiente selecionado.
+        Execute apenas comandos em que você confia.
+      </p>
+      <UiButton variant="primary" @click="startSession">
+        Iniciar sessão
+      </UiButton>
       <p v-if="errorMessage" class="terminal-error" role="alert">
         {{ errorMessage }}
       </p>
@@ -419,67 +340,105 @@ onBeforeUnmount(() => {
         v-if="maximized"
         class="terminal-backdrop"
         @click="toggleMaximized"
-      ></div>
-
-      <div
-        class="terminal-window"
-        :class="{ 'terminal-window-maximized': maximized }"
-        role="dialog"
+      />
+      <section
+        class="terminal-frame"
+        :class="{ 'terminal-frame-maximized': maximized }"
         :aria-label="title"
       >
-        <ProjectTerminalWindowBar
+        <TerminalToolbar
           :title="title"
           :state="sessionState"
+          :location="location"
+          :kind-label="kindLabel"
           :maximized="maximized"
-          :font-size="terminalFontSize"
-          @close-session="closeSession"
+          :font-size="session.fontSize.value"
+          :copy-shortcut="session.copyShortcutLabel"
+          :search-open="searchOpen"
+          @search="toggleSearch"
+          @copy="copySelection"
+          @clear="session.clear"
+          @restart="restartSession"
+          @close="closeSession"
           @toggle-maximized="toggleMaximized"
-          @set-font-size="setTerminalFontSize"
+          @set-font-size="session.setFontSize"
         />
-        <div
-          v-if="sessionState === 'connecting'"
-          class="terminal-connecting"
-          role="status"
-          aria-live="polite"
-        >
-          <span class="terminal-state-dot" aria-hidden="true"></span>
-          <span>Conectando ao ambiente…</span>
-        </div>
-        <div
-          v-else
-          ref="terminalContainer"
-          class="terminal-window-body"
-          @contextmenu.capture="openTerminalContextMenu"
-        ></div>
-        <div
-          v-if="terminalContextMenu"
-          class="terminal-context-menu"
-          :style="{
-            left: `${terminalContextMenu.left}px`,
-            top: `${terminalContextMenu.top}px`,
-          }"
-          role="menu"
-          @click.stop
-          @contextmenu.prevent
-        >
-          <button
-            type="button"
-            class="terminal-context-menu-button"
-            role="menuitem"
-            @click="copyTerminalSelection"
+
+        <div class="terminal-stage" :style="{ background: stageBackground }">
+          <div ref="terminalContainer" class="terminal-body" />
+
+          <div v-if="searchOpen" class="terminal-search" role="search">
+            <input
+              ref="searchInput"
+              v-model="searchQuery"
+              type="search"
+              placeholder="Buscar no histórico"
+              aria-label="Buscar no histórico"
+              @input="runSearch('next', true)"
+              @keydown.enter.exact.prevent="runSearch('next')"
+              @keydown.shift.enter.prevent="runSearch('previous')"
+              @keydown.esc.stop.prevent="closeSearch"
+            />
+            <small>{{ searchCountLabel }}</small>
+            <UiButton
+              icon
+              size="sm"
+              variant="ghost"
+              aria-label="Resultado anterior"
+              @click="runSearch('previous')"
+            >
+              <ChevronUpIcon aria-hidden="true" />
+            </UiButton>
+            <UiButton
+              icon
+              size="sm"
+              variant="ghost"
+              aria-label="Próximo resultado"
+              @click="runSearch('next')"
+            >
+              <ChevronDownIcon aria-hidden="true" />
+            </UiButton>
+            <UiButton
+              icon
+              size="sm"
+              variant="ghost"
+              aria-label="Fechar busca"
+              @click="closeSearch"
+            >
+              <XMarkIcon aria-hidden="true" />
+            </UiButton>
+          </div>
+
+          <div
+            v-if="sessionState === 'connecting'"
+            class="terminal-connecting"
+            role="status"
+            aria-live="polite"
           >
-            <span>Copiar</span>
-            <kbd>{{ copyShortcutLabel }}</kbd>
-          </button>
+            <span class="terminal-spinner" aria-hidden="true" />
+            Conectando ao ambiente…
+          </div>
+
+          <div v-if="sessionState === 'closed'" class="terminal-ended">
+            <div>
+              <strong>Sessão encerrada</strong>
+              <small v-if="closedByUser">Encerrada por você.</small>
+              <small v-else-if="lastExitCode !== undefined">
+                O processo finalizou com código {{ lastExitCode ?? '—' }}. O
+                histórico acima continua disponível.
+              </small>
+              <small v-else>A conexão com o terminal foi encerrada.</small>
+            </div>
+            <UiButton variant="primary" @click="startSession">
+              Nova sessão <kbd>Enter</kbd>
+            </UiButton>
+          </div>
         </div>
-        <p
-          v-if="errorMessage"
-          class="terminal-error terminal-window-error"
-          role="alert"
-        >
+
+        <p v-if="errorMessage" class="terminal-error" role="alert">
           {{ errorMessage }}
         </p>
-      </div>
+      </section>
     </template>
   </div>
 </template>
@@ -493,7 +452,9 @@ onBeforeUnmount(() => {
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
-  background: #10131c;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-0);
 }
 
 .terminal-state {
@@ -504,7 +465,6 @@ onBeforeUnmount(() => {
   gap: 12px;
   padding: 32px;
   color: var(--text-muted);
-  background: var(--surface-1);
   text-align: center;
 }
 
@@ -515,7 +475,7 @@ onBeforeUnmount(() => {
 
 .terminal-state strong {
   color: var(--text);
-  font-size: 13px;
+  font-size: 16px;
 }
 
 .terminal-state-dot {
@@ -526,45 +486,31 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning-text) 12%, transparent);
 }
 
-.terminal-state-error {
-  color: var(--danger-text);
-}
-
-.terminal-state-ready {
-  align-content: center;
-}
-
-.terminal-state-copy {
-  display: grid;
-  max-width: 620px;
-  gap: 8px;
-}
-
 .terminal-warning {
-  margin: 0;
+  max-width: 560px;
   color: var(--warning-text);
-  font-size: var(--font-xs);
+  font-size: 12px;
   line-height: 1.5;
 }
 
 .terminal-error {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  margin: 8px 12px 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
   color: var(--danger-text);
   background: var(--danger-surface);
-  font-size: var(--font-sm);
+  font-size: 13px;
 }
 
 .terminal-backdrop {
   position: fixed;
-  z-index: 40;
+  z-index: 90;
   inset: 0;
-  background: rgba(10, 12, 20, 0.55);
+  background: rgb(10 12 20 / 55%);
   backdrop-filter: blur(2px);
 }
 
-.terminal-window {
+.terminal-frame {
   position: relative;
   display: flex;
   width: 100%;
@@ -574,100 +520,147 @@ onBeforeUnmount(() => {
   flex: 1 1 auto;
   flex-direction: column;
   overflow: hidden;
-  background: #10131c;
+  background: var(--surface-0);
 }
 
-.terminal-window-maximized {
+.terminal-frame-maximized {
   position: fixed;
-  z-index: 50;
+  /* Acima da barra global (z-index 60). */
+  z-index: 100;
   inset: 0;
   width: auto;
   height: auto;
 }
 
-.terminal-connecting {
+.terminal-stage {
+  position: relative;
   display: flex;
+  min-height: 0;
   flex: 1 1 0;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: var(--text-muted);
-  font-size: var(--font-sm);
+  flex-direction: column;
 }
 
-.terminal-window-body {
+.terminal-body {
   box-sizing: border-box;
-  flex: 1 1 0;
   min-width: 0;
   min-height: 0;
+  flex: 1 1 0;
   overflow: hidden;
   padding: 14px 18px 18px;
 }
 
-.terminal-window-body :deep(.xterm) {
+.terminal-body :deep(.xterm) {
   width: 100%;
   height: 100%;
   overflow: hidden;
 }
 
-.terminal-window-body :deep(.xterm-viewport) {
+.terminal-body :deep(.xterm-viewport) {
   max-width: 100%;
   overflow-x: hidden !important;
   overflow-y: auto;
 }
 
-.terminal-context-menu {
-  position: fixed;
-  z-index: 70;
-  min-width: 156px;
-  padding: 4px;
-  border: 1px solid #30374d;
-  border-radius: 8px;
-  background: #171b28;
+.terminal-search {
+  position: absolute;
+  z-index: 5;
+  top: 10px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface-1);
   box-shadow: 0 10px 28px rgb(0 0 0 / 35%);
 }
 
-.terminal-context-menu-button {
-  display: flex;
-  width: 100%;
-  min-height: 32px;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: 0 9px;
+.terminal-search input {
+  width: 200px;
   border: 0;
-  border-radius: 6px;
-  color: #dbe0f2;
+  color: var(--text);
   background: transparent;
-  cursor: pointer;
   font: inherit;
-  font-size: var(--font-xs);
-  text-align: left;
-}
-
-.terminal-context-menu-button:hover,
-.terminal-context-menu-button:focus-visible {
-  background: rgb(124 139 255 / 22%);
+  font-size: 13px;
   outline: none;
 }
 
-.terminal-context-menu-button kbd {
-  color: #7d84a3;
-  font: inherit;
-  font-size: 10px;
+.terminal-search small {
+  min-width: 70px;
+  color: var(--text-dim);
+  font-size: 12px;
+  text-align: right;
 }
 
-.terminal-window-error {
-  margin: 0 var(--space-3) var(--space-3);
+.terminal-connecting {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-0) 75%, transparent);
+  font-size: 13px;
+}
+
+.terminal-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: terminal-spin 1s linear infinite;
+}
+
+@keyframes terminal-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.terminal-ended {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface-1) 94%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.terminal-ended strong {
+  display: block;
+  font-size: 14px;
+}
+
+.terminal-ended small {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.terminal-ended kbd {
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, currentcolor 45%, transparent);
+  border-radius: 5px;
+  font-family: var(--font-family-mono);
+  font-size: 11px;
 }
 
 @media (max-width: 720px) {
-  .terminal-window-body {
+  .terminal-body {
     padding: 10px 12px 14px;
   }
 
-  .terminal-state {
-    padding: 24px 18px;
+  .terminal-ended {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

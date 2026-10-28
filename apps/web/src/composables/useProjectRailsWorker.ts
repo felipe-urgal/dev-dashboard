@@ -18,6 +18,7 @@ import {
   stopProjectRailsWorker,
 } from '../api';
 import { RequestGate, RequestGeneration } from '../utils/request-generation';
+import { useProcessControls } from './useProcessControls';
 
 /**
  * Estado e ações de um worker de fundo Rails (Sidekiq ou webpack-dev-server)
@@ -36,7 +37,6 @@ export function useProjectRailsWorker(
   const managedProcess = ref<ManagedProcess | null>(null);
   const loading = ref(false);
   const errorMessage = ref('');
-  const currentAction = ref<'start' | 'stop' | 'restart' | null>(null);
   const log = ref<ProcessLogSnapshot | null>(null);
   const logLoading = ref(false);
   const clearingLog = ref(false);
@@ -77,6 +77,56 @@ export function useProjectRailsWorker(
         return 'Parado';
     }
   });
+
+  const labels = { sidekiq: 'o Sidekiq', webpack: 'o Webpack' }[workerId];
+  const controls = useProcessControls({
+    scope: () => `${getProject().id}:${getEnvironmentInstanceId() ?? ''}`,
+    managedProcess,
+    errorMessage,
+    afterChange: schedulePolling,
+    messages: {
+      start: `Não foi possível iniciar ${labels}.`,
+      stop: `Não foi possível parar ${labels}.`,
+      restart: `Não foi possível reiniciar ${labels}.`,
+    },
+    api: {
+      start: () => {
+        const environmentInstanceId = getEnvironmentInstanceId();
+        return environmentInstanceId
+          ? startProjectRailsWorker(
+              getProject().id,
+              workerId,
+              environmentInstanceId,
+            )
+          : startProjectRailsWorker(getProject().id, workerId);
+      },
+      stop: () => {
+        const environmentInstanceId = getEnvironmentInstanceId();
+        return environmentInstanceId
+          ? stopProjectRailsWorker(
+              getProject().id,
+              workerId,
+              environmentInstanceId,
+            )
+          : stopProjectRailsWorker(getProject().id, workerId);
+      },
+      ...(supportsRestart
+        ? {
+            restart: () => {
+              const environmentInstanceId = getEnvironmentInstanceId();
+              return environmentInstanceId
+                ? restartProjectRailsWorker(
+                    getProject().id,
+                    workerId,
+                    environmentInstanceId,
+                  )
+                : restartProjectRailsWorker(getProject().id, workerId);
+            },
+          }
+        : {}),
+    },
+  });
+  const currentAction = controls.action;
 
   function isCurrentContext(
     projectId: string,
@@ -290,36 +340,7 @@ export function useProjectRailsWorker(
     ) {
       return;
     }
-
-    const projectId = getProject().id;
-    const environmentInstanceId = getEnvironmentInstanceId();
-    const generation = projectRequests.capture();
-    currentAction.value = 'start';
-    errorMessage.value = '';
-
-    try {
-      const nextProcess = environmentInstanceId
-        ? await startProjectRailsWorker(
-            projectId,
-            workerId,
-            environmentInstanceId,
-          )
-        : await startProjectRailsWorker(projectId, workerId);
-      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
-        managedProcess.value = nextProcess;
-        schedulePolling();
-      }
-    } catch (error) {
-      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
-        errorMessage.value =
-          error instanceof Error
-            ? error.message
-            : 'Não foi possível iniciar o worker.';
-      }
-    } finally {
-      if (isCurrentContext(projectId, environmentInstanceId, generation))
-        currentAction.value = null;
-    }
+    await controls.start();
   }
 
   async function stop(): Promise<void> {
@@ -330,36 +351,7 @@ export function useProjectRailsWorker(
     ) {
       return;
     }
-
-    const projectId = getProject().id;
-    const environmentInstanceId = getEnvironmentInstanceId();
-    const generation = projectRequests.capture();
-    currentAction.value = 'stop';
-    errorMessage.value = '';
-
-    try {
-      const nextProcess = environmentInstanceId
-        ? await stopProjectRailsWorker(
-            projectId,
-            workerId,
-            environmentInstanceId,
-          )
-        : await stopProjectRailsWorker(projectId, workerId);
-      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
-        managedProcess.value = nextProcess;
-        schedulePolling();
-      }
-    } catch (error) {
-      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
-        errorMessage.value =
-          error instanceof Error
-            ? error.message
-            : 'Não foi possível parar o worker.';
-      }
-    } finally {
-      if (isCurrentContext(projectId, environmentInstanceId, generation))
-        currentAction.value = null;
-    }
+    await controls.stop();
   }
 
   async function restart(): Promise<void> {
@@ -371,36 +363,7 @@ export function useProjectRailsWorker(
     ) {
       return;
     }
-
-    const projectId = getProject().id;
-    const environmentInstanceId = getEnvironmentInstanceId();
-    const generation = projectRequests.capture();
-    currentAction.value = 'restart';
-    errorMessage.value = '';
-
-    try {
-      const nextProcess = environmentInstanceId
-        ? await restartProjectRailsWorker(
-            projectId,
-            workerId,
-            environmentInstanceId,
-          )
-        : await restartProjectRailsWorker(projectId, workerId);
-      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
-        managedProcess.value = nextProcess;
-        schedulePolling();
-      }
-    } catch (error) {
-      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
-        errorMessage.value =
-          error instanceof Error
-            ? error.message
-            : 'Não foi possível reiniciar o worker.';
-      }
-    } finally {
-      if (isCurrentContext(projectId, environmentInstanceId, generation))
-        currentAction.value = null;
-    }
+    await controls.restart(true);
   }
 
   async function initialize(): Promise<void> {
@@ -412,7 +375,6 @@ export function useProjectRailsWorker(
     managedProcess.value = null;
     loading.value = false;
     errorMessage.value = '';
-    currentAction.value = null;
     log.value = null;
     logLoading.value = false;
     logsVisible.value = false;
