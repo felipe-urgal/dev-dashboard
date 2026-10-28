@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import UiButton from '../components/ui/UiButton.vue';
 import { computed, inject, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { ArrowPathIcon, PlayIcon, StopIcon } from '@heroicons/vue/24/outline';
 
@@ -213,36 +214,33 @@ async function refreshWorkspace(): Promise<void> {
       </div>
 
       <div class="dashboard-header-actions">
-        <button
+        <UiButton
           v-if="idleProjects.length >= 2"
-          type="button"
-          class="dashboard-header-button"
           :disabled="bulkBusy"
           @click="startAll"
+          size="lg"
         >
           <PlayIcon aria-hidden="true" />
           <span>Iniciar todos</span>
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           v-if="activeProjects.length >= 2"
-          type="button"
-          class="dashboard-header-button"
           :disabled="bulkBusy"
           @click="stopAll"
+          size="lg"
         >
           <StopIcon aria-hidden="true" />
           <span>Parar todos ({{ activeProjects.length }})</span>
-        </button>
-        <button
-          type="button"
-          class="dashboard-header-button"
-          :class="{ 'is-busy': isRefreshing }"
+        </UiButton>
+        <UiButton
+          :busy="isRefreshing"
           :disabled="isRefreshing || !selectedWorkspaceId"
           @click="refreshWorkspace"
+          size="lg"
         >
-          <ArrowPathIcon aria-hidden="true" />
+          <ArrowPathIcon v-if="!isRefreshing" aria-hidden="true" />
           <span>Atualizar</span>
-        </button>
+        </UiButton>
       </div>
     </header>
 
@@ -292,13 +290,7 @@ async function refreshWorkspace(): Promise<void> {
         :description="errorMessage"
       >
         <template #actions>
-          <button
-            type="button"
-            class="dashboard-secondary-button"
-            @click="ensureDashboardLoaded"
-          >
-            Tentar novamente
-          </button>
+          <UiButton @click="ensureDashboardLoaded"> Tentar novamente </UiButton>
         </template>
       </EmptyState>
 
@@ -310,13 +302,9 @@ async function refreshWorkspace(): Promise<void> {
         description="Adicione uma pasta para detectar automaticamente aplicações Rails e Node."
       >
         <template #actions>
-          <button
-            type="button"
-            class="dashboard-secondary-button"
-            @click="openWorkspaceManager"
-          >
+          <UiButton @click="openWorkspaceManager">
             Adicionar workspace
-          </button>
+          </UiButton>
         </template>
       </EmptyState>
 
@@ -328,14 +316,9 @@ async function refreshWorkspace(): Promise<void> {
         :description="`Nenhum app Rails ou Node foi encontrado em ${selectedWorkspace?.path ?? 'este workspace'}.`"
       >
         <template #actions>
-          <button
-            type="button"
-            class="dashboard-secondary-button"
-            :disabled="isRefreshing"
-            @click="refreshWorkspace"
-          >
+          <UiButton :disabled="isRefreshing" @click="refreshWorkspace">
             Atualizar workspace
-          </button>
+          </UiButton>
         </template>
       </EmptyState>
 
@@ -406,44 +389,6 @@ async function refreshWorkspace(): Promise<void> {
   font-size: 14px;
 }
 
-.dashboard-header-button {
-  display: inline-flex;
-  min-height: 40px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 0 16px;
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  color: var(--text);
-  background: transparent;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 650;
-  cursor: pointer;
-  transition: background 160ms ease;
-}
-
-.dashboard-header-button:hover:not(:disabled) {
-  background: var(--surface-2);
-}
-
-.dashboard-header-button:disabled {
-  cursor: wait;
-  opacity: 0.62;
-}
-
-.dashboard-header-button svg {
-  width: 18px;
-  height: 18px;
-  color: var(--text-muted);
-}
-
-.dashboard-header-button.is-busy svg {
-  animation: dashboard-spin 800ms linear infinite;
-}
-
 .dashboard-scan-warning {
   margin-bottom: 14px;
   padding: 10px 14px;
@@ -453,6 +398,7 @@ async function refreshWorkspace(): Promise<void> {
   background: var(--surface-2);
   font-size: 13px;
 }
+
 .dashboard-scan-warning summary {
   cursor: pointer;
 }
@@ -493,16 +439,6 @@ async function refreshWorkspace(): Promise<void> {
   background: var(--surface-1);
 }
 
-.dashboard-secondary-button {
-  min-height: 36px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  color: var(--text);
-  background: var(--surface-2);
-  cursor: pointer;
-}
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -513,12 +449,6 @@ async function refreshWorkspace(): Promise<void> {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-@keyframes dashboard-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 @media (max-width: 760px) {
@@ -533,18 +463,8 @@ async function refreshWorkspace(): Promise<void> {
     margin-bottom: 20px;
   }
 
-  .dashboard-header-button {
-    width: 100%;
-  }
-
   .dashboard-project-columns {
     display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dashboard-header-button.is-busy svg {
-    animation: none;
   }
 }
 </style>

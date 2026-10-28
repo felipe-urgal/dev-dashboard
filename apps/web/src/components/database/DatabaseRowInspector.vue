@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 
+import UiButton from '../ui/UiButton.vue';
+import UiTag from '../ui/UiTag.vue';
+
 const props = defineProps<{
   title: string;
   columns: string[];
@@ -50,7 +53,7 @@ watch(
     <template v-if="row">
       <header>
         <h2>Linha {{ rowNumber }}</h2>
-        <span class="database-inspector-badge">{{ title }}</span>
+        <UiTag tone="accent" mono>{{ title }}</UiTag>
       </header>
       <dl>
         <div v-for="field in fields" :key="field.name">
@@ -61,7 +64,7 @@ watch(
         </div>
       </dl>
       <div class="database-inspector-actions">
-        <button type="button" @click="copyJson">Copiar JSON</button>
+        <UiButton @click="copyJson">Copiar JSON</UiButton>
         <span v-if="copied" role="status">{{ copied }}</span>
       </div>
     </template>
@@ -99,19 +102,6 @@ h2 {
   text-transform: uppercase;
 }
 
-.database-inspector-badge {
-  max-width: 160px;
-  padding: 2px 10px;
-  overflow: hidden;
-  border-radius: 999px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  font-family: var(--font-family-mono);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 dl {
   margin: 0;
 }
@@ -146,23 +136,6 @@ dd[data-null='true'] {
   gap: 10px;
   color: var(--success-text);
   font-size: 12px;
-}
-
-.database-inspector-actions button {
-  height: 34px;
-  padding: 0 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: 9px;
-  color: var(--text);
-  background: transparent;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.database-inspector-actions button:hover {
-  background: var(--surface-2);
 }
 
 .database-inspector-empty {

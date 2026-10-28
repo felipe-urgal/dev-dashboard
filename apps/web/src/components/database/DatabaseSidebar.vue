@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, h } from 'vue';
+import { computed } from 'vue';
 import { NDropdown } from 'naive-ui';
 import {
   ChevronDownIcon,
   EllipsisVerticalIcon,
-  MagnifyingGlassIcon,
 } from '@heroicons/vue/24/outline';
+import { dangerMenuLabel } from '../../utils/ui-menu';
+import UiButton from '../ui/UiButton.vue';
+import UiSearchField from '../ui/UiSearchField.vue';
 import type {
   DatabaseServiceAction,
   MachineDatabaseService,
@@ -82,8 +84,7 @@ function menuOptions(service: MachineDatabaseService) {
     { key: 'divider', type: 'divider' as const },
     {
       key: 'uninstall',
-      label: () =>
-        h('span', { class: 'database-sidebar-danger' }, 'Desinstalar…'),
+      label: dangerMenuLabel('Desinstalar…'),
     },
   ];
 }
@@ -151,14 +152,15 @@ function isRedis(service: MachineDatabaseService): boolean {
           :disabled="pending !== null"
           @select="(key: string) => handleMenu(service, key)"
         >
-          <button
-            type="button"
-            class="database-service-more"
+          <UiButton
+            icon
+            size="sm"
+            variant="ghost"
             :aria-label="`Ações de ${service.label}`"
             aria-haspopup="menu"
           >
             <EllipsisVerticalIcon aria-hidden="true" />
-          </button>
+          </UiButton>
         </n-dropdown>
       </div>
 
@@ -180,20 +182,12 @@ function isRedis(service: MachineDatabaseService): boolean {
         </n-dropdown>
 
         <template v-if="selectedDatabase">
-          <label class="database-tree-search">
-            <MagnifyingGlassIcon aria-hidden="true" />
-            <span class="sr-only">{{
-              isRedis(service) ? 'Buscar chave' : 'Buscar tabela'
-            }}</span>
-            <input
-              :value="tableSearch"
-              type="search"
-              :placeholder="isRedis(service) ? 'Buscar chave' : 'Buscar tabela'"
-              @input="
-                emit('search-table', ($event.target as HTMLInputElement).value)
-              "
-            />
-          </label>
+          <UiSearchField
+            :model-value="tableSearch"
+            :label="isRedis(service) ? 'Buscar chave' : 'Buscar tabela'"
+            :placeholder="isRedis(service) ? 'Buscar chave' : 'Buscar tabela'"
+            @update:model-value="(value: string) => emit('search-table', value)"
+          />
           <p
             v-if="!loading && filteredTableCount === 0"
             class="database-tree-empty"
@@ -214,31 +208,38 @@ function isRedis(service: MachineDatabaseService): boolean {
             </li>
           </ul>
           <div v-if="pageCount > 1" class="database-tree-pages">
-            <button
-              type="button"
+            <UiButton
+              icon
+              size="sm"
+              variant="ghost"
+              aria-label="Página anterior"
               :disabled="page <= 1"
               @click="emit('previous-page')"
             >
               ‹
-            </button>
+            </UiButton>
             <span>{{ page }} / {{ pageCount }}</span>
-            <button
-              type="button"
+            <UiButton
+              icon
+              size="sm"
+              variant="ghost"
+              aria-label="Próxima página"
               :disabled="page >= pageCount"
               @click="emit('next-page')"
             >
               ›
-            </button>
+            </UiButton>
           </div>
         </template>
-        <button
-          type="button"
+        <UiButton
           class="database-tree-disconnect"
+          size="sm"
+          variant="ghost"
           :disabled="loading"
           @click="emit('disconnect')"
         >
           Desconectar
-        </button>
+        </UiButton>
       </div>
     </div>
 
@@ -351,29 +352,6 @@ function isRedis(service: MachineDatabaseService): boolean {
   font-size: 12px;
 }
 
-.database-service-more {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  flex: 0 0 auto;
-  place-items: center;
-  border: 0;
-  border-radius: 8px;
-  color: var(--text-muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.database-service-more:hover:not(:disabled) {
-  color: var(--text);
-  background: var(--surface-3);
-}
-
-.database-service-more svg {
-  width: 18px;
-  height: 18px;
-}
-
 .database-tree {
   display: flex;
   flex-direction: column;
@@ -403,38 +381,6 @@ function isRedis(service: MachineDatabaseService): boolean {
   width: 14px;
   height: 14px;
   color: var(--text-muted);
-}
-
-.database-tree-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  color: var(--text-dim);
-  background: var(--surface-0);
-}
-
-.database-tree-search:focus-within {
-  border-color: var(--accent);
-}
-
-.database-tree-search svg {
-  width: 14px;
-  height: 14px;
-}
-
-.database-tree-search input {
-  width: 100%;
-  min-width: 0;
-  height: 32px;
-  border: 0;
-  color: var(--text);
-  background: transparent;
-  font: inherit;
-  font-size: 13px;
-  outline: 0;
 }
 
 .database-tree-list {
@@ -483,31 +429,8 @@ function isRedis(service: MachineDatabaseService): boolean {
   font-size: 12px;
 }
 
-.database-tree-pages button,
-.database-tree-disconnect {
-  border: 0;
-  color: var(--text-muted);
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-}
-
-.database-tree-pages button {
-  padding: 2px 10px;
-  border-radius: 6px;
-}
-
-.database-tree-pages button:hover:not(:disabled),
-.database-tree-disconnect:hover:not(:disabled) {
-  color: var(--text);
-  background: var(--surface-2);
-}
-
 .database-tree-disconnect {
   align-self: flex-start;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 12px;
 }
 
 button:focus-visible {
@@ -519,26 +442,11 @@ button:disabled {
   opacity: 0.5;
 }
 
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-}
-
 @media (max-width: 900px) {
   .database-sidebar {
     flex-basis: auto;
     border-right: 0;
     border-bottom: 1px solid var(--border);
   }
-}
-</style>
-
-<style>
-.database-sidebar-danger {
-  color: var(--danger-text);
 }
 </style>

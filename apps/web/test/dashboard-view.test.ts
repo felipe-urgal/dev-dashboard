@@ -148,7 +148,7 @@ describe('dashboard principal', () => {
     const wrapper = mountView();
 
     const refresh = wrapper
-      .findAll('.dashboard-header-button')
+      .findAll('button')
       .find((button) => button.text().includes('Atualizar'))!;
     await refresh.trigger('click');
     await flushPromises();
@@ -181,7 +181,7 @@ describe('ações em lote', () => {
     const wrapper = mountView();
 
     const startAll = wrapper
-      .findAll('.dashboard-header-button')
+      .findAll('button')
       .find((button) => button.text().includes('Iniciar todos'))!;
     await startAll.trigger('click');
     await flushPromises();

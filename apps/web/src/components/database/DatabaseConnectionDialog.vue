@@ -3,6 +3,7 @@ import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import type { MachineDatabaseConnection } from '@dev-dashboard/contracts';
 
 import type { SavedDatabaseConnection } from '../../composables/useDatabaseSavedConnections';
+import UiButton from '../ui/UiButton.vue';
 
 const props = defineProps<{
   open: boolean;
@@ -140,9 +141,13 @@ onBeforeUnmount(() => {
           <h2 id="database-connection-title">Conectar a um serviço</h2>
           <p>As credenciais são usadas somente nesta sessão.</p>
         </div>
-        <button type="button" aria-label="Fechar" @click="emit('close')">
-          ×
-        </button>
+        <UiButton
+          icon
+          variant="ghost"
+          aria-label="Fechar"
+          @click="emit('close')"
+          >×</UiButton
+        >
       </header>
       <div class="database-connection-form">
         <div v-if="savedConnections.length" class="database-connection-wide">
@@ -162,13 +167,12 @@ onBeforeUnmount(() => {
                 {{ saved.label }}
               </option>
             </select>
-            <button
+            <UiButton
               v-if="selectedSavedConnectionId"
-              type="button"
               @click="emit('remove-saved', selectedSavedConnectionId)"
             >
               Remover
-            </button>
+            </UiButton>
           </div>
         </div>
         <label
@@ -245,20 +249,21 @@ onBeforeUnmount(() => {
         {{ testMessage }}
       </p>
       <footer>
-        <button type="button" @click="emit('close')">Cancelar</button>
-        <button type="button" :disabled="loading" @click="emit('save')">
+        <UiButton @click="emit('close')">Cancelar</UiButton>
+        <UiButton :disabled="loading" @click="emit('save')">
           Salvar sem senha
-        </button>
-        <button type="button" :disabled="loading" @click="emit('test')">
-          {{ loading ? 'Testando…' : 'Testar conexão' }}</button
-        ><button
-          type="button"
-          class="database-connection-primary"
+        </UiButton>
+        <UiButton :disabled="loading" @click="emit('test')">
+          {{ loading ? 'Testando…' : 'Testar conexão' }}
+        </UiButton>
+        <UiButton
+          variant="primary"
+          :busy="loading"
           :disabled="loading"
           @click="emit('connect')"
         >
           {{ loading ? 'Conectando…' : 'Conectar' }}
-        </button>
+        </UiButton>
       </footer>
     </section>
   </div>
@@ -304,21 +309,6 @@ header p {
   margin: 0;
   color: var(--text-muted);
   font-size: 13px;
-}
-
-header button {
-  width: 32px;
-  height: 32px;
-  border: 0;
-  border-radius: 8px;
-  color: var(--text-muted);
-  background: transparent;
-  font-size: 22px;
-  cursor: pointer;
-}
-
-header button:hover {
-  background: var(--surface-2);
 }
 
 .database-connection-eyebrow {
@@ -380,39 +370,6 @@ footer {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
-}
-
-footer button,
-.database-connection-saved button {
-  height: 36px;
-  padding: 0 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: 9px;
-  color: var(--text);
-  background: transparent;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-footer button:hover:not(:disabled) {
-  background: var(--surface-2);
-}
-
-footer .database-connection-primary {
-  border-color: var(--accent-strong);
-  color: #fff;
-  background: var(--accent-strong);
-}
-
-footer .database-connection-primary:hover:not(:disabled) {
-  background: var(--accent);
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
 }
 
 .database-connection-error,

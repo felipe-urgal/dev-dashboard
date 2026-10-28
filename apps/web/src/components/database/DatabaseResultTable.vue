@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import {
-  ChevronDownIcon,
-  ChevronUpIcon,
-  MagnifyingGlassIcon,
-} from '@heroicons/vue/24/outline';
+import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/vue/24/outline';
 import type { MachineDatabaseQueryResult } from '@dev-dashboard/contracts';
+
+import UiButton from '../ui/UiButton.vue';
+import UiSearchField from '../ui/UiSearchField.vue';
 
 import type {
   DatabaseResultExportFormat,
@@ -46,23 +45,18 @@ function cellText(value: unknown): string {
 <template>
   <div class="database-grid">
     <div v-if="result" class="database-grid-bar">
-      <label class="database-grid-search">
-        <MagnifyingGlassIcon aria-hidden="true" />
-        <span class="sr-only">Buscar nos resultados</span>
-        <input
-          :value="search"
-          type="search"
-          placeholder="Filtrar linhas"
-          @input="
-            emit('update:search', ($event.target as HTMLInputElement).value)
-          "
-        />
-      </label>
+      <UiSearchField
+        class="database-grid-search"
+        :model-value="search"
+        label="Buscar nos resultados"
+        placeholder="Filtrar linhas"
+        @update:model-value="(value: string) => emit('update:search', value)"
+      />
       <div class="database-grid-actions">
         <span v-if="copiedMessage" role="status">{{ copiedMessage }}</span>
-        <button type="button" @click="emit('copy')">Copiar</button>
-        <button type="button" @click="emit('export', 'csv')">CSV</button>
-        <button type="button" @click="emit('export', 'json')">JSON</button>
+        <UiButton @click="emit('copy')">Copiar</UiButton>
+        <UiButton @click="emit('export', 'csv')">CSV</UiButton>
+        <UiButton @click="emit('export', 'json')">JSON</UiButton>
       </div>
       <span class="database-grid-count">
         {{ visibleRows.length }} de {{ result.rowCount }} linhas
@@ -133,36 +127,9 @@ function cellText(value: unknown): string {
 }
 
 .database-grid-search {
-  display: flex;
   min-width: 240px;
   max-width: 420px;
   flex: 1 1 240px;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: 9px;
-  color: var(--text-dim);
-  background: var(--surface-1);
-}
-
-.database-grid-search:focus-within {
-  border-color: var(--accent);
-}
-
-.database-grid-search svg {
-  width: 15px;
-  height: 15px;
-}
-
-.database-grid-search input {
-  width: 100%;
-  height: 34px;
-  border: 0;
-  color: var(--text);
-  background: transparent;
-  font: inherit;
-  outline: 0;
 }
 
 .database-grid-actions {
@@ -171,23 +138,6 @@ function cellText(value: unknown): string {
   gap: 6px;
   color: var(--success-text);
   font-size: 12px;
-}
-
-.database-grid-actions button {
-  height: 34px;
-  padding: 0 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: 9px;
-  color: var(--text);
-  background: transparent;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.database-grid-actions button:hover {
-  background: var(--surface-2);
 }
 
 .database-grid-count {
@@ -307,14 +257,5 @@ td[data-kind='true'] {
 
 td[data-kind='false'] {
   color: var(--text-dim);
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
 }
 </style>

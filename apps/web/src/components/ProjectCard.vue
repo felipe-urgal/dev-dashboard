@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { NDropdown } from 'naive-ui';
 import { EllipsisVerticalIcon } from '@heroicons/vue/24/outline';
@@ -11,6 +11,8 @@ import { dashboardStore } from '../stores/dashboard';
 import { confirmDialog } from '../stores/app-dialog';
 import { getCardGit, type CardGitState } from '../utils/dashboard-card-git';
 import { projectTypeLabels } from '../utils/project-labels';
+import { dangerMenuLabel } from '../utils/ui-menu';
+import UiButton from './ui/UiButton.vue';
 
 const props = defineProps<{
   project: Project;
@@ -178,12 +180,7 @@ const menuOptions = computed(() => {
     { key: 'divider', type: 'divider' as const },
     {
       key: 'toggle',
-      label: () =>
-        h(
-          'span',
-          { class: enabled ? 'project-row-menu-danger' : '' },
-          enabled ? 'Desativar projeto' : 'Ativar projeto',
-        ),
+      label: enabled ? dangerMenuLabel('Desativar projeto') : 'Ativar projeto',
     },
   ];
 });
@@ -272,18 +269,16 @@ function handleMenuSelect(key: string): void {
     </div>
 
     <div class="project-row-actions">
-      <button
+      <UiButton
         v-if="project.enabled && supportsServer"
-        type="button"
         class="project-row-button"
-        :class="{ 'is-stop': isRunning && !busy }"
+        :variant="isRunning && !busy ? 'danger' : 'secondary'"
+        :busy="busy"
         :disabled="busy"
-        :aria-busy="busy"
         @click="toggleServer"
       >
-        <span v-if="busy" class="project-row-spinner" aria-hidden="true" />
         {{ buttonLabel }}
-      </button>
+      </UiButton>
 
       <n-dropdown
         trigger="click"
@@ -292,14 +287,14 @@ function handleMenuSelect(key: string): void {
         :disabled="enabledUpdating"
         @select="handleMenuSelect"
       >
-        <button
-          type="button"
-          class="project-row-more"
+        <UiButton
+          icon
+          variant="ghost"
           :aria-label="`Mais ações de ${project.name}`"
           aria-haspopup="menu"
         >
           <EllipsisVerticalIcon aria-hidden="true" />
-        </button>
+        </UiButton>
       </n-dropdown>
     </div>
   </li>
@@ -483,30 +478,6 @@ function handleMenuSelect(key: string): void {
   font-size: 12px;
 }
 
-.project-row-spinner {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  margin-right: 6px;
-  vertical-align: -2px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: project-row-spin 700ms linear infinite;
-}
-
-@keyframes project-row-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .project-row-spinner {
-    animation: none;
-  }
-}
-
 .project-row-actions {
   position: relative;
   z-index: 2;
@@ -516,59 +487,6 @@ function handleMenuSelect(key: string): void {
   gap: 6px;
 }
 
-.project-row-button {
-  min-width: 96px;
-  height: 34px;
-  padding: 0 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: 9px;
-  color: var(--text);
-  background: transparent;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.project-row-button:hover:not(:disabled) {
-  background: var(--surface-1);
-}
-
-.project-row-button.is-stop {
-  border-color: color-mix(in srgb, var(--danger-text) 45%, transparent);
-  color: var(--danger-text);
-}
-
-.project-row-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.project-row-more {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  border: 0;
-  border-radius: 9px;
-  color: var(--text-muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.project-row-more:hover,
-.project-row-more:focus-visible {
-  color: var(--text);
-  background: var(--surface-3);
-}
-
-.project-row-more svg {
-  width: 20px;
-  height: 20px;
-}
-
-.project-row-button:focus-visible,
-.project-row-more:focus-visible,
 .project-row-port:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -591,10 +509,8 @@ function handleMenuSelect(key: string): void {
     grid-row: 1 / span 3;
   }
 }
-</style>
 
-<style>
-.project-row-menu-danger {
-  color: var(--danger-text);
+.project-row-button {
+  min-width: 96px;
 }
 </style>

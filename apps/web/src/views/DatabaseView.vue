@@ -14,6 +14,7 @@ import DatabaseResultTable from '../components/database/DatabaseResultTable.vue'
 import DatabaseRowInspector from '../components/database/DatabaseRowInspector.vue';
 import DatabaseServiceDetailsDialog from '../components/database/DatabaseServiceDetailsDialog.vue';
 import DatabaseSidebar from '../components/database/DatabaseSidebar.vue';
+import UiButton from '../components/ui/UiButton.vue';
 import {
   type DatabaseQueryHistoryItem,
   useDatabaseQueryHistory,
@@ -540,9 +541,10 @@ onMounted(() => {
             >
               Consulta
             </button>
-            <button
-              type="button"
+            <UiButton
               class="database-refresh"
+              icon
+              variant="ghost"
               :disabled="loading"
               aria-label="Atualizar serviços"
               title="Atualizar serviços"
@@ -552,7 +554,7 @@ onMounted(() => {
                 :class="{ 'is-spinning': loading }"
                 aria-hidden="true"
               />
-            </button>
+            </UiButton>
           </div>
 
           <div
@@ -636,9 +638,9 @@ onMounted(() => {
             Escolha um serviço em execução na lista à esquerda e clique nele
             para conectar em modo somente leitura.
           </p>
-          <button type="button" @click="openManualConnection">
-            Conectar manualmente
-          </button>
+          <UiButton @click="openManualConnection"
+            >Conectar manualmente</UiButton
+          >
         </div>
       </main>
 
@@ -743,29 +745,6 @@ onMounted(() => {
   background: var(--surface-1);
 }
 
-.database-refresh {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  margin: 0 0 2px auto;
-  place-items: center;
-  border: 0;
-  border-radius: 9px;
-  color: var(--text-muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.database-refresh:hover:not(:disabled) {
-  color: var(--text);
-  background: var(--surface-2);
-}
-
-.database-refresh svg {
-  width: 18px;
-  height: 18px;
-}
-
 .database-refresh .is-spinning {
   animation: database-spin 800ms linear infinite;
 }
@@ -814,23 +793,6 @@ onMounted(() => {
 
 .database-empty-start {
   margin-top: 40px;
-}
-
-.database-empty button {
-  margin-top: 8px;
-  height: 36px;
-  padding: 0 16px;
-  border: 1px solid var(--border-strong);
-  border-radius: 9px;
-  color: var(--text);
-  background: transparent;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.database-empty button:hover {
-  background: var(--surface-2);
 }
 
 .database-notice,
@@ -902,5 +864,9 @@ button:focus-visible {
   .database-refresh .is-spinning {
     animation: none;
   }
+}
+
+.database-refresh {
+  margin: 0 0 2px auto;
 }
 </style>

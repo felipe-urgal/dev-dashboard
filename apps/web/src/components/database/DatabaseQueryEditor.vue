@@ -2,6 +2,8 @@
 import { computed } from 'vue';
 
 import type { DatabaseQueryHistoryItem } from '../../composables/useDatabaseQueryHistory';
+import UiButton from '../ui/UiButton.vue';
+import UiTag from '../ui/UiTag.vue';
 
 const props = defineProps<{
   query: string;
@@ -46,21 +48,19 @@ function onQueryInput(event: Event): void {
   <section class="database-editor">
     <div class="database-editor-bar">
       <label for="database-query">{{ label }}</label>
-      <span class="database-editor-badge">Somente leitura</span>
+      <UiTag tone="accent">Somente leitura</UiTag>
       <span class="database-editor-hint">Ctrl/Cmd + Enter para executar</span>
       <div class="database-editor-actions">
-        <button type="button" @click="emit('toggle-history')">Histórico</button>
-        <button type="button" :disabled="loading" @click="emit('reset')">
-          Limpar
-        </button>
-        <button
-          type="button"
-          class="database-editor-run"
+        <UiButton @click="emit('toggle-history')">Histórico</UiButton>
+        <UiButton :disabled="loading" @click="emit('reset')">Limpar</UiButton>
+        <UiButton
+          variant="primary"
+          :busy="loading"
           :disabled="loading"
           @click="emit('run')"
         >
           {{ loading ? 'Executando…' : 'Executar' }}
-        </button>
+        </UiButton>
       </div>
     </div>
 
@@ -167,15 +167,6 @@ label {
   font-weight: 650;
 }
 
-.database-editor-badge {
-  padding: 2px 10px;
-  border-radius: 999px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  font-size: 12px;
-  font-weight: 650;
-}
-
 .database-editor-hint {
   color: var(--text-dim);
   font-size: 12px;
@@ -185,33 +176,6 @@ label {
   display: flex;
   gap: 8px;
   margin-left: auto;
-}
-
-.database-editor-actions button {
-  height: 34px;
-  padding: 0 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: 9px;
-  color: var(--text);
-  background: transparent;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.database-editor-actions button:hover:not(:disabled) {
-  background: var(--surface-3);
-}
-
-.database-editor-actions .database-editor-run {
-  border-color: var(--accent-strong);
-  color: #fff;
-  background: var(--accent-strong);
-}
-
-.database-editor-actions .database-editor-run:hover:not(:disabled) {
-  background: var(--accent);
 }
 
 button:disabled {

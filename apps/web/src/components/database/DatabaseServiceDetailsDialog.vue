@@ -7,6 +7,7 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import ProjectLogViewer from '../ProjectLogViewer.vue';
+import UiButton from '../ui/UiButton.vue';
 
 defineProps<{
   service: MachineDatabaseService | null;
@@ -69,14 +70,15 @@ function reachabilityLabel(
           <span v-if="details.startedAt"
             >Iniciado em {{ details.startedAt }}</span
           >
-          <button
-            type="button"
+          <UiButton
+            size="sm"
+            :busy="loading"
             :disabled="loading"
             @click="emit('reload', service.id)"
           >
-            <ArrowPathIcon aria-hidden="true" />
+            <ArrowPathIcon v-if="!loading" aria-hidden="true" />
             {{ loading ? 'Testando…' : 'Testar conexão' }}
-          </button>
+          </UiButton>
         </div>
         <ProjectLogViewer
           :content="details.logs.join('\n')"
@@ -140,27 +142,6 @@ dd[data-state='unreachable'] {
   gap: 10px;
   color: var(--text-muted);
   font-size: 12px;
-}
-
-.database-details-toolbar button {
-  display: inline-flex;
-  height: 32px;
-  align-items: center;
-  gap: 6px;
-  padding: 0 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: 9px;
-  color: var(--text);
-  background: transparent;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.database-details-toolbar button svg {
-  width: 14px;
-  height: 14px;
 }
 
 .database-details-error {
