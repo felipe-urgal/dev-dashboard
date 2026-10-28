@@ -43,6 +43,10 @@ watch(
       worker.startLogStream();
     } else if (!canFollowLogs) {
       worker.stopLogStream();
+      // O stream só acompanha o processo enquanto ele roda. Ao terminar (ou ao
+      // abrir a aba com ele já parado) lê o log final: é nele que está o erro
+      // de quem morre logo ao iniciar.
+      if (detected) void worker.refreshLog();
     }
   },
 );
@@ -117,8 +121,11 @@ function formatDate(value?: string): string {
             class="rails-worker-error"
             role="alert"
           >
-            {{ workerLabels[workerId] }} encerrou com falha. Consulte o log e
-            tente iniciar novamente.
+            {{ workerLabels[workerId] }} encerrou com falha<template
+              v-if="worker.managedProcess.value?.exitCode !== undefined"
+            >
+              (código {{ worker.managedProcess.value.exitCode }})</template
+            >. Consulte o log abaixo e tente iniciar novamente.
           </p>
 
           <header class="rails-worker-toolbar">
