@@ -5,6 +5,7 @@ import type { Project } from '@dev-dashboard/contracts';
 
 import {
   recentProjectIds,
+  sortProjectsByName,
   sortProjectsByPriority,
 } from '../src/utils/project-priority';
 
@@ -72,4 +73,18 @@ test('expõe no máximo cinco recentes', () => {
   assert.equal(ids.size, 5);
   assert.equal(ids.has('project-6'), true);
   assert.equal(ids.has('project-0'), false);
+});
+
+test('ordem da Visão geral ignora recência: ativos primeiro e depois nome', () => {
+  const sorted = sortProjectsByName([
+    project('c', 'Charlie', { lastAccessedAt: '2026-10-28T10:00:00Z' }),
+    project('x', 'Xray', { enabled: false }),
+    project('b', 'Bravo'),
+    project('a', 'Alpha'),
+  ]);
+
+  assert.deepEqual(
+    sorted.map((item) => item.id),
+    ['a', 'b', 'c', 'x'],
+  );
 });

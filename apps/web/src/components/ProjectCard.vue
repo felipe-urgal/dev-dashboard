@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import { RouterLink } from 'vue-router';
-import { NoSymbolIcon, PowerIcon } from '@heroicons/vue/24/outline';
+import { computed, h, ref, watch } from 'vue';
+import { RouterLink, useRouter } from 'vue-router';
+import { NDropdown } from 'naive-ui';
+import { EllipsisVerticalIcon } from '@heroicons/vue/24/outline';
 
 import type { Project } from '@dev-dashboard/contracts';
 
+import { startProjectProcess, stopProjectProcess } from '../api';
 import { dashboardStore } from '../stores/dashboard';
+import { confirmDialog } from '../stores/app-dialog';
 import { getCardGit, type CardGitState } from '../utils/dashboard-card-git';
 import { projectTypeLabels } from '../utils/project-labels';
-import ProjectProcessesMenu from './ProjectProcessesMenu.vue';
 
 const props = defineProps<{
   project: Project;
@@ -18,6 +20,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   'toggle-enabled': [project: Project];
 }>();
+
+const router = useRouter();
 
 const supportsServer = computed(() =>
   props.project.capabilities.includes('server'),
@@ -37,6 +41,10 @@ const processStatus = computed(() =>
 const isRunning = computed(
   () => processStatus.value === 'running' || processStatus.value === 'starting',
 );
+const isTransitioning = computed(
+  () =>
+    processStatus.value === 'starting' || processStatus.value === 'stopping',
+);
 const statusLabel = computed(
   () =>
     ({
@@ -48,6 +56,11 @@ const statusLabel = computed(
       unknown: 'Desconhecido',
     })[processStatus.value],
 );
+const statusClass = computed(() => {
+  if (!props.project.enabled) return 'disabled';
+  return isRunning.value ? 'running' : processStatus.value;
+});
+
 const gitState = ref<CardGitState>({ kind: 'unknown' });
 let branchRequest = 0;
 
@@ -57,35 +70,25 @@ watch(
     supportsGit: props.project.capabilities.includes('git'),
     enabled: props.project.enabled,
   }),
-  async ({ id, supportsGit }) => {
+  async ({ id, supportsGit, enabled }) => {
     const request = ++branchRequest;
     gitState.value = supportsGit ? { kind: 'unknown' } : { kind: 'none' };
-    if (!supportsGit || !props.project.enabled) return;
+    if (!supportsGit || !enabled) return;
     const state = await getCardGit(id);
     if (request === branchRequest) gitState.value = state;
   },
   { immediate: true },
 );
 
-const toggleEnabledLabel = computed(() =>
-  props.project.enabled
-    ? `Desativar ${props.project.name}`
-    : `Ativar ${props.project.name}`,
-);
-
-const projectDetailsRoute = computed(() => ({
-  name: 'project-details',
-  params: { projectId: props.project.id },
-}));
-
-const stackCode: Record<Project['type'], string> = {
-  rails: 'RB',
-  node: 'JS',
-  unknown: '—',
-};
-
-const typeLabel = computed(() => projectTypeLabels[props.project.type]);
-const typeCode = computed(() => stackCode[props.project.type]);
+const gitFallback = computed(() => {
+  if (!props.project.enabled) return '—';
+  return {
+    none: 'Sem Git',
+    detached: 'HEAD detached',
+    unknown: 'Git indisponível',
+    branch: '',
+  }[gitState.value.kind];
+});
 
 const localUrl = computed(() =>
   props.project.enabled &&
@@ -95,391 +98,503 @@ const localUrl = computed(() =>
     : '',
 );
 
-const statusClass = computed(() => {
-  if (!props.project.enabled) return 'disabled';
-  if (isRunning.value) return 'running';
-  return 'stopped';
+const typeLabel = computed(() => projectTypeLabels[props.project.type]);
+const stackCode: Record<Project['type'], string> = {
+  rails: 'RB',
+  node: 'JS',
+  unknown: '—',
+};
+
+const serverBusy = ref(false);
+const actionError = ref('');
+
+const busy = computed(() => serverBusy.value || isTransitioning.value);
+const buttonLabel = computed(() => {
+  if (processStatus.value === 'stopping') return 'Parando…';
+  if (processStatus.value === 'starting') return 'Iniciando…';
+  if (serverBusy.value) return isRunning.value ? 'Parando…' : 'Iniciando…';
+  return isRunning.value ? 'Parar' : 'Iniciar';
 });
+// Porta que o servidor usou por último: dá previsibilidade antes de iniciar.
+const idlePort = computed(() =>
+  props.project.enabled && !isRunning.value
+    ? managedProcess.value?.port
+    : undefined,
+);
+
+async function toggleServer(): Promise<void> {
+  serverBusy.value = true;
+  actionError.value = '';
+  try {
+    if (isRunning.value) await stopProjectProcess(props.project.id);
+    else await startProjectProcess(props.project.id);
+    await dashboardStore.loadProcessSummary();
+  } catch (error) {
+    actionError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível alterar o servidor.';
+  } finally {
+    serverBusy.value = false;
+  }
+}
+
+// Desativar um projeto em execução para o servidor antes, para não deixar
+// um processo órfão sem controle na interface.
+async function requestToggleEnabled(): Promise<void> {
+  if (props.project.enabled && isRunning.value) {
+    const confirmed = await confirmDialog({
+      title: 'Desativar projeto em execução?',
+      message: `O servidor de ${props.project.name} está rodando e será parado antes de desativar o projeto.`,
+      confirmLabel: 'Parar e desativar',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+    try {
+      await stopProjectProcess(props.project.id);
+      await dashboardStore.loadProcessSummary();
+    } catch (error) {
+      actionError.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível parar o servidor.';
+      return;
+    }
+  }
+  emit('toggle-enabled', props.project);
+}
+
+const menuOptions = computed(() => {
+  const enabled = props.project.enabled;
+  return [
+    {
+      key: 'open',
+      label: 'Abrir app',
+      disabled: !localUrl.value,
+    },
+    { key: 'logs', label: 'Ver logs', disabled: !enabled },
+    { key: 'terminal', label: 'Terminal', disabled: !enabled },
+    { key: 'git', label: 'Git', disabled: !enabled },
+    { key: 'divider', type: 'divider' as const },
+    {
+      key: 'toggle',
+      label: () =>
+        h(
+          'span',
+          { class: enabled ? 'project-row-menu-danger' : '' },
+          enabled ? 'Desativar projeto' : 'Ativar projeto',
+        ),
+    },
+  ];
+});
+
+const routeByAction = {
+  logs: 'project-server',
+  terminal: 'project-terminal',
+  git: 'project-git',
+} as const;
+
+function handleMenuSelect(key: string): void {
+  if (key === 'open' && localUrl.value) {
+    window.open(localUrl.value, '_blank', 'noopener,noreferrer');
+  } else if (key === 'toggle') {
+    void requestToggleEnabled();
+  } else if (key in routeByAction) {
+    void router.push({
+      name: routeByAction[key as keyof typeof routeByAction],
+      params: { projectId: props.project.id },
+    });
+  }
+}
 </script>
 
 <template>
   <li
-    class="project-card"
-    :class="{ 'project-card-disabled': !project.enabled }"
+    class="project-row"
+    :class="{ 'project-row-disabled': !project.enabled }"
     :data-state="statusClass"
   >
     <RouterLink
-      class="project-card-hit-area"
-      :to="projectDetailsRoute"
+      class="project-row-hit-area"
+      :to="{ name: 'project-details', params: { projectId: project.id } }"
       :aria-label="`Ver detalhes de ${project.name}`"
     />
 
-    <div
-      class="project-card-avatar"
-      :data-type="project.type"
-      :title="typeLabel"
-      aria-hidden="true"
-    >
-      {{ typeCode }}
-    </div>
-
-    <div class="project-card-main">
-      <div class="project-card-identity">
-        <h3>{{ project.name }}</h3>
-        <code class="project-card-path" :title="project.path">{{
-          project.path
-        }}</code>
-      </div>
-
-      <div class="project-card-meta">
-        <span
-          v-if="gitState.kind === 'branch'"
-          class="project-card-branch"
-          :title="`Branch atual: ${gitState.kind === 'branch' ? gitState.branch : ''}`"
-        >
-          <span class="project-card-branch-icon" aria-hidden="true">⑂</span>
-          <span>{{ gitState.kind === 'branch' ? gitState.branch : '' }}</span>
-        </span>
-        <span v-else class="project-card-muted-pill">{{
-          gitState.kind === 'none'
-            ? 'Sem Git'
-            : gitState.kind === 'detached'
-              ? 'HEAD detached'
-              : 'Git indisponível'
-        }}</span>
-
-        <span
-          v-if="supportsServer"
-          class="project-card-status"
-          :data-state="statusClass"
-        >
-          <span class="project-card-status-dot" aria-hidden="true" />
-          {{ project.enabled ? statusLabel : 'Desativado' }}
-        </span>
-        <span v-else class="project-card-muted-pill">Sem servidor</span>
-
-        <a
-          v-if="localUrl"
-          class="project-card-port"
-          :href="localUrl"
-          target="_blank"
-          rel="noreferrer"
-        >
-          :{{ managedProcess?.port }}
-        </a>
-      </div>
-    </div>
-
-    <div class="project-card-actions">
-      <ProjectProcessesMenu
-        v-if="project.enabled && supportsServer"
-        :project="project"
-        :eager="false"
-      />
-
-      <button
-        type="button"
-        class="project-card-toggle"
-        :class="{ active: !project.enabled }"
-        :aria-label="toggleEnabledLabel"
-        :title="toggleEnabledLabel"
-        :aria-pressed="!project.enabled"
-        :disabled="enabledUpdating"
-        @click="emit('toggle-enabled', project)"
+    <div class="project-row-identity">
+      <div
+        class="project-row-avatar"
+        :data-type="project.type"
+        :title="typeLabel"
+        aria-hidden="true"
       >
-        <PowerIcon v-if="project.enabled" aria-hidden="true" />
-        <NoSymbolIcon v-else aria-hidden="true" />
+        {{ stackCode[project.type] }}
+      </div>
+      <div class="project-row-name">
+        <h3 :title="project.path">{{ project.name }}</h3>
+        <p v-if="actionError" class="project-row-error" role="alert">
+          {{ actionError }}
+        </p>
+      </div>
+    </div>
+
+    <div class="project-row-git">
+      <template v-if="gitState.kind === 'branch' && project.enabled">
+        <span class="project-row-branch" :title="gitState.branch">{{
+          gitState.branch
+        }}</span>
+        <span v-if="gitState.dirty" class="project-row-dirty">● alterado</span>
+      </template>
+      <span v-else class="project-row-muted">{{ gitFallback }}</span>
+    </div>
+
+    <div class="project-row-status">
+      <span
+        v-if="supportsServer"
+        class="project-row-state"
+        :data-state="statusClass"
+      >
+        <span class="project-row-dot" aria-hidden="true" />
+        {{ project.enabled ? statusLabel : 'Desativado' }}
+      </span>
+      <span v-else class="project-row-muted">Sem servidor</span>
+      <a
+        v-if="localUrl"
+        class="project-row-port"
+        :href="localUrl"
+        target="_blank"
+        rel="noreferrer"
+      >
+        :{{ managedProcess?.port }}
+      </a>
+      <span v-else-if="idlePort" class="project-row-port-idle"
+        >:{{ idlePort }}</span
+      >
+    </div>
+
+    <div class="project-row-actions">
+      <button
+        v-if="project.enabled && supportsServer"
+        type="button"
+        class="project-row-button"
+        :class="{ 'is-stop': isRunning && !busy }"
+        :disabled="busy"
+        :aria-busy="busy"
+        @click="toggleServer"
+      >
+        <span v-if="busy" class="project-row-spinner" aria-hidden="true" />
+        {{ buttonLabel }}
       </button>
+
+      <n-dropdown
+        trigger="click"
+        placement="bottom-end"
+        :options="menuOptions"
+        :disabled="enabledUpdating"
+        @select="handleMenuSelect"
+      >
+        <button
+          type="button"
+          class="project-row-more"
+          :aria-label="`Mais ações de ${project.name}`"
+          aria-haspopup="menu"
+        >
+          <EllipsisVerticalIcon aria-hidden="true" />
+        </button>
+      </n-dropdown>
     </div>
   </li>
 </template>
 
 <style scoped>
-.project-card {
+.project-row {
   position: relative;
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) auto;
-  min-height: 126px;
+  grid-template-columns: var(--overview-columns);
   align-items: center;
-  gap: 18px;
-  padding: 20px 22px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface-1) 92%, var(--surface-2));
-  box-shadow: 0 1px 0 rgb(255 255 255 / 2%) inset;
-  transition:
-    border-color 160ms ease,
-    background 160ms ease,
-    transform 160ms ease;
+  gap: 16px;
+  min-height: 72px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  transition: background 160ms ease;
 }
 
-.project-card:hover {
-  border-color: var(--border-strong);
-  background: var(--surface-1);
-  transform: translateY(-1px);
+.project-row:first-child {
+  border-top: 0;
 }
 
-.project-card-hit-area {
+.project-row:hover {
+  background: var(--surface-2);
+}
+
+.project-row-disabled {
+  opacity: 0.6;
+}
+
+.project-row-hit-area {
   position: absolute;
   inset: 0;
   z-index: 1;
   border-radius: inherit;
-  cursor: pointer;
 }
 
-.project-card-hit-area:focus-visible {
+.project-row-hit-area:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
-.project-card-disabled {
-  opacity: 0.66;
+.project-row-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
 }
 
-.project-card-avatar {
+.project-row-avatar {
   display: grid;
-  width: 58px;
-  height: 58px;
+  width: 38px;
+  height: 38px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 12px;
-  color: #fff;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 4%);
-}
-
-.project-card-avatar[data-type='rails'] {
-  color: #ffb7b0;
-  background: #51231f;
-}
-
-.project-card-avatar[data-type='node'] {
-  color: #f0fff4;
-  background: #1a7f37;
-}
-
-.project-card-avatar[data-type='unknown'] {
-  color: var(--text-muted);
-  background: var(--surface-3);
-}
-
-.project-card-main {
-  min-width: 0;
-}
-
-.project-card-identity {
-  display: grid;
-  min-width: 0;
-  gap: 4px;
-  color: inherit;
-  text-decoration: none;
-}
-
-.project-card-identity h3 {
-  overflow: hidden;
-  margin: 0;
-  color: var(--text);
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.025em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.project-card-hit-area:hover ~ .project-card-main .project-card-identity h3,
-.project-card-hit-area:focus-visible
-  ~ .project-card-main
-  .project-card-identity
-  h3 {
-  color: var(--info-text);
-}
-
-.project-card-path {
-  overflow: hidden;
-  color: var(--text-muted);
-  font-family: var(--font-family);
-  font-size: 14px;
-  line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.project-card-meta {
-  display: flex;
-  min-height: 30px;
-  align-items: center;
-  gap: 9px;
-  margin-top: 10px;
-  flex-wrap: wrap;
-}
-
-.project-card-branch,
-.project-card-status,
-.project-card-muted-pill,
-.project-card-port {
-  display: inline-flex;
-  min-height: 28px;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 11px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.project-card-branch {
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
-  color: #79c0ff;
-  background: color-mix(in srgb, var(--accent-soft) 62%, transparent);
-  text-decoration: none;
-}
-
-[data-theme='light'] .project-card-branch {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.project-card-branch-icon {
-  font-size: 13px;
-}
-
-.project-card-status,
-.project-card-muted-pill {
-  color: var(--text-muted);
-  background: var(--surface-3);
-}
-
-.project-card-status-dot {
-  width: 8px;
-  height: 8px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: #8b949e;
-}
-
-.project-card-status[data-state='running'] {
-  color: var(--success-text);
-  background: var(--success-surface);
-}
-
-.project-card-status[data-state='running'] .project-card-status-dot {
-  background: var(--success-text);
-}
-
-.project-card-status[data-state='disabled'] .project-card-status-dot {
-  background: var(--text-dim);
-}
-
-.project-card-port {
-  position: relative;
-  z-index: 2;
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-  color: var(--info-text);
-  background: var(--accent-soft);
-  text-decoration: none;
-}
-
-.project-card-actions {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-left: 10px;
-}
-
-.project-card-actions :deep(.processes-menu-trigger),
-.project-card-toggle {
-  width: 48px;
-  height: 48px;
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--text-muted);
-  background: var(--surface-1);
-}
-
-.project-card-actions :deep(.processes-menu-trigger:hover),
-.project-card-actions :deep(.processes-menu-trigger:focus-visible),
-.project-card-toggle:hover,
-.project-card-toggle:focus-visible {
-  border-color: var(--border-strong);
-  color: var(--text);
   background: var(--surface-2);
+  font-size: 13px;
+  font-weight: 750;
 }
 
-.project-card-toggle {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  cursor: pointer;
-}
-
-.project-card-toggle::before {
-  position: absolute;
-  top: 5px;
-  bottom: 5px;
-  left: -13px;
-  width: 1px;
-  background: var(--border);
-  content: '';
-}
-
-.project-card-toggle svg {
-  width: 21px;
-  height: 21px;
-}
-
-.project-card-toggle:hover,
-.project-card-toggle:focus-visible {
+.project-row-avatar[data-type='rails'] {
+  border-color: transparent;
   color: var(--danger-text);
+  background: color-mix(in srgb, var(--danger-text) 14%, transparent);
 }
 
-.project-card-toggle.active:hover,
-.project-card-toggle.active:focus-visible {
+.project-row-avatar[data-type='node'] {
+  border-color: transparent;
+  color: var(--success-text);
+  background: color-mix(in srgb, var(--success-text) 14%, transparent);
+}
+
+.project-row:hover .project-row-name h3 {
   color: var(--accent);
 }
 
-.project-card-toggle:disabled {
-  cursor: wait;
-  opacity: 0.55;
+.project-row-name {
+  min-width: 0;
+}
+
+.project-row-name h3 {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-row-error {
+  margin: 2px 0 0;
+  color: var(--danger-text);
+  font-size: 12px;
+}
+
+.project-row-git,
+.project-row-status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.project-row-branch {
+  overflow: hidden;
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-row-dirty {
+  flex: 0 0 auto;
+  color: var(--warning-text);
+  font-size: 12px;
+}
+
+.project-row-muted {
+  color: var(--text-dim);
+}
+
+.project-row-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.project-row-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.project-row-state[data-state='running'] {
+  color: var(--success-text);
+}
+
+.project-row-state[data-state='running'] .project-row-dot {
+  background: var(--success-text);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success-text) 22%, transparent);
+}
+
+.project-row-state[data-state='starting'] .project-row-dot,
+.project-row-state[data-state='stopping'] .project-row-dot {
+  background: var(--warning-text);
+}
+
+.project-row-state[data-state='failed'] {
+  color: var(--danger-text);
+}
+
+.project-row-state[data-state='failed'] .project-row-dot {
+  background: var(--danger-text);
+}
+
+.project-row-port {
+  position: relative;
+  z-index: 2;
+  color: var(--accent);
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.project-row-port:hover {
+  text-decoration: underline;
+}
+
+.project-row-port-idle {
+  color: var(--text-dim);
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+}
+
+.project-row-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  vertical-align: -2px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: project-row-spin 700ms linear infinite;
+}
+
+@keyframes project-row-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-row-spinner {
+    animation: none;
+  }
+}
+
+.project-row-actions {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.project-row-button {
+  min-width: 96px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  color: var(--text);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.project-row-button:hover:not(:disabled) {
+  background: var(--surface-1);
+}
+
+.project-row-button.is-stop {
+  border-color: color-mix(in srgb, var(--danger-text) 45%, transparent);
+  color: var(--danger-text);
+}
+
+.project-row-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.project-row-more {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.project-row-more:hover,
+.project-row-more:focus-visible {
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+.project-row-more svg {
+  width: 20px;
+  height: 20px;
+}
+
+.project-row-button:focus-visible,
+.project-row-more:focus-visible,
+.project-row-port:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 @media (max-width: 760px) {
-  .project-card {
-    grid-template-columns: 48px minmax(0, 1fr);
-    min-height: 0;
-    gap: 14px;
-    padding: 16px;
+  .project-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+    padding: 14px 16px;
   }
 
-  .project-card-avatar {
-    width: 48px;
-    height: 48px;
-    font-size: 15px;
+  .project-row-git,
+  .project-row-status {
+    grid-column: 1;
   }
 
-  .project-card-actions {
+  .project-row-actions {
     grid-column: 2;
-    justify-content: flex-start;
-    padding: 2px 0 0;
+    grid-row: 1 / span 3;
   }
+}
+</style>
 
-  .project-card-toggle::before {
-    display: none;
-  }
-
-  .project-card-actions :deep(.processes-menu-trigger),
-  .project-card-toggle {
-    width: 40px;
-    height: 40px;
-  }
+<style>
+.project-row-menu-danger {
+  color: var(--danger-text);
 }
 </style>

@@ -293,10 +293,13 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
   const managedProcessesByContext = computed(() => {
     const index: Record<string, ManagedProcess[]> = {};
     for (const process of managedProcesses.value) {
-      const key = JSON.stringify([
-        process.projectId,
-        process.environmentInstanceId ?? null,
-      ]);
+      // O backend normaliza o contexto padrão para a instância primária.
+      const environmentInstanceId =
+        process.environmentInstanceId ===
+        `environment:primary:${process.projectId}`
+          ? null
+          : (process.environmentInstanceId ?? null);
+      const key = JSON.stringify([process.projectId, environmentInstanceId]);
       (index[key] ??= []).push(process);
     }
     return index;

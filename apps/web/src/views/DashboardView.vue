@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
-import { ArrowPathIcon } from '@heroicons/vue/24/outline';
+import { computed, inject, onMounted, onBeforeUnmount, ref, watch } from 'vue';
+import { ArrowPathIcon, PlayIcon, StopIcon } from '@heroicons/vue/24/outline';
 
 import EmptyState from '../components/EmptyState.vue';
 import LoadingSkeleton from '../components/LoadingSkeleton.vue';
 import ProjectCard from '../components/ProjectCard.vue';
+import { startProjectProcess, stopProjectProcess } from '../api';
+import { confirmDialog } from '../stores/app-dialog';
 import { dashboardStore } from '../stores/dashboard';
-import { sortProjectsByPriority } from '../utils/project-priority';
+import { sortProjectsByName } from '../utils/project-priority';
 
 const {
   projects,
@@ -18,12 +20,19 @@ const {
   errorMessage,
   scanWarnings,
   scanStatus,
+  workspaces,
   managedProcesses,
+  getCardProcess,
   loadProcessSummary,
   ensureDashboardLoaded,
   rescanSelectedWorkspace,
   toggleProjectEnabled,
 } = dashboardStore;
+
+const openWorkspaceManager = inject<() => void>(
+  'openWorkspaceManager',
+  () => undefined,
+);
 
 const manualRefreshing = ref(false);
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -80,12 +89,97 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', handleVisibility);
 });
 
-const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
+const sortedProjects = computed(() => sortProjectsByName(projects.value));
 
 const workspaceTitle = computed(() => {
   const name = selectedWorkspace.value?.name ?? 'Projetos pessoais';
   return name === 'Projetos Pessoais' ? 'Projetos pessoais' : name;
 });
+
+const runningCount = computed(
+  () =>
+    managedProcesses.value.filter(
+      (process) =>
+        process.kind === 'server' &&
+        (process.status === 'running' || process.status === 'starting'),
+    ).length,
+);
+
+const summary = computed(() => {
+  const total = sortedProjects.value.length;
+  const noun = total === 1 ? 'projeto' : 'projetos';
+  return `${total} ${noun} · ${runningCount.value === 0 ? 'nenhum rodando' : `${runningCount.value} rodando`}`;
+});
+
+const serverProjects = computed(() =>
+  sortedProjects.value.filter(
+    (project) => project.enabled && project.capabilities.includes('server'),
+  ),
+);
+
+function isServerActive(projectId: string): boolean {
+  const status = getCardProcess(projectId)?.status;
+  return status === 'running' || status === 'starting';
+}
+
+const idleProjects = computed(() =>
+  serverProjects.value.filter((project) => !isServerActive(project.id)),
+);
+const activeProjects = computed(() =>
+  serverProjects.value.filter((project) => isServerActive(project.id)),
+);
+
+const bulkBusy = ref(false);
+const bulkError = ref('');
+
+// Sequencial de propósito: o backend aloca portas e não deve receber
+// várias inicializações concorrentes do mesmo workspace.
+async function runBulk(
+  targets: typeof serverProjects.value,
+  action: (projectId: string) => Promise<unknown>,
+  failureLabel: string,
+): Promise<void> {
+  bulkBusy.value = true;
+  bulkError.value = '';
+  stopScheduler();
+  const failed: string[] = [];
+  for (const project of targets) {
+    try {
+      await action(project.id);
+    } catch {
+      failed.push(project.name);
+    }
+  }
+  if (failed.length > 0) {
+    bulkError.value = `${failureLabel}: ${failed.join(', ')}.`;
+  }
+  try {
+    await loadProcessSummary();
+  } finally {
+    bulkBusy.value = false;
+    scheduleProcesses();
+  }
+}
+
+function startAll(): Promise<void> {
+  return runBulk(
+    idleProjects.value,
+    startProjectProcess,
+    'Não foi possível iniciar',
+  );
+}
+
+async function stopAll(): Promise<void> {
+  const targets = activeProjects.value;
+  const confirmed = await confirmDialog({
+    title: 'Parar todos os servidores?',
+    message: `${targets.length} servidores em execução serão parados.`,
+    confirmLabel: 'Parar todos',
+    tone: 'warning',
+  });
+  if (!confirmed) return;
+  await runBulk(targets, stopProjectProcess, 'Não foi possível parar');
+}
 
 const isRefreshing = computed(
   () => manualRefreshing.value || scanningWorkspace.value,
@@ -113,19 +207,48 @@ async function refreshWorkspace(): Promise<void> {
     aria-labelledby="overview-title"
   >
     <header class="dashboard-header">
-      <h1 id="overview-title">{{ workspaceTitle }}</h1>
+      <div>
+        <h1 id="overview-title">{{ workspaceTitle }}</h1>
+        <p class="dashboard-summary">{{ summary }}</p>
+      </div>
 
-      <button
-        type="button"
-        class="dashboard-refresh-button"
-        :class="{ 'is-busy': isRefreshing }"
-        :disabled="isRefreshing || !selectedWorkspaceId"
-        @click="refreshWorkspace"
-      >
-        <ArrowPathIcon aria-hidden="true" />
-        <span>Atualizar workspace</span>
-      </button>
+      <div class="dashboard-header-actions">
+        <button
+          v-if="idleProjects.length >= 2"
+          type="button"
+          class="dashboard-header-button"
+          :disabled="bulkBusy"
+          @click="startAll"
+        >
+          <PlayIcon aria-hidden="true" />
+          <span>Iniciar todos</span>
+        </button>
+        <button
+          v-if="activeProjects.length >= 2"
+          type="button"
+          class="dashboard-header-button"
+          :disabled="bulkBusy"
+          @click="stopAll"
+        >
+          <StopIcon aria-hidden="true" />
+          <span>Parar todos ({{ activeProjects.length }})</span>
+        </button>
+        <button
+          type="button"
+          class="dashboard-header-button"
+          :class="{ 'is-busy': isRefreshing }"
+          :disabled="isRefreshing || !selectedWorkspaceId"
+          @click="refreshWorkspace"
+        >
+          <ArrowPathIcon aria-hidden="true" />
+          <span>Atualizar</span>
+        </button>
+      </div>
     </header>
+
+    <p v-if="bulkError" class="dashboard-bulk-error" role="alert">
+      {{ bulkError }}
+    </p>
 
     <main class="dashboard-primary" aria-label="Navegação dos projetos">
       <h2 id="projects-title" class="sr-only">Projetos</h2>
@@ -148,8 +271,9 @@ async function refreshWorkspace(): Promise<void> {
       </div>
       <div class="dashboard-project-columns" aria-hidden="true">
         <span>Projeto</span>
+        <span>Branch</span>
         <span>Status</span>
-        <span>Ações</span>
+        <span class="dashboard-column-actions">Ações</span>
       </div>
 
       <LoadingSkeleton
@@ -179,12 +303,41 @@ async function refreshWorkspace(): Promise<void> {
       </EmptyState>
 
       <EmptyState
+        v-else-if="sortedProjects.length === 0 && workspaces.length === 0"
+        class="dashboard-panel-state"
+        icon="◇"
+        title="Nenhum workspace cadastrado"
+        description="Adicione uma pasta para detectar automaticamente aplicações Rails e Node."
+      >
+        <template #actions>
+          <button
+            type="button"
+            class="dashboard-secondary-button"
+            @click="openWorkspaceManager"
+          >
+            Adicionar workspace
+          </button>
+        </template>
+      </EmptyState>
+
+      <EmptyState
         v-else-if="sortedProjects.length === 0"
         class="dashboard-panel-state"
         icon="◇"
-        title="Nenhum projeto carregado"
-        description="Cadastre ou selecione um workspace na barra lateral para detectar aplicações Rails e Node."
-      />
+        title="Nenhum projeto neste workspace"
+        :description="`Nenhum app Rails ou Node foi encontrado em ${selectedWorkspace?.path ?? 'este workspace'}.`"
+      >
+        <template #actions>
+          <button
+            type="button"
+            class="dashboard-secondary-button"
+            :disabled="isRefreshing"
+            @click="refreshWorkspace"
+          >
+            Atualizar workspace
+          </button>
+        </template>
+      </EmptyState>
 
       <ul
         v-else
@@ -205,67 +358,89 @@ async function refreshWorkspace(): Promise<void> {
 
 <style scoped>
 .dashboard-mission-control {
+  --overview-columns: minmax(220px, 340px) minmax(180px, 300px)
+    minmax(170px, 240px) minmax(150px, 1fr);
   width: 100%;
-  min-height: 100vh;
-  padding: 42px 30px 40px;
+  padding: 40px var(--page-gutter) 48px;
   background: var(--surface-0);
 }
 
 .dashboard-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 38px;
+  margin-bottom: 28px;
 }
 
 .dashboard-header h1 {
   margin: 0;
   color: var(--text);
-  font-size: clamp(34px, 3vw, 43px);
+  font-size: clamp(30px, 3vw, 36px);
   font-weight: 750;
-  line-height: 1.08;
-  letter-spacing: -0.045em;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
 }
 
-.dashboard-refresh-button {
+.dashboard-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dashboard-bulk-error {
+  margin: -12px 0 20px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--danger-text) 45%, transparent);
+  border-radius: 8px;
+  color: var(--danger-text);
+  background: var(--danger-surface);
+  font-size: 13px;
+}
+
+.dashboard-summary {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.dashboard-header-button {
   display: inline-flex;
-  min-height: 46px;
+  min-height: 40px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  padding: 0 18px;
-  border: 1px solid var(--accent);
+  gap: 8px;
+  padding: 0 16px;
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
   color: var(--text);
-  background: color-mix(in srgb, var(--accent-soft) 48%, var(--surface-1));
+  background: transparent;
   font: inherit;
   font-size: 14px;
   font-weight: 650;
   cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    background 160ms ease;
+  transition: background 160ms ease;
 }
 
-.dashboard-refresh-button:hover:not(:disabled) {
-  border-color: #58a6ff;
-  background: var(--accent-soft);
+.dashboard-header-button:hover:not(:disabled) {
+  background: var(--surface-2);
 }
 
-.dashboard-refresh-button:disabled {
+.dashboard-header-button:disabled {
   cursor: wait;
   opacity: 0.62;
 }
 
-.dashboard-refresh-button svg {
-  width: 19px;
-  height: 19px;
-  color: var(--info-text);
+.dashboard-header-button svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
 }
 
-.dashboard-refresh-button.is-busy svg {
+.dashboard-header-button.is-busy svg {
   animation: dashboard-spin 800ms linear infinite;
 }
 
@@ -288,32 +463,25 @@ async function refreshWorkspace(): Promise<void> {
 
 .dashboard-project-columns {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) minmax(220px, 28%) 92px;
-  gap: 14px;
-  align-items: center;
-  padding: 0 12px 12px;
-  border-bottom: 1px solid var(--border);
+  grid-template-columns: var(--overview-columns);
+  gap: 16px;
+  padding: 0 20px 10px;
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 650;
 }
 
-.dashboard-project-columns span:first-child {
-  grid-column: 1 / 3;
-}
-
-.dashboard-project-columns span:nth-child(2) {
-  grid-column: 3;
-}
-
-.dashboard-project-columns span:last-child {
-  grid-column: 4;
-  text-align: center;
+.dashboard-column-actions {
+  text-align: right;
 }
 
 .dashboard-project-list {
   margin: 0;
   padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-1);
   list-style: none;
 }
 
@@ -362,31 +530,20 @@ async function refreshWorkspace(): Promise<void> {
     align-items: stretch;
     flex-direction: column;
     gap: 16px;
-    margin-bottom: 26px;
+    margin-bottom: 20px;
   }
 
-  .dashboard-refresh-button {
+  .dashboard-header-button {
     width: 100%;
   }
 
   .dashboard-project-columns {
-    grid-template-columns: 40px minmax(0, 1fr) auto;
-    gap: 11px;
-    padding-inline: 8px;
-  }
-
-  .dashboard-project-columns span:first-child {
-    grid-column: 1 / 3;
-  }
-
-  .dashboard-project-columns span:nth-child(2),
-  .dashboard-project-columns span:last-child {
     display: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dashboard-refresh-button.is-busy svg {
+  .dashboard-header-button.is-busy svg {
     animation: none;
   }
 }

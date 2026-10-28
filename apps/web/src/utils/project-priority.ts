@@ -19,6 +19,15 @@ export function sortProjectsByPriority(
   });
 }
 
+/** Ordem estável da Visão geral: ativos primeiro, depois por nome. */
+export function sortProjectsByName(projects: readonly Project[]): Project[] {
+  return [...projects].sort(
+    (left, right) =>
+      Number(right.enabled) - Number(left.enabled) ||
+      left.name.localeCompare(right.name),
+  );
+}
+
 export function recentProjectIds(
   projects: readonly Project[],
   limit = 5,
