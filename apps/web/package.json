@@ -27,7 +27,7 @@
   "devDependencies": {
     "@playwright/test": "^1.64.0",
     "@types/jsdom": "^28.0.3",
-    "@types/node": "^26.5.1",
+    "@types/node": "^26.6.5",
     "@vitejs/plugin-vue": "^6.0.10",
     "@vitest/coverage-v8": "^4.1.12",
     "@vue/test-utils": "^2.4.11",
