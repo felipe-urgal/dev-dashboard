@@ -336,6 +336,67 @@ describe('ProjectRailsRuntimePanel', () => {
     wrapper.unmount();
   });
 
+  const yarnError =
+    'error Error: Failed to replace env in config: ${FONTAWESOME_TOKEN}';
+
+  function failedLog(workerId: RailsWorkerId) {
+    return {
+      projectId: 'p1',
+      processId: `p1:${workerId}`,
+      content: yarnError,
+      sizeBytes: yarnError.length,
+      truncated: false,
+      masked: false,
+      redactionCount: 0,
+      readAt: '2026-08-05T12:00:05.000Z',
+    };
+  }
+
+  it('mostra a saída e o código de um processo que já terminou com falha', async () => {
+    fetchProjectRailsWorker.mockResolvedValue(
+      overview('webpack', true, 'failed'),
+    );
+    fetchProjectRailsWorkerLog.mockResolvedValue(failedLog('webpack'));
+
+    const wrapper = mount(ProjectRailsRuntimePanel, {
+      props: { project, workerId: 'webpack' },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('encerrou com falha (código 1)');
+    expect(wrapper.text()).toContain(yarnError);
+    expect(fetchProjectRailsWorkerLog).toHaveBeenCalledWith('p1', 'webpack');
+    expect(followProjectRailsWorkerLogEvents).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it('lê o log final quando o processo morre com a aba aberta', async () => {
+    vi.useFakeTimers();
+    try {
+      fetchProjectRailsWorker
+        .mockResolvedValueOnce(overview('webpack', true, 'running'))
+        .mockResolvedValue(overview('webpack', true, 'failed'));
+      fetchProjectRailsWorkerLog.mockResolvedValue(failedLog('webpack'));
+
+      const wrapper = mount(ProjectRailsRuntimePanel, {
+        props: { project, workerId: 'webpack' },
+      });
+      await flushPromises();
+      expect(wrapper.text()).toContain('Executando');
+      expect(fetchProjectRailsWorkerLog).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(6_000);
+      await flushPromises();
+
+      expect(wrapper.text()).toContain('encerrou com falha');
+      expect(wrapper.text()).toContain(yarnError);
+      expect(fetchProjectRailsWorkerLog).toHaveBeenCalled();
+      wrapper.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('usa a visualização minimalista com detalhes recolhidos e log direto', async () => {
     fetchProjectRailsWorker.mockResolvedValueOnce(
       overview('webpack', true, 'running'),
