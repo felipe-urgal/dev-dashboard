@@ -9,6 +9,18 @@ updates:
       time: '09:00'
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 5
+    # Atualizações minor/patch viram um PR por grupo; majors continuam separados.
+    groups:
+      npm-dev:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      npm-prod:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
     ignore:
       # Vitest 5 remove suporte ao baseline Node 20 mantido pelo projeto.
       # Remova estes ignores junto de uma migração explícita do baseline de runtime/testes.
