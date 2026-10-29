@@ -32,9 +32,6 @@ function lazyTool(loader: () => Promise<{ default: Component }>): Component {
   });
 }
 
-const ProjectDependenciesPanel = lazyTool(
-  () => import('../components/ProjectDependenciesPanel.vue'),
-);
 const ProjectDoctorPanel = lazyTool(
   () => import('../components/ProjectDoctorPanel.vue'),
 );
@@ -50,20 +47,11 @@ const ProjectProductionPanel = lazyTool(
 const ProjectReadinessPanel = lazyTool(
   () => import('../components/ProjectReleaseReadinessPanel.vue'),
 );
-const ProjectMigrationsPanel = lazyTool(
-  () => import('../components/ProjectMigrationsPanel.vue'),
-);
 const ProjectSecurityCenterPanel = lazyTool(
   () => import('../components/ProjectSecurityCenterPanel.vue'),
 );
 const ProjectLocalCiPanel = lazyTool(
   () => import('../components/ProjectLocalCiPanel.vue'),
-);
-const ProjectDevContainerPanel = lazyTool(
-  () => import('../components/ProjectDevContainerPanel.vue'),
-);
-const ProjectDockerComposePanel = lazyTool(
-  () => import('../components/ProjectDockerComposePanel.vue'),
 );
 const ProjectSelfUpdateProductionPanel = lazyTool(
   () => import('../components/ProjectSelfUpdateProductionPanel.vue'),
@@ -122,15 +110,10 @@ const environmentInstanceId = computed(() => {
 const isReadmeRoute = computed(() => route.name === 'project-readme');
 const isDoctorRoute = computed(() => route.name === 'project-doctor');
 const isReadinessRoute = computed(() => route.name === 'project-readiness');
-const isMigrationsRoute = computed(() => route.name === 'project-migrations');
 const isSecurityRoute = computed(
   () => route.name === 'project-security-center',
 );
 const isLocalCiRoute = computed(() => route.name === 'project-local-ci');
-const isDevContainerRoute = computed(
-  () => route.name === 'project-dev-container',
-);
-const isComposeRoute = computed(() => route.name === 'project-compose');
 const isServerRoute = computed(
   () => route.name === 'project-server' || route.name === 'project-details',
 );
@@ -140,9 +123,6 @@ const isWorktreesRoute = computed(() => route.name === 'project-worktrees');
 const isTestsRoute = computed(() => route.name === 'project-tests');
 const isAgentRoute = computed(() => route.name === 'project-agent');
 const isProductionRoute = computed(() => route.name === 'project-production');
-const isDependenciesRoute = computed(
-  () => route.name === 'project-dependencies',
-);
 const isRailsSidekiqRoute = computed(
   () => route.name === 'project-rails-sidekiq',
 );
@@ -369,13 +349,6 @@ onBeforeUnmount(stopGitOverviewRefresh);
         :project="project"
       />
 
-      <ProjectMigrationsPanel
-        v-else-if="isMigrationsRoute"
-        :key="`migrations-${project.id}-${environmentInstanceId ?? 'primary'}`"
-        :project="project"
-        :environment-instance-id="environmentInstanceId"
-      />
-
       <ProjectSecurityCenterPanel
         v-else-if="isSecurityRoute"
         :key="`security-${project.id}`"
@@ -386,20 +359,6 @@ onBeforeUnmount(stopGitOverviewRefresh);
         v-else-if="isLocalCiRoute"
         :key="`local-ci-${project.id}`"
         :project="project"
-      />
-
-      <ProjectDevContainerPanel
-        v-else-if="isDevContainerRoute"
-        :key="`dev-container-${project.id}-${environmentInstanceId ?? 'primary'}`"
-        :project="project"
-        :environment-instance-id="environmentInstanceId"
-      />
-
-      <ProjectDockerComposePanel
-        v-else-if="isComposeRoute"
-        :key="`compose-${project.id}-${environmentInstanceId ?? 'primary'}`"
-        :project="project"
-        :environment-instance-id="environmentInstanceId"
       />
 
       <ProjectServerPanel
@@ -451,13 +410,6 @@ onBeforeUnmount(stopGitOverviewRefresh);
         :key="`production-${project.id}`"
         :project="project"
         :git-overview="gitOverview"
-      />
-
-      <ProjectDependenciesPanel
-        v-else-if="isDependenciesRoute"
-        :key="`dependencies-${project.id}-${environmentInstanceId ?? 'primary'}`"
-        :project="project"
-        :environment-instance-id="environmentInstanceId"
       />
 
       <ProjectTerminalPanel

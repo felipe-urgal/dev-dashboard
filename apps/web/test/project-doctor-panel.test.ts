@@ -244,7 +244,7 @@ describe('ProjectDoctorPanel', () => {
         },
     );
     expect(locations.map((location) => location.name)).toEqual([
-      'project-dependencies',
+      'project-terminal',
       'project-server',
       'database',
       'project-environment',

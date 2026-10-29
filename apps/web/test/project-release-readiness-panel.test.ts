@@ -126,7 +126,7 @@ describe('ProjectReleaseReadinessPanel', () => {
       'project-tests',
       'project-git',
       'project-doctor',
-      'project-migrations',
+      'project-terminal',
       'project-security-center',
       'project-production',
     ]);

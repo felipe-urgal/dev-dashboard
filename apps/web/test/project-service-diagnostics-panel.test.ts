@@ -302,36 +302,6 @@ describe('ProjectServiceDiagnosticsPanel', () => {
     wrapper.unmount();
   });
 
-  it('routes exclusively owned Compose to Compose with the environment context', async () => {
-    const serviceRef = 'compose:loto:api';
-    fetchProjectServiceBindings.mockResolvedValue({
-      bindings: [{ ...binding(), serviceRef }],
-      partial: false,
-    });
-    fetchServiceDiagnostics.mockResolvedValue({
-      ...snapshot,
-      serviceRef,
-      provider: 'compose',
-    });
-    const wrapper = mount(ProjectServiceDiagnosticsPanel, {
-      props: {
-        projectId: 'loto',
-        environmentInstanceId: 'environment:primary:loto',
-      },
-    });
-    await flushPromises();
-    await wrapper.get('.service-diagnostics-actions button').trigger('click');
-    await flushPromises();
-    const providerLink = wrapper
-      .findAll('a')
-      .find((link) => link.text().includes('Abrir ferramenta do provider'));
-    expect(providerLink?.attributes('data-route')).toBe('project-compose');
-    expect(providerLink?.attributes('data-environment')).toBe(
-      'environment:primary:loto',
-    );
-    wrapper.unmount();
-  });
-
   it('updates the selected bound unit when an Activity deep link changes', async () => {
     const second = 'systemd:user:other.service';
     fetchProjectServiceBindings.mockResolvedValue({

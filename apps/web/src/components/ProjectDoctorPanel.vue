@@ -184,7 +184,7 @@ function groupPendingLabel(checks: ProjectDiagnosticCheck[]): string {
 }
 
 const actionRoutes: Record<ProjectDiagnosticActionTarget, string> = {
-  dependencies: 'project-dependencies',
+  dependencies: 'project-terminal',
   server: 'project-server',
   database: 'database',
   environment: 'project-environment',

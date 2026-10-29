@@ -8,11 +8,7 @@ export type ProjectToolIcon =
   | 'git'
   | 'worktrees'
   | 'tests'
-  | 'dependencies'
-  | 'dev-container'
-  | 'compose'
   | 'environment'
-  | 'migrations'
   | 'local-ci'
   | 'readiness'
   | 'security'
@@ -147,40 +143,6 @@ export const PROJECT_TOOLS: readonly ProjectTool[] = [
     isAvailable: (project) => project.capabilities.includes('tests'),
   },
   {
-    id: 'dependencies',
-    label: 'Dependências',
-    description: 'Dependências do projeto',
-    routeName: 'project-dependencies',
-    group: 'development',
-    aliases: 'dependencies packages gems npm bundle',
-    icon: 'dependencies',
-    environmentAware: true,
-    isAvailable: (project) =>
-      project.type === 'rails' || project.type === 'node',
-  },
-  {
-    id: 'dev-container',
-    label: 'Dev Container',
-    description: 'Dev Container do projeto',
-    routeName: 'project-dev-container',
-    group: 'development',
-    aliases: 'devcontainer dev container docker',
-    icon: 'dev-container',
-    environmentAware: true,
-    isAvailable: always,
-  },
-  {
-    id: 'compose',
-    label: 'Compose',
-    description: 'Docker Compose do projeto',
-    routeName: 'project-compose',
-    group: 'development',
-    aliases: 'compose docker serviços services',
-    icon: 'compose',
-    environmentAware: true,
-    isAvailable: always,
-  },
-  {
     id: 'environment',
     label: 'Variáveis de ambiente',
     description: 'Configuração de ambiente do projeto',
@@ -188,17 +150,6 @@ export const PROJECT_TOOLS: readonly ProjectTool[] = [
     group: 'development',
     aliases: 'environment env variáveis ambiente',
     icon: 'environment',
-    environmentAware: true,
-    isAvailable: always,
-  },
-  {
-    id: 'migrations',
-    label: 'Migrations',
-    description: 'Migrations do projeto',
-    routeName: 'project-migrations',
-    group: 'development',
-    aliases: 'migrations migração schema',
-    icon: 'migrations',
     environmentAware: true,
     isAvailable: always,
   },

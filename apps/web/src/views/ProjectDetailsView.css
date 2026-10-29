@@ -39,7 +39,6 @@
 :deep(.project-doctor-panel),
 :deep(.server-dashboard),
 :deep(.git-modern-panel),
-:deep(.dependencies-panel),
 :deep(.project-environment-panel),
 :deep(.rails-runtime-panel),
 :deep(.tests-pty-panel) {
@@ -104,7 +103,6 @@
 :deep(.server-dashboard),
 :deep(.server-dashboard-grid),
 :deep(.git-modern-panel),
-:deep(.dependencies-panel),
 :deep(.project-environment-panel),
 :deep(.rails-runtime-panel),
 :deep(.terminal-panel) {
@@ -158,9 +156,7 @@
 }
 
 :deep(.project-details-page .project-doctor-card),
-:deep(.project-details-page .readme-panel),
-:deep(.project-details-page .dependencies-manager-card),
-:deep(.project-details-page .dependencies-console) {
+:deep(.project-details-page .readme-panel) {
   box-shadow: none;
 }
 

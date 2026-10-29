@@ -201,9 +201,9 @@ function changeSelection(): void {
 
 function providerRoute(provider: string) {
   // Neither systemd nor unmanaged Docker has a Dashboard lifecycle owner.
-  if (provider !== 'compose' && provider !== 'managed-process') return null;
+  if (provider !== 'managed-process') return null;
   return {
-    name: provider === 'compose' ? 'project-compose' : 'project-server',
+    name: 'project-server',
     params: { projectId: props.projectId },
     query: props.environmentInstanceId
       ? { environmentInstanceId: props.environmentInstanceId }

@@ -44,21 +44,6 @@ export const router = createRouter({
       component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
-      path: '/projects/:projectId/migrations',
-      name: 'project-migrations',
-      component: () => import('../views/ProjectDetailsView.vue'),
-    },
-    {
-      path: '/projects/:projectId/dev-container',
-      name: 'project-dev-container',
-      component: () => import('../views/ProjectDetailsView.vue'),
-    },
-    {
-      path: '/projects/:projectId/compose',
-      name: 'project-compose',
-      component: () => import('../views/ProjectDetailsView.vue'),
-    },
-    {
       path: '/projects/:projectId/security',
       name: 'project-security-center',
       component: () => import('../views/ProjectDetailsView.vue'),
@@ -105,11 +90,6 @@ export const router = createRouter({
     {
       path: '/projects/:projectId/database',
       redirect: { name: 'database' },
-    },
-    {
-      path: '/projects/:projectId/dependencies',
-      name: 'project-dependencies',
-      component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
       path: '/projects/:projectId/sidekiq',
