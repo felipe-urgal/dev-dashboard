@@ -177,14 +177,18 @@ function activeLabel(hub: NavHub): string {
     <template v-for="hub in hubs" :key="hub.id">
       <NDropdown
         v-if="hub.items.length > 1"
-        trigger="click"
+        trigger="hover"
+        :delay="0"
+        :duration="150"
         placement="bottom-start"
+        width="trigger"
+        :menu-props="() => ({ class: 'project-nav-menu' })"
         :options="menuOptions(hub)"
         @select="(key) => selectItem(hub, key)"
       >
         <button
           type="button"
-          class="project-nav-hub"
+          class="project-nav-hub project-nav-hub-menu"
           :class="{ 'project-nav-hub-active': hub === activeHub }"
           :aria-current="hub === activeHub ? 'page' : undefined"
           aria-haspopup="menu"
@@ -217,7 +221,6 @@ function activeLabel(hub: NavHub): string {
   display: flex;
   min-width: 0;
   gap: 2px;
-  margin-left: -12px; /* alinha o texto do primeiro item ao gutter da barra global */
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -229,7 +232,6 @@ function activeLabel(hub: NavHub): string {
 .project-nav-hub {
   position: relative;
   display: inline-flex;
-  height: 56px;
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;
@@ -244,6 +246,12 @@ function activeLabel(hub: NavHub): string {
   white-space: nowrap;
   cursor: pointer;
   transition: color 150ms ease;
+}
+
+/* O dropdown segue a largura do botão: o mínimo evita quebrar os submenus. */
+.project-nav-hub-menu {
+  min-width: 150px;
+  justify-content: center;
 }
 
 .project-nav-hub svg {
@@ -272,15 +280,21 @@ function activeLabel(hub: NavHub): string {
   color: var(--accent);
 }
 
-.project-nav-hub-active::after {
+.project-nav-hub::after {
   position: absolute;
-  right: 12px;
+  right: 0;
   bottom: 0;
-  left: 12px;
+  left: 0;
   height: 2px;
   border-radius: 2px 2px 0 0;
-  background: var(--accent);
+  background: transparent;
   content: '';
+  transition: background 150ms ease;
+}
+
+.project-nav-hub:hover::after,
+.project-nav-hub-active::after {
+  background: var(--accent);
 }
 
 .project-nav-hub:focus-visible {
@@ -291,6 +305,13 @@ function activeLabel(hub: NavHub): string {
 </style>
 
 <style>
+/* O menu encosta na borda inferior do topbar (o padrão deixa 6px de folga). */
+.n-dropdown-menu.project-nav-menu {
+  margin-top: 1px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
 .n-dropdown-option-body.project-nav-menu-active .n-dropdown-option-body__label {
   color: var(--accent);
 }

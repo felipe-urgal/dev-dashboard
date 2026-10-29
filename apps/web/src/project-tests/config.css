@@ -75,7 +75,6 @@
 
 .tests-field select:focus {
   border-color: var(--accent);
-  
 }
 
 .tests-field select:disabled {
@@ -84,7 +83,8 @@
 }
 
 .tests-file-select {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
   font-size: var(--font-xs) !important;
 }
 
@@ -198,4 +198,3 @@
 .tests-execute-button {
   min-width: 138px;
 }
-

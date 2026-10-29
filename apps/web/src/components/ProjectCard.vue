@@ -7,6 +7,7 @@ import { EllipsisVerticalIcon } from '@heroicons/vue/24/outline';
 import type { Project } from '@dev-dashboard/contracts';
 
 import { startProjectProcess, stopProjectProcess } from '../api';
+import { startProjectRailsWorker, stopProjectRailsWorker } from '../api/rails';
 import { dashboardStore } from '../stores/dashboard';
 import { confirmDialog } from '../stores/app-dialog';
 import { getCardGit, type CardGitState } from '../utils/dashboard-card-git';
@@ -123,6 +124,51 @@ const idlePort = computed(() =>
     ? managedProcess.value?.port
     : undefined,
 );
+
+const workers = [
+  { id: 'sidekiq', label: 'Sidekiq', kind: 'worker', capability: 'sidekiq' },
+  { id: 'webpack', label: 'Webpack', kind: 'webpack', capability: 'webpack' },
+] as const;
+
+const workerItems = computed(() =>
+  workers
+    .filter((worker) => props.project.capabilities.includes(worker.capability))
+    .map((worker) => {
+      const status = dashboardStore.getCardWorker(
+        props.project.id,
+        worker.kind,
+      )?.status;
+      const running = status === 'running' || status === 'starting';
+      return {
+        ...worker,
+        running,
+        transitioning: status === 'starting' || status === 'stopping',
+      };
+    }),
+);
+const workerBusyId = ref('');
+
+async function toggleWorker(
+  worker: (typeof workerItems.value)[number],
+): Promise<void> {
+  workerBusyId.value = worker.id;
+  actionError.value = '';
+  try {
+    if (worker.running) {
+      await stopProjectRailsWorker(props.project.id, worker.id);
+    } else {
+      await startProjectRailsWorker(props.project.id, worker.id);
+    }
+    await dashboardStore.loadProcessSummary();
+  } catch (error) {
+    actionError.value =
+      error instanceof Error
+        ? error.message
+        : `Não foi possível alterar o ${worker.label}.`;
+  } finally {
+    workerBusyId.value = '';
+  }
+}
 
 async function toggleServer(): Promise<void> {
   serverBusy.value = true;
@@ -269,6 +315,21 @@ function handleMenuSelect(key: string): void {
     </div>
 
     <div class="project-row-actions">
+      <button
+        v-for="worker in project.enabled ? workerItems : []"
+        :key="worker.id"
+        type="button"
+        class="project-row-worker"
+        :class="{ 'project-row-worker-on': worker.running }"
+        :disabled="workerBusyId === worker.id || worker.transitioning"
+        :aria-pressed="worker.running"
+        :title="`${worker.running ? 'Parar' : 'Iniciar'} ${worker.label}`"
+        @click="toggleWorker(worker)"
+      >
+        <span class="project-row-dot" aria-hidden="true" />
+        {{ worker.label }}
+      </button>
+
       <UiButton
         v-if="project.enabled && supportsServer"
         class="project-row-button"
@@ -301,6 +362,47 @@ function handleMenuSelect(key: string): void {
 </template>
 
 <style scoped>
+.project-row-worker {
+  display: inline-flex;
+  position: relative;
+  height: 32px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.project-row-worker:hover:not(:disabled) {
+  background: var(--surface-3, var(--surface-2));
+}
+
+.project-row-worker:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.project-row-worker-on {
+  border-color: transparent;
+  color: var(--success, #3fb950);
+  background: var(--success-soft, rgb(63 185 80 / 14%));
+}
+
+.project-row-worker .project-row-dot {
+  background: currentcolor;
+  opacity: 0.45;
+}
+
+.project-row-worker-on .project-row-dot {
+  opacity: 1;
+}
+
 .project-row {
   position: relative;
   display: grid;

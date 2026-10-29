@@ -43,7 +43,8 @@
         >
           <span>1</span>
           <div>
-            <strong>Tipo de execução</strong><small>Escolha como executar</small>
+            <strong>Tipo de execução</strong
+            ><small>Escolha como executar</small>
           </div>
         </li>
         <li
@@ -132,11 +133,8 @@
                 :disabled="isRunning || testFiles.length === 0"
               >
                 <option value="" disabled>
-                  {{
-                    testFiles.length
-                      ? 'Selecione um arquivo'
-                      : 'Nenhum arquivo encontrado'
-                  }}
+                  {{ testFiles.length ? 'Selecione um arquivo' : 'Nenhum arquivo
+                  encontrado' }}
                 </option>
                 <option
                   v-for="file in testFiles"
@@ -207,30 +205,21 @@
               <div>
                 <strong>Alterações da branch</strong>
                 <p class="tests-related-branches">
-                  {{ relatedTests.baseBranch }} → {{ relatedTests.currentBranch }}
+                  {{ relatedTests.baseBranch }} → {{ relatedTests.currentBranch
+                  }}
                 </p>
                 <p>
-                  {{ relatedTests.changedFiles.length }}
-                  {{
-                    relatedTests.changedFiles.length === 1
-                      ? 'arquivo modificado'
-                      : 'arquivos modificados'
-                  }}
-                  · {{ relatedTests.testFiles.length }}
-                  {{
-                    relatedTests.testFiles.length === 1
-                      ? 'teste relacionado'
-                      : 'testes relacionados'
-                  }}
+                  {{ relatedTests.changedFiles.length }} {{
+                  relatedTests.changedFiles.length === 1 ? 'arquivo modificado'
+                  : 'arquivos modificados' }} · {{ relatedTests.testFiles.length
+                  }} {{ relatedTests.testFiles.length === 1 ? 'teste
+                  relacionado' : 'testes relacionados' }}
                 </p>
                 <ul
                   v-if="relatedTests.testFiles.length"
                   class="tests-related-files"
                 >
-                  <li
-                    v-for="file in relatedTests.testFiles"
-                    :key="file.path"
-                  >
+                  <li v-for="file in relatedTests.testFiles" :key="file.path">
                     <code>{{ file.path }}</code>
                   </li>
                 </ul>
@@ -310,7 +299,10 @@
         class="tests-run-status"
         :class="`tests-run-status-${currentStatusTone}`"
       >
-        <component :is="statusIconForTone(currentStatusTone)" aria-hidden="true" />
+        <component
+          :is="statusIconForTone(currentStatusTone)"
+          aria-hidden="true"
+        />
         <div>
           <span>
             {{ isRunning ? 'Execução em andamento' : 'Resultado da execução' }}
@@ -322,15 +314,8 @@
           class="tests-status-badge"
           :class="`tests-status-badge-${currentStatusTone}`"
         >
-          {{
-            isRunning
-              ? duration
-              : currentStatusTone === 'success'
-                ? 'Sucesso'
-                : currentStatusTone === 'danger'
-                  ? 'Falha'
-                  : statusLabel
-          }}
+          {{ isRunning ? duration : currentStatusTone === 'success' ? 'Sucesso'
+          : currentStatusTone === 'danger' ? 'Falha' : statusLabel }}
         </span>
       </div>
 
@@ -351,8 +336,14 @@
           <dt>Término</dt>
           <dd>{{ formatTimestamp(managedProcess.stoppedAt) }}</dd>
         </div>
-        <div><dt>Duração</dt><dd>{{ duration }}</dd></div>
-        <div><dt>Ambiente</dt><dd>{{ runSummary.runner }}</dd></div>
+        <div>
+          <dt>Duração</dt>
+          <dd>{{ duration }}</dd>
+        </div>
+        <div>
+          <dt>Ambiente</dt>
+          <dd>{{ runSummary.runner }}</dd>
+        </div>
       </dl>
 
       <div class="tests-summary" aria-label="Resumo da execução">
@@ -384,12 +375,8 @@
           <span>Arquivo alvo</span>
           <strong>{{ runSummary.targetFile }}</strong>
           <small>
-            {{
-              currentTarget?.scope === 'related'
-                ? 'Testes relacionados'
-                : currentTarget?.targetFile
-                  ? 'Arquivo específico'
-                  : 'Suíte completa'
+            {{ currentTarget?.scope === 'related' ? 'Testes relacionados' :
+            currentTarget?.targetFile ? 'Arquivo específico' : 'Suíte completa'
             }}
           </small>
         </div>

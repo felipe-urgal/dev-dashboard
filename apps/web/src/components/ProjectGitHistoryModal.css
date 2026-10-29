@@ -49,7 +49,7 @@
 .git-history-modal-title h3 {
   margin: 0;
   font-size: var(--font-lg);
-  letter-spacing: -.01em;
+  letter-spacing: -0.01em;
 }
 
 .git-history-modal-title p {
@@ -178,8 +178,12 @@
   font-variant-numeric: tabular-nums;
 }
 
-.git-history-delta .is-addition { color: var(--git-diff-addition-accent); }
-.git-history-delta .is-deletion { color: var(--git-diff-deletion-accent); }
+.git-history-delta .is-addition {
+  color: var(--git-diff-addition-accent);
+}
+.git-history-delta .is-deletion {
+  color: var(--git-diff-deletion-accent);
+}
 
 .git-diff-view-switch {
   display: inline-flex;
@@ -212,7 +216,6 @@
 .git-diff-view-switch button.active {
   background: var(--surface-1);
   color: var(--text);
-  
 }
 
 /* ── Arquivos do commit: lista à esquerda, diff à direita ──────── */
@@ -221,7 +224,10 @@
   flex: 1 1 auto;
   display: grid;
   /* A largura da lista é arrastável; a coluna do meio é a alça. */
-  grid-template-columns: var(--git-history-list-width, 260px) 11px minmax(0, 1fr);
+  grid-template-columns: var(--git-history-list-width, 260px) 11px minmax(
+      0,
+      1fr
+    );
   min-height: 0;
 }
 
@@ -245,7 +251,7 @@
   inset: 0 5px;
   border-radius: 1px;
   background: var(--border);
-  transition: background .12s ease;
+  transition: background 0.12s ease;
 }
 
 .git-history-resize-handle:hover::after,
@@ -259,7 +265,9 @@
 }
 
 /* O select só aparece quando não cabe a lista lateral. */
-.git-history-file-select { display: none; }
+.git-history-file-select {
+  display: none;
+}
 
 .git-history-file-select select {
   width: 100%;
@@ -485,7 +493,6 @@
 .git-history-file-body .git-diff-unified-row.is-addition,
 .git-history-file-body .git-diff-side-cell.is-addition {
   background: var(--git-diff-addition-bg);
-  
 }
 
 .git-history-file-body .git-diff-unified-row.is-addition .git-diff-line-number,
@@ -503,7 +510,6 @@
 .git-history-file-body .git-diff-unified-row.is-deletion,
 .git-history-file-body .git-diff-side-cell.is-deletion {
   background: var(--git-diff-deletion-bg);
-  
 }
 
 .git-history-file-body .git-diff-unified-row.is-deletion .git-diff-line-number,
@@ -537,11 +543,15 @@
 
 .git-history-file-body .hljs-keyword,
 .git-history-file-body .hljs-selector-tag,
-.git-history-file-body .hljs-literal { color: var(--git-syntax-keyword); }
+.git-history-file-body .hljs-literal {
+  color: var(--git-syntax-keyword);
+}
 
 .git-history-file-body .hljs-string,
 .git-history-file-body .hljs-regexp,
-.git-history-file-body .hljs-symbol { color: var(--git-syntax-string); }
+.git-history-file-body .hljs-symbol {
+  color: var(--git-syntax-string);
+}
 
 .git-history-file-body .hljs-comment,
 .git-history-file-body .hljs-quote {
@@ -550,23 +560,33 @@
 }
 
 .git-history-file-body .hljs-number,
-.git-history-file-body .hljs-meta { color: var(--git-syntax-number); }
+.git-history-file-body .hljs-meta {
+  color: var(--git-syntax-number);
+}
 
 .git-history-file-body .hljs-title,
 .git-history-file-body .hljs-name,
-.git-history-file-body .hljs-section { color: var(--git-syntax-title); }
+.git-history-file-body .hljs-section {
+  color: var(--git-syntax-title);
+}
 
 .git-history-file-body .hljs-type,
 .git-history-file-body .hljs-built_in,
 .git-history-file-body .hljs-attr,
-.git-history-file-body .hljs-attribute { color: var(--git-syntax-type); }
+.git-history-file-body .hljs-attribute {
+  color: var(--git-syntax-type);
+}
 
 .git-history-file-body .hljs-variable,
 .git-history-file-body .hljs-template-variable,
-.git-history-file-body .hljs-property { color: var(--git-syntax-variable); }
+.git-history-file-body .hljs-property {
+  color: var(--git-syntax-variable);
+}
 
 @media (max-width: 900px) {
-  .git-history-modal { height: 94vh; }
+  .git-history-modal {
+    height: 94vh;
+  }
 
   .git-history-diff-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -574,7 +594,11 @@
     gap: var(--space-3);
   }
 
-  .git-history-file-select { display: block; }
+  .git-history-file-select {
+    display: block;
+  }
   .git-history-file-list,
-  .git-history-resize-handle { display: none; }
+  .git-history-resize-handle {
+    display: none;
+  }
 }

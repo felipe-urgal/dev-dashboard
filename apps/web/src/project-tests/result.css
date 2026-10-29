@@ -51,21 +51,31 @@
   background: color-mix(in srgb, var(--success-text) 10%, var(--surface-1));
 }
 .tests-run-status-success > svg,
-.tests-tone-success { color: var(--success-text); }
+.tests-tone-success {
+  color: var(--success-text);
+}
 .tests-run-status-danger {
   border-color: color-mix(in srgb, var(--danger-text) 44%, var(--border));
 }
 .tests-run-status-danger > svg,
-.tests-tone-danger { color: var(--danger-text); }
+.tests-tone-danger {
+  color: var(--danger-text);
+}
 .tests-run-status-warning > svg,
-.tests-tone-warning { color: var(--warning-text); }
+.tests-tone-warning {
+  color: var(--warning-text);
+}
 .tests-run-status-info {
   border-color: color-mix(in srgb, var(--info-text) 38%, var(--border));
 }
 .tests-run-status-info > svg,
-.tests-tone-info { color: var(--info-text); }
+.tests-tone-info {
+  color: var(--info-text);
+}
 .tests-run-status-neutral > svg,
-.tests-tone-neutral { color: var(--text-muted); }
+.tests-tone-neutral {
+  color: var(--text-muted);
+}
 
 .tests-status-badge {
   display: inline-flex;
@@ -105,7 +115,10 @@
 
 .tests-run-metadata {
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) minmax(240px, 2fr) repeat(4, minmax(100px, 0.8fr));
+  grid-template-columns: minmax(150px, 1fr) minmax(240px, 2fr) repeat(
+      4,
+      minmax(100px, 0.8fr)
+    );
   gap: 0;
   margin: var(--space-3) 0;
   padding: 14px 0;
@@ -184,8 +197,12 @@
   overflow-wrap: anywhere;
 }
 
-.tests-summary-success { color: var(--success-text) !important; }
-.tests-summary-danger { color: var(--danger-text) !important; }
+.tests-summary-success {
+  color: var(--success-text) !important;
+}
+.tests-summary-danger {
+  color: var(--danger-text) !important;
+}
 
 .tests-summary small {
   margin-top: 6px;
@@ -193,4 +210,3 @@
   font-size: var(--font-xs);
   line-height: 1.4;
 }
-

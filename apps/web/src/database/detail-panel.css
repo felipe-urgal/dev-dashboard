@@ -239,7 +239,10 @@
   font-size: 9px;
   font-weight: 650;
   text-decoration: none;
-  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
 }
 
 .database-action-grid > button:hover:not(:disabled),
@@ -529,4 +532,3 @@
   font-size: 9px;
   font-weight: 650;
 }
-

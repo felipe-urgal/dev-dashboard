@@ -233,7 +233,8 @@
   .production-overview-table
   tbody
   tr {
-  transition: background var(--motion-duration-fast) var(--motion-easing-standard);
+  transition: background var(--motion-duration-fast)
+    var(--motion-easing-standard);
 }
 
 .production-overview-page.production-overview-page.production-overview-page

@@ -11,7 +11,10 @@
 .readme-workspace {
   display: grid;
   flex: 1 1 auto;
-  grid-template-columns: minmax(200px, 230px) minmax(0, 1fr) minmax(170px, 200px);
+  grid-template-columns: minmax(200px, 230px) minmax(0, 1fr) minmax(
+      170px,
+      200px
+    );
   width: 100%;
   min-height: 0;
   overflow: hidden;

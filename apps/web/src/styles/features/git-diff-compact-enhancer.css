@@ -202,13 +202,13 @@
 
 @media (max-width: 760px) {
   .git-diff-page-heading,
-.git-diff-file-header {
+  .git-diff-file-header {
     align-items: stretch !important;
     flex-direction: column;
   }
 
   .git-diff-heading-actions,
-.git-diff-content-search {
+  .git-diff-content-search {
     width: 100% !important;
   }
 

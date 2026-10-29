@@ -278,7 +278,7 @@ const statusNote = computed(() => {
   text-align: center;
 }
 
-.process-stopped svg {
+.process-stopped > svg {
   width: 40px;
   height: 40px;
   color: var(--text-dim);

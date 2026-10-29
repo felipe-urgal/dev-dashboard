@@ -45,11 +45,7 @@
     </label>
 
     <label class="git-history-filter">
-      <select
-        v-model="kind"
-        aria-label="Tipo de commit"
-        @change="applyFilters"
-      >
+      <select v-model="kind" aria-label="Tipo de commit" @change="applyFilters">
         <option
           v-for="option in kindOptions"
           :key="option.value"
@@ -61,8 +57,8 @@
     </label>
 
     <span class="git-history-count">
-      {{ history?.total ?? 0 }}
-      {{ scope === 'exclusive' ? 'commits exclusivos' : 'commits' }}
+      {{ history?.total ?? 0 }} {{ scope === 'exclusive' ? 'commits exclusivos'
+      : 'commits' }}
     </span>
 
     <label class="git-history-search">
@@ -253,10 +249,7 @@
           </div>
 
           <template v-else-if="detail">
-            <details
-              v-if="commitBody"
-              class="git-history-commit-description"
-            >
+            <details v-if="commitBody" class="git-history-commit-description">
               <summary>Exibir descrição</summary>
               <pre class="git-history-commit-body">{{ commitBody }}</pre>
             </details>

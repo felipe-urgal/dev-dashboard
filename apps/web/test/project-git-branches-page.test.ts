@@ -126,7 +126,7 @@ describe('ProjectGitBranchesPage', () => {
     expect(wrapper.emitted('switch')).toEqual([['outra']]);
   });
 
-  it('remover do origin exige digitar o nome e emite o remoto', async () => {
+  it('remover do origin pede só confirmação e emite o remoto', async () => {
     const wrapper = mountPage();
 
     rowOf(wrapper, 'feature/remota')
@@ -137,10 +137,7 @@ describe('ProjectGitBranchesPage', () => {
     const dialog = wrapper.find('.git-branch-dialog');
     expect(dialog.text()).toContain('Remover branch remota');
 
-    const submit = dialog.find('button[type="submit"]');
-    expect(submit.attributes('disabled')).toBeDefined();
-
-    await dialog.find('input').setValue('feature/remota');
+    expect(dialog.find('input').exists()).toBe(false);
     await dialog.trigger('submit');
 
     expect(wrapper.emitted('delete-remote')).toEqual([
@@ -210,7 +207,7 @@ describe('ProjectGitBranchesPage', () => {
       expect(wrapper.text()).toContain('acompanha origin/feature/old-name');
     });
 
-    it('confirma a remoção pelo nome remoto real, não pelo nome local', async () => {
+    it('mostra o nome remoto real, não o local, ao remover do origin', async () => {
       const wrapper = mountPage({ workspace: renamed });
 
       rowOf(wrapper, 'feature/new-name')
@@ -220,13 +217,6 @@ describe('ProjectGitBranchesPage', () => {
 
       const dialog = wrapper.find('.git-branch-dialog');
       expect(dialog.text()).toContain('feature/old-name');
-      const submit = dialog.find('button[type="submit"]');
-
-      await dialog.find('input').setValue('feature/new-name');
-      expect(submit.attributes('disabled')).toBeDefined();
-
-      await dialog.find('input').setValue('feature/old-name');
-      expect(submit.attributes('disabled')).toBeUndefined();
 
       await dialog.trigger('submit');
       expect(wrapper.emitted('delete-remote')).toEqual([
