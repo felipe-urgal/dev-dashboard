@@ -43,7 +43,6 @@ import { ProjectTerminalService } from './services/project-terminal-service.js';
 import { DetachableExecutionService } from './services/detachable-execution-service.js';
 import { ProjectTestPtyService } from './services/project-test-pty-service.js';
 import { RailsMigrationPtyService } from './services/rails-migration-pty-service.js';
-import { ProjectDependenciesPtyService } from './services/project-dependencies-pty-service.js';
 import { ProjectCoverageService } from './services/project-coverage-service.js';
 import { ProjectCoverageHistoryService } from './services/project-coverage-history-service.js';
 import {
@@ -135,10 +134,7 @@ export function createProjectContextDomain(
   };
 }
 
-export function createExecutionContextDomain(
-  processManager: ProcessManager,
-  activityEventRepository?: Pick<ActivityEventRepository, 'append'>,
-) {
+export function createExecutionContextDomain(processManager: ProcessManager) {
   const scriptDetectionService = new ScriptDetectionService();
   const testDetectionService = new TestDetectionService();
   const detachableExecutionService = new DetachableExecutionService();
@@ -163,11 +159,6 @@ export function createExecutionContextDomain(
     ),
     railsRuntimeService: new RailsRuntimeService(processManager),
     bundlerInspectionService: new BundlerInspectionService(),
-    projectDependenciesPtyService: new ProjectDependenciesPtyService(
-      detachableExecutionService,
-      scriptDetectionService,
-      activityEventRepository,
-    ),
   };
 }
 

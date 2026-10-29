@@ -14,6 +14,8 @@ import {
   AgentUsageStore,
   AgentWorkflowRuntime,
   BrowserBridge,
+  type AgentProviderExecutionRequest,
+  type BrowserBridgePort,
   GitAgentTaskStore,
   HttpBrowserBridgeClient,
   createLocalAgentProviderRegistry,
@@ -24,7 +26,10 @@ import type { AppContext } from './app-context.js';
 import { DeploymentService } from './deployment/service.js';
 import { ProductionOverviewService } from './deployment/production-overview.js';
 import { ActivitySnapshotService } from './services/activity-snapshot-service.js';
-import { AgentRuntimeApiService } from './services/agent-runtime-api-service.js';
+import {
+  AgentRuntimeApiService,
+  type AgentRuntimeApiServicePort,
+} from './services/agent-runtime-api-service.js';
 import { AgentRuntimeRealtimeService } from './services/agent-runtime-realtime-service.js';
 import { AgentTaskWorkspaceProvisioningService } from './services/agent-task-workspace-provisioning-service.js';
 import { ConfirmedLifecycleJobJournal } from './services/confirmed-lifecycle-job-journal.js';
@@ -34,30 +39,19 @@ import { AttentionCenterService } from './services/attention-center-service.js';
 import { ProjectDoctorService } from './services/project-doctor-service.js';
 import { PortInspectorService } from './services/port-inspector-service.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
-import { ProjectDependencyHealthService } from './services/project-dependency-health-service.js';
-import { ProjectDependencyUpgradePlanService } from './services/project-dependency-upgrade-plan-service.js';
 import { GitPullRequestService } from './services/git-pull-request-service.js';
 import { GitPullRequestStatusService } from './services/git-pull-request-status-service.js';
 import { GithubIssueBacklogService } from './services/github-issue-backlog-service.js';
 import type { ProjectLanguageServerService } from './services/project-language-server-service.js';
 import type { ProjectTerminalService } from './services/project-terminal-service.js';
 import { DatabaseExplorerSessionStore } from './services/database-explorer-session-store.js';
-import { LocalCiDiscoveryService } from './services/local-ci-discovery-service.js';
-import { LocalCiExecutionService } from './services/local-ci-execution-service.js';
 import { MigrationOverviewService } from './services/migration-overview-service.js';
-import { MigrationMutationConfirmationService } from './services/migration-mutation-confirmation-service.js';
-import { MigrationMutationExecutionService } from './services/migration-mutation-execution-service.js';
-import { MigrationMutationPlanningService } from './services/migration-mutation-planning-service.js';
-import type { MigrationMutationProvider } from './services/migration-mutation-provider.js';
 import type { MigrationProvider } from './services/migration-provider.js';
 import { PrismaMigrationProvider } from './services/prisma-migration-provider.js';
 import { RailsMigrationMutationProvider } from './services/rails-migration-mutation-provider.js';
 import { ReleaseReadinessService } from './services/release-readiness-service.js';
 import { TaskContextService } from './services/task-context-service.js';
-import type { SecurityScannerProvider } from './services/security-scanner-provider.js';
 import { SecurityScanSnapshotStore } from './services/security-scan-snapshot-store.js';
-import { TrivySecurityProvider } from './services/trivy-security-provider.js';
-import type { SecurityScanResult } from './services/trivy-security-scanner.js';
 
 export interface AgentBrowserRuntimePort {
   bridge: BrowserBridgePort;
@@ -78,20 +72,7 @@ export interface AppCompositionOptions {
   projectTerminalService?: ProjectTerminalService;
   deploymentService?: DeploymentService;
   releaseReadinessService?: Pick<ReleaseReadinessService, 'getSnapshot'>;
-  dependencyHealthService?: Pick<ProjectDependencyHealthService, 'inspect'>;
-  dependencyUpgradePlanService?: Pick<
-    ProjectDependencyUpgradePlanService,
-    'inspect'
-  >;
   migrationProviders?: readonly MigrationProvider[];
-  migrationMutationProviders?: readonly MigrationMutationProvider[];
-  localCiDiscoveryService?: Pick<LocalCiDiscoveryService, 'discover'>;
-  localCiExecutionService?: Pick<
-    LocalCiExecutionService,
-    'start' | 'get' | 'reattach' | 'cancel' | 'shutdown'
-  > &
-    Partial<Pick<LocalCiExecutionService, 'capacity' | 'activityJobs'>>;
-  securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;
   securityScanSnapshotStore?: Pick<SecurityScanSnapshotStore, 'get' | 'save'>;
   confirmedLifecycleJobs?: Pick<
     ConfirmedLifecycleJobJournal,
@@ -170,25 +151,6 @@ export function createAppComposition(
     ],
     now ? { now: () => new Date(now()) } : {},
   );
-  const migrationMutationPlanningService = new MigrationMutationPlanningService(
-    options.migrationMutationProviders ?? [railsMigrationMutationProvider],
-    migrationOverviewService,
-    context.developmentEnvironmentInstanceStore,
-    now ? { now: () => new Date(now()) } : {},
-  );
-  const migrationMutationConfirmationService =
-    new MigrationMutationConfirmationService(
-      undefined,
-      options.now ?? Date.now,
-    );
-  const migrationMutationExecutionService = context.detachableExecutionService
-    ? new MigrationMutationExecutionService(
-        migrationMutationPlanningService,
-        migrationMutationConfirmationService,
-        context.detachableExecutionService,
-        context.activityEventRepository,
-      )
-    : undefined;
   const securityScanSnapshotStore =
     options.securityScanSnapshotStore ??
     new SecurityScanSnapshotStore(
@@ -224,27 +186,6 @@ export function createAppComposition(
       readiness: releaseReadinessService,
     },
   );
-  const dependencyHealthService =
-    options.dependencyHealthService ??
-    new ProjectDependencyHealthService(
-      options.now ? { now: () => new Date(options.now!()) } : {},
-    );
-  const dependencyUpgradePlanService =
-    options.dependencyUpgradePlanService ??
-    new ProjectDependencyUpgradePlanService({ dependencyHealthService });
-  const localCiDiscoveryService =
-    options.localCiDiscoveryService ?? new LocalCiDiscoveryService();
-  const localCiExecutionService =
-    options.localCiExecutionService ??
-    (context.detachableExecutionService
-      ? new LocalCiExecutionService(
-          localCiDiscoveryService,
-          context.detachableExecutionService,
-          { activityEvents: context.activityEventRepository },
-        )
-      : undefined);
-  const securityScannerProvider =
-    options.securityScannerProvider ?? new TrivySecurityProvider();
 
   const agentBrowserRuntime = options.agentRuntimeApiService
     ? null
@@ -280,22 +221,7 @@ export function createAppComposition(
     processReader: context.processManager,
     projectStore: context.projectStore,
     agentRuntime: agentRuntimeApiService,
-    activityJobReaders: [
-      ...(localCiExecutionService?.activityJobs
-        ? [
-            {
-              activityJobs: (projectId: string) =>
-                localCiExecutionService.activityJobs?.(projectId) ?? [],
-            },
-          ]
-        : []),
-      context.projectDependenciesPtyService,
-      confirmedLifecycleJobs,
-      deploymentService,
-      ...(migrationMutationExecutionService
-        ? [migrationMutationExecutionService]
-        : []),
-    ],
+    activityJobReaders: [confirmedLifecycleJobs, deploymentService],
     ...(options.now ? { now: () => new Date(options.now!()) } : {}),
   });
 
@@ -317,14 +243,6 @@ export function createAppComposition(
     attentionCenterService,
     releaseReadinessService,
     migrationOverviewService,
-    migrationMutationPlanningService,
-    migrationMutationConfirmationService,
-    migrationMutationExecutionService,
-    localCiDiscoveryService,
-    localCiExecutionService,
-    dependencyHealthService,
-    dependencyUpgradePlanService,
-    securityScannerProvider,
     securityScanSnapshotStore,
     agentBrowserRuntime,
     agentRuntimeApiService,
@@ -524,7 +442,6 @@ export function registerAppLifecycle(
   app.addHook('onClose', async () => {
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
-    composition.localCiExecutionService?.shutdown();
     composition.agentRuntimeRealtimeService.close();
     await composition.agentRuntimeApiService.shutdown();
     await composition.agentBrowserRuntime?.close();
