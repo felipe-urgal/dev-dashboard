@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { CircleStackIcon, HomeIcon } from '@heroicons/vue/24/outline';
-import { computed, onMounted, provide, ref } from 'vue';
+import { computed, onMounted, provide, ref, watch } from 'vue';
 import { darkTheme, NConfigProvider } from 'naive-ui';
 import { Toaster } from 'vue-sonner';
 
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
+import { fetchProjectGit } from './api/git';
 import { dashboardStore } from './stores/dashboard';
 import { nativeNotificationStore } from './stores/native-notifications';
 import CommandPalette from './components/CommandPalette.vue';
@@ -71,6 +72,29 @@ const runningProjectIds = computed(
     ),
 );
 
+// A branch aparece no seletor; atualiza ao trocar de projeto ou de página
+// (checkout, criar e remover branch acontecem nas páginas de Git).
+const currentBranch = ref('');
+
+watch(
+  () => [currentProjectId.value, route.fullPath] as const,
+  async ([projectId]) => {
+    if (!projectId) {
+      currentBranch.value = '';
+      return;
+    }
+    try {
+      const overview = await fetchProjectGit(projectId);
+      if (projectId === currentProjectId.value) {
+        currentBranch.value = overview.branch ?? '';
+      }
+    } catch {
+      currentBranch.value = '';
+    }
+  },
+  { immediate: true },
+);
+
 function switchProject(projectId: string): void {
   const target = sortedProjects.value.find((item) => item.id === projectId);
   if (!target) return;
@@ -115,6 +139,7 @@ onMounted(() => {
             :workspaces="workspaces"
             :selected-workspace-id="selectedWorkspaceId"
             :running-ids="runningProjectIds"
+            :branch="currentBranch"
             @select="switchProject"
             @home="router.push({ name: 'dashboard' })"
             @select-workspace="

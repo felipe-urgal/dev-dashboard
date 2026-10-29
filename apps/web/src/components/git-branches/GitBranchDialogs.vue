@@ -32,7 +32,7 @@ const emit = defineEmits<{
 const prefix = ref<string>(BRANCH_PREFIXES[0]);
 const suffix = ref('');
 const renamed = ref('');
-const confirmation = ref('');
+const form = ref<HTMLFormElement | null>(null);
 
 watch(
   () => props.dialog,
@@ -40,9 +40,13 @@ watch(
     prefix.value = BRANCH_PREFIXES[0];
     suffix.value = '';
     renamed.value = props.target;
-    confirmation.value = '';
   },
 );
+
+/** O menu devolve o foco ao botão ao fechar; o campo precisa pegá-lo depois. */
+function focusField(): void {
+  form.value?.querySelector<HTMLInputElement>('input[type=text]')?.focus();
+}
 
 const title = computed(
   () =>
@@ -66,7 +70,7 @@ const canSubmit = computed(() => {
   if (props.dialog === 'rename') {
     return canRenameBranch(props.target, renamed.value);
   }
-  return confirmation.value === confirmationTarget.value;
+  return true;
 });
 
 function submit(): void {
@@ -86,9 +90,11 @@ function submit(): void {
     :show="dialog !== null"
     :mask-closable="!busy"
     :close-on-esc="!busy"
+    @after-enter="focusField"
     @update:show="(show: boolean) => !show && !busy && emit('close')"
   >
     <form
+      ref="form"
       class="git-branch-dialog"
       role="dialog"
       aria-modal="true"
@@ -123,7 +129,6 @@ function submit(): void {
             placeholder="nome-da-branch"
             autocomplete="off"
             aria-label="Nome"
-            autofocus
           />
         </label>
       </template>
@@ -134,7 +139,6 @@ function submit(): void {
           type="text"
           maxlength="200"
           aria-label="Novo nome"
-          autofocus
         />
       </label>
 
@@ -145,18 +149,10 @@ function submit(): void {
               ? 'A branch será removida do origin. A branch local, se existir, será mantida.'
               : 'A branch local será removida mesmo que possua commits não integrados.'
           }}
-          Esta ação não pode ser desfeita. Digite
-          <strong>{{ confirmationTarget }}</strong> para confirmar.
+          Esta ação não pode ser desfeita. Remover
+          <strong>{{ confirmationTarget }}</strong
+          >?
         </p>
-        <label class="git-branch-input">
-          <input
-            v-model="confirmation"
-            type="text"
-            autocomplete="off"
-            aria-label="Nome da branch"
-            autofocus
-          />
-        </label>
       </template>
 
       <footer>

@@ -320,6 +320,23 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     );
   }
 
+  // Sidekiq roda como kind 'worker' e Webpack como 'webpack', no contexto padrão.
+  function getCardWorker(
+    projectId: string,
+    kind: 'worker' | 'webpack',
+  ): ManagedProcess | null {
+    const processes =
+      managedProcessesByContext.value[JSON.stringify([projectId, null])] ?? [];
+    return (
+      processes.find(
+        (process) =>
+          process.kind === kind && activeProcessStatuses.has(process.status),
+      ) ??
+      processes.find((process) => process.kind === kind) ??
+      null
+    );
+  }
+
   async function loadProcessSummary(): Promise<void> {
     const generation = ++processGeneration;
     const workspaceId = selectedWorkspaceId.value;
@@ -750,6 +767,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     managedProcessesByContext,
     processReadComplete,
     getCardProcess,
+    getCardWorker,
     scanWarnings,
     scannedAt,
     scanStatus,
