@@ -271,3 +271,28 @@ export interface ProductionOverview {
   generatedAt: string;
   items: ProductionOverviewItem[];
 }
+
+export interface DeploymentChangeCommit {
+  hash: string;
+  shortHash: string;
+  subject: string;
+  authorName: string;
+  authoredAt: string;
+}
+
+/**
+ * O que um deployment levaria para produção: commits entre a revisão em
+ * produção e `origin/<branch>` do contrato.
+ */
+export interface DeploymentPendingChanges {
+  state: 'available' | 'unknown';
+  /** Motivo quando `unknown`: revisão fora do clone local ou branch ausente. */
+  reason?: 'revision-not-found' | 'branch-not-found';
+  branch: string;
+  from: string;
+  total: number;
+  commits: DeploymentChangeCommit[];
+  files: number;
+  /** Arquivos de migration entre as duas revisões (db/migrate, migrations/…). */
+  migrations: number;
+}

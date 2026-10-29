@@ -287,10 +287,8 @@ describe('ProjectProductionPanel', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Produção não configurada');
-    expect(wrapper.get('.production-panel').attributes('aria-label')).toBe(
-      'Produção',
-    );
-    expect(wrapper.find('.production-eyebrow').exists()).toBe(false);
+    expect(wrapper.get('.prod-page').attributes('aria-label')).toBe('Produção');
+    expect(wrapper.find('.prod-eyebrow').exists()).toBe(false);
     expect(wrapper.find('button').exists()).toBe(false);
     expect(api.fetchDeploymentHistory).not.toHaveBeenCalled();
     wrapper.unmount();
@@ -352,9 +350,7 @@ describe('ProjectProductionPanel', () => {
     });
     await flushPromises();
 
-    expect(document.body.textContent).not.toContain(
-      'Revisar antes de publicar',
-    );
+    expect(wrapper.text()).not.toContain('Revisar antes de publicar');
     const prepareButton = wrapper
       .findAll('button')
       .find((button) => button.text().includes('Preparar deployment'));
@@ -362,16 +358,16 @@ describe('ProjectProductionPanel', () => {
     await prepareButton!.trigger('click');
     await flushPromises();
 
-    expect(document.body.textContent).toContain('Revisar antes de publicar');
-    expect(document.body.textContent).toContain('Destino');
-    expect(document.body.textContent).toContain('Muda estado');
+    expect(wrapper.text()).toContain('Revisar antes de publicar');
+    expect(wrapper.text()).toContain('Plano de deployment');
+    expect(wrapper.text()).toContain('Muda estado');
     expect(api.createDeploymentConfirmation).not.toHaveBeenCalled();
 
-    const confirmButton = Array.from(
-      document.body.querySelectorAll<HTMLButtonElement>('button'),
-    ).find((button) => button.textContent?.includes('Iniciar deployment'));
+    const confirmButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Iniciar deployment'));
     expect(confirmButton).toBeDefined();
-    confirmButton!.click();
+    await confirmButton!.trigger('click');
     await flushPromises();
 
     expect(api.createDeploymentConfirmation).toHaveBeenCalledWith(
@@ -385,7 +381,7 @@ describe('ProjectProductionPanel', () => {
       'd'.repeat(64),
       expect.any(AbortSignal),
     );
-    expect(wrapper.text()).toContain('Timeline do deployment');
+    expect(wrapper.text()).toContain('Detalhes da última execução');
     expect(wrapper.text()).toContain('Produção alinhada com origin');
     expect(wrapper.text()).toContain('deploy ok');
     wrapper.unmount();
@@ -432,7 +428,7 @@ describe('ProjectProductionPanel', () => {
       'project-1',
       expect.any(AbortSignal),
     );
-    expect(document.body.textContent).toContain('Revisar antes de publicar');
+    expect(wrapper.text()).toContain('Revisar antes de publicar');
     wrapper.unmount();
   });
 

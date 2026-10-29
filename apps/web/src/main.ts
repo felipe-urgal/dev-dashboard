@@ -15,7 +15,6 @@ import './styles/features/git-diff-layout-fix.css';
 import './styles/features/git-diff-github-theme.css';
 import './styles/features/git-syntax-highlight.css';
 import './styles/features/shell-option3.css';
-import './styles/features/production-flat-sections.css';
 import './styles/features/production-deployment-layout-fix.css';
 import './styles/features/production-overview-proposal-2.css';
 import './styles/features/modal-standard.css';

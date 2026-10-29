@@ -166,6 +166,8 @@ export type {
   DeploymentScriptId,
   DeploymentStatus,
   DeploymentStepId,
+  DeploymentChangeCommit,
+  DeploymentPendingChanges,
   DeploymentStepStatus,
   DeploymentTimelineStep,
   GitManagedProductionDeploymentStatus,
