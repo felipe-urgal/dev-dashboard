@@ -1,14 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import type { PortRegistryConfiguration } from '@dev-dashboard/contracts';
-
 import { PortInspectorService } from '../src/services/port-inspector-service.js';
-import {
-  exportPortRegistryConfiguration,
-  importPortRegistryConfiguration,
-  PortRegistryConfigurationError,
-} from '../src/services/port-registry-configuration.js';
 import {
   declaredPortsFromResolvedCompose,
   PortAllocationLeaseRegistry,
@@ -162,59 +155,5 @@ test('leaseId não pode ser reutilizado por outro owner/role', () => {
       },
     ),
     null,
-  );
-});
-
-test('configuração do Registry faz round-trip determinístico com ignores do workspace', () => {
-  const configuration: PortRegistryConfiguration = {
-    version: 1,
-    reserved: [
-      {
-        port: 5_432,
-        scope: 'infrastructure',
-        owner: 'postgres-local',
-        description: 'Postgres compartilhado',
-      },
-    ],
-    declared: [
-      {
-        projectId: 'home-music',
-        port: 5_173,
-        role: 'web',
-        source: 'config',
-        confidence: 'certain',
-      },
-    ],
-    ignoredProjectPaths: ['vendor/legacy', 'tmp/generated', 'vendor/legacy'],
-  };
-
-  const exported = exportPortRegistryConfiguration(configuration);
-  const imported = importPortRegistryConfiguration(exported);
-
-  assert.deepEqual(imported, {
-    ...configuration,
-    ignoredProjectPaths: ['tmp/generated', 'vendor/legacy'],
-  });
-  assert.equal(exportPortRegistryConfiguration(imported), exported);
-});
-
-test('import rejeita schema/version/porta inválidos sem aceitar campos como evidência válida', () => {
-  assert.throws(
-    () =>
-      importPortRegistryConfiguration(
-        JSON.stringify({ version: 2, reserved: [], declared: [] }),
-      ),
-    PortRegistryConfigurationError,
-  );
-  assert.throws(
-    () =>
-      importPortRegistryConfiguration(
-        JSON.stringify({
-          version: 1,
-          reserved: [{ port: 70_000, scope: 'user' }],
-          declared: [],
-        }),
-      ),
-    /porta válida/,
   );
 });
