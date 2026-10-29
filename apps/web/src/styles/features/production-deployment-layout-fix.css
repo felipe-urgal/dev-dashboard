@@ -1,23 +1,28 @@
 /*
- * Keep deployment execution content inside the production page and make the
- * horizontal timeline read as one connected progress path.
+ * Mantém o conteúdo da execução (log do deployment) dentro da página de
+ * Produção, tanto no deploy quanto no self-update.
  */
 
-.production-panel.production-panel .production-execution,
-.production-panel.production-panel .deployment-log,
-.production-panel.production-panel .project-log-viewer,
-.production-panel.production-panel .project-log-viewer-output {
+.prod-page .deployment-log,
+.prod-page .project-log-viewer,
+.prod-page .project-log-viewer-output,
+.self-update-page .deployment-log,
+.self-update-page .project-log-viewer,
+.self-update-page .project-log-viewer-output {
   min-width: 0;
   max-width: 100%;
 }
 
-.production-panel.production-panel .deployment-log,
-.production-panel.production-panel .project-log-viewer {
+.prod-page .deployment-log,
+.prod-page .project-log-viewer,
+.self-update-page .deployment-log,
+.self-update-page .project-log-viewer {
   width: 100%;
   overflow: hidden;
 }
 
-.production-panel.production-panel .project-log-viewer-output > pre {
+.prod-page .project-log-viewer-output > pre,
+.self-update-page .project-log-viewer-output > pre {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -25,199 +30,4 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
-}
-
-.production-panel.production-panel .production-timeline-horizontal {
-  display: flex;
-  width: 100%;
-}
-
-.production-panel.production-panel .production-timeline-horizontal li {
-  position: relative;
-  display: block;
-  min-width: 0;
-  min-height: 72px;
-  flex: 1 1 0;
-  padding: 20px 12px 0 0;
-}
-
-/*
- * With four or five stages, the last flex item must be the endpoint instead
- * of consuming another column. That keeps the first marker at the start, the
- * last marker at the end, and all intermediate markers evenly distributed.
- */
-.production-panel.production-panel
-  .production-timeline-horizontal:has(> li:nth-child(4):last-child)
-  li:last-child,
-.production-panel.production-panel
-  .production-timeline-horizontal:has(> li:nth-child(5):last-child)
-  li:last-child {
-  flex: 0 0 0;
-  padding-right: 0;
-}
-
-.production-panel.production-panel
-  .production-timeline-horizontal
-  li:not(:last-child)::after {
-  position: absolute;
-  top: 5px;
-  right: -5px;
-  left: 5px;
-  z-index: 0;
-  width: auto;
-  height: 1px;
-  background: var(--border-strong);
-  content: '';
-}
-
-.production-panel.production-panel
-  .production-timeline-horizontal
-  li:has(> .production-step-marker.is-running):not(:last-child)::after {
-  background: var(--info-text);
-}
-
-.production-panel.production-panel
-  .production-timeline-horizontal
-  li:has(> .production-step-marker.is-succeeded):not(:last-child)::after {
-  background: var(--success-text);
-}
-
-.production-panel.production-panel
-  .production-timeline-horizontal
-  li:has(> .production-step-marker.is-failed):not(:last-child)::after {
-  background: var(--danger-text);
-}
-
-.production-panel.production-panel
-  .production-timeline-horizontal
-  li:has(> .production-step-marker.is-cancelled):not(:last-child)::after {
-  background: var(--warning-text);
-}
-
-.production-panel.production-panel
-  .production-timeline-horizontal
-  li:has(> .production-step-marker.is-running)
-  small {
-  color: var(--info-text);
-}
-
-.production-panel.production-panel
-  .production-timeline-horizontal
-  li:has(> .production-step-marker.is-succeeded)
-  small {
-  color: var(--success-text);
-}
-
-.production-panel.production-panel
-  .production-timeline-horizontal
-  li:has(> .production-step-marker.is-failed)
-  small {
-  color: var(--danger-text);
-}
-
-.production-panel.production-panel
-  .production-timeline-horizontal
-  li:has(> .production-step-marker.is-cancelled)
-  small {
-  color: var(--warning-text);
-}
-
-.production-panel.production-panel
-  .production-timeline-horizontal
-  .production-step-marker {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 1;
-  justify-self: auto;
-}
-
-.production-panel.production-panel
-  .production-timeline-horizontal
-  .production-step-marker.is-pending {
-  border-color: var(--border-strong);
-  background: var(--surface-1);
-}
-
-.production-panel.production-panel .production-timeline-horizontal li > div {
-  position: relative;
-  z-index: 1;
-  min-width: 0;
-  padding: 0;
-  background: transparent;
-}
-
-.production-panel.production-panel
-  .production-timeline-horizontal:has(> li:nth-child(4):last-child)
-  li:last-child
-  > div,
-.production-panel.production-panel
-  .production-timeline-horizontal:has(> li:nth-child(5):last-child)
-  li:last-child
-  > div {
-  position: absolute;
-  top: 20px;
-  right: 0;
-  width: max-content;
-  text-align: right;
-}
-
-@media (max-width: 600px) {
-  .production-panel.production-panel .production-timeline-horizontal {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .production-panel.production-panel .production-timeline-horizontal li {
-    display: grid;
-    grid-template-columns: 16px minmax(0, 1fr);
-    align-items: start;
-    gap: 8px;
-    min-height: 44px;
-    padding: 0 12px 0 0;
-  }
-
-  .production-panel.production-panel
-    .production-timeline-horizontal
-    li:last-child {
-    padding-right: 12px;
-  }
-
-  .production-panel.production-panel
-    .production-timeline-horizontal
-    .production-step-marker {
-    position: relative;
-    top: auto;
-    left: auto;
-    justify-self: center;
-  }
-
-  .production-panel.production-panel
-    .production-timeline-horizontal
-    li:not(:last-child)::after {
-    top: 5px;
-    right: auto;
-    bottom: -8px;
-    left: 8px;
-    width: 1px;
-    height: auto;
-  }
-
-  .production-panel.production-panel .production-timeline-horizontal li > div,
-  .production-panel.production-panel
-    .production-timeline-horizontal:has(> li:nth-child(4):last-child)
-    li:last-child
-    > div,
-  .production-panel.production-panel
-    .production-timeline-horizontal:has(> li:nth-child(5):last-child)
-    li:last-child
-    > div {
-    position: relative;
-    top: auto;
-    right: auto;
-    width: auto;
-    padding: 0 5px;
-    text-align: left;
-  }
 }

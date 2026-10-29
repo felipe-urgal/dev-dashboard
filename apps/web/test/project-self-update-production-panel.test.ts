@@ -10,6 +10,8 @@ import type {
 const api = vi.hoisted(() => ({
   createDeploymentConfirmation: vi.fn(),
   fetchDeployment: vi.fn(),
+  fetchDeploymentChanges: vi.fn(),
+  fetchDeploymentCommits: vi.fn(),
   fetchDeploymentHistory: vi.fn(),
   fetchDeploymentLog: vi.fn(),
   fetchDeploymentPlan: vi.fn(),
@@ -120,6 +122,17 @@ function resetApi(): void {
     pageSize: 8,
     total: 1,
   });
+  api.fetchDeploymentChanges.mockResolvedValue({
+    state: 'unknown',
+    reason: 'revision-not-found',
+    branch: 'main',
+    from: latest.revision,
+    total: 0,
+    commits: [],
+    files: 0,
+    migrations: 0,
+  });
+  api.fetchDeploymentCommits.mockResolvedValue([]);
   api.fetchDeploymentLog.mockResolvedValue({
     deploymentId: latest.id,
     content: 'self-update ok',
@@ -134,7 +147,7 @@ describe('ProjectSelfUpdateProductionPanel', () => {
     document.body.innerHTML = '';
   });
 
-  it('mantém o resumo compacto e confirma o self-update pelo modal', async () => {
+  it('mantém o resumo compacto e confirma o self-update no painel', async () => {
     resetApi();
     api.fetchDeploymentPlan.mockResolvedValue(plan());
     api.createDeploymentConfirmation.mockResolvedValue({
@@ -153,8 +166,7 @@ describe('ProjectSelfUpdateProductionPanel', () => {
 
     expect(wrapper.text()).toContain('Self-update disponível');
     expect(wrapper.text()).toContain('Últimas atualizações');
-    expect(wrapper.text()).toContain('Detalhes técnicos');
-    expect(wrapper.text()).not.toContain('Log da última execução');
+    expect(wrapper.text()).toContain('Última execução');
 
     const details = wrapper.get('details');
     expect(details.attributes('open')).toBeUndefined();
@@ -166,15 +178,15 @@ describe('ProjectSelfUpdateProductionPanel', () => {
     await prepareButton!.trigger('click');
     await flushPromises();
 
-    expect(document.body.textContent).toContain('Atualização pronta');
-    expect(document.body.textContent).toContain(NEXT_REVISION.slice(0, 10));
+    expect(wrapper.text()).toContain('Atualização pronta');
+    expect(wrapper.text()).toContain(NEXT_REVISION.slice(0, 8));
     expect(api.createDeploymentConfirmation).not.toHaveBeenCalled();
 
-    const applyButton = Array.from(
-      document.body.querySelectorAll<HTMLButtonElement>('button'),
-    ).find((button) => button.textContent?.includes('Aplicar atualização'));
+    const applyButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Aplicar atualização'));
     expect(applyButton).toBeDefined();
-    applyButton!.click();
+    await applyButton!.trigger('click');
     await flushPromises();
 
     expect(api.createDeploymentConfirmation).toHaveBeenCalledWith(
@@ -189,6 +201,50 @@ describe('ProjectSelfUpdateProductionPanel', () => {
       expect.any(AbortSignal),
     );
 
+    wrapper.unmount();
+  });
+
+  it('mostra o que vai subir e usa a contagem de commits no botão de atualizar', async () => {
+    resetApi();
+    const revision = successfulDeployment().revision;
+    api.fetchDeploymentChanges.mockResolvedValue({
+      state: 'available',
+      branch: 'main',
+      from: revision,
+      total: 2,
+      commits: [
+        {
+          hash: 'a'.repeat(40),
+          shortHash: 'aaaaaaa',
+          subject: 'feat(tests): seleção de arquivos',
+          authorName: 'Dev',
+          authoredAt: new Date().toISOString(),
+        },
+        {
+          hash: 'b'.repeat(40),
+          shortHash: 'bbbbbbb',
+          subject: 'fix(web): menu do topo',
+          authorName: 'Dev',
+          authoredAt: new Date().toISOString(),
+        },
+      ],
+      files: 7,
+      migrations: 1,
+    });
+
+    const wrapper = mount(ProjectSelfUpdateProductionPanel, {
+      props: { project: project() },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('2 commits novos desde a produção');
+    expect(wrapper.text()).toContain('feat(tests): seleção de arquivos');
+    expect(wrapper.text()).toContain('1 migration');
+    expect(
+      wrapper
+        .findAll('button')
+        .some((button) => button.text().includes('Atualizar 2 commits')),
+    ).toBe(true);
     wrapper.unmount();
   });
 });

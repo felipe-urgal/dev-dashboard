@@ -1,8 +1,10 @@
 import type {
   Deployment,
+  DeploymentChangeCommit,
   DeploymentConfirmation,
   DeploymentHistory,
   DeploymentLog,
+  DeploymentPendingChanges,
   DeploymentPlan,
   ProductionDeploymentStatus,
   ProductionOverview,
@@ -182,4 +184,30 @@ export async function cancelDeployment(
     requestInit('POST', signal),
   );
   return response.deployment;
+}
+
+/** O que um deployment levaria: commits entre a produção e origin/<branch>. */
+export async function fetchDeploymentChanges(
+  projectId: string,
+  fromRevision: string,
+  signal?: AbortSignal,
+): Promise<DeploymentPendingChanges> {
+  const response = await requestJson<{ changes: DeploymentPendingChanges }>(
+    `${projectDeploymentsUrl(projectId)}/changes?from=${encodeURIComponent(fromRevision)}`,
+    requestInit('GET', signal),
+  );
+  return response.changes;
+}
+
+/** Mensagens dos commits de revisões do histórico (as desconhecidas são omitidas). */
+export async function fetchDeploymentCommits(
+  projectId: string,
+  revisions: readonly string[],
+  signal?: AbortSignal,
+): Promise<DeploymentChangeCommit[]> {
+  const response = await requestJson<{ commits: DeploymentChangeCommit[] }>(
+    `${projectDeploymentsUrl(projectId)}/commits?revisions=${encodeURIComponent(revisions.join(','))}`,
+    requestInit('GET', signal),
+  );
+  return response.commits;
 }

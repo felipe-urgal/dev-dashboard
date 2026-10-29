@@ -73,6 +73,34 @@ export interface ProductionContractV1 {
   policies: ProductionPolicies;
 }
 
+/** Rascunho do contrato montado pelo assistente de configuração. */
+export interface ProductionContractDraft {
+  strategy: Exclude<ProductionStrategy, 'disabled'>;
+  provider: ProductionProvider;
+  branch: string;
+  /** Operações que o contrato deve declarar (cada uma exige o script `prod:*`). */
+  commands: Array<keyof ProductionCommands>;
+  /** URL HTTP/HTTPS de health check (sem credenciais, query ou hash). */
+  healthUrl?: string;
+  /** Projeto externo (Vercel) para a estratégia git-managed. */
+  externalProject?: string;
+  policies: ProductionPolicies;
+}
+
+export interface ProductionContractSetupInfo {
+  /** Scripts `prod:*` encontrados no package.json do projeto. */
+  scripts: string[];
+  manifestExists: boolean;
+}
+
+export interface ProductionContractPreview {
+  valid: boolean;
+  message?: string;
+  /** Operações pedidas cujo script `prod:*` não existe no package.json. */
+  missingScripts: string[];
+  manifest: { version: 1; production: Record<string, unknown> };
+}
+
 export type ProductionContractWarningCode =
   | 'PRODUCTION_CONTRACT_UNREADABLE'
   | 'PRODUCTION_CONTRACT_INVALID_JSON'

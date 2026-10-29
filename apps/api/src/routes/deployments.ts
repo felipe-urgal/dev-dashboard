@@ -14,6 +14,7 @@ import {
   DeploymentError,
   type DeploymentErrorCode,
 } from '../deployment/errors.js';
+import { DeploymentChangesService } from '../deployment/changes.js';
 import { ProductionDeploymentStatusService } from '../deployment/production-status.js';
 import type { DeploymentService } from '../deployment/service.js';
 import type { ProjectStore } from '../store/project-store.js';
@@ -43,6 +44,7 @@ interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
   deploymentService: DeploymentService;
   productionStatusService?: ProductionDeploymentStatusService;
+  changesService?: DeploymentChangesService;
 }
 
 const projectParamsSchema = {
@@ -117,6 +119,82 @@ export const deploymentRoutes: FastifyPluginAsync<Options> = async (
 ) => {
   const productionStatusService =
     options.productionStatusService ?? new ProductionDeploymentStatusService();
+  const changesService =
+    options.changesService ?? new DeploymentChangesService();
+
+  app.get<{ Params: ProjectParams; Querystring: { from: string } }>(
+    '/projects/:projectId/deployments/changes',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['from'],
+          properties: { from: { type: 'string', pattern: '^[0-9a-f]{7,40}$' } },
+        },
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['changes'],
+            properties: {
+              changes: { type: 'object', additionalProperties: true },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = findProject(options, request.params.projectId);
+      return {
+        changes: await changesService.pending(
+          project.path,
+          project.production?.branch ?? 'main',
+          request.query.from,
+        ),
+      };
+    },
+  );
+
+  app.get<{ Params: ProjectParams; Querystring: { revisions: string } }>(
+    '/projects/:projectId/deployments/commits',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['revisions'],
+          properties: { revisions: { type: 'string', maxLength: 2_000 } },
+        },
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['commits'],
+            properties: {
+              commits: {
+                type: 'array',
+                items: { type: 'object', additionalProperties: true },
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = findProject(options, request.params.projectId);
+      return {
+        commits: await changesService.commits(
+          project.path,
+          request.query.revisions.split(','),
+        ),
+      };
+    },
+  );
 
   app.post<{ Params: ProjectParams }>(
     '/projects/:projectId/deployments/plan',

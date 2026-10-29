@@ -336,6 +336,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
         "
         :key="`production-self-update-${project.id}`"
         :project="project"
+        :git-overview="gitOverview"
       />
 
       <ProjectProductionPanel
@@ -343,6 +344,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
         :key="`production-${project.id}`"
         :project="project"
         :git-overview="gitOverview"
+        @contract-saved="dashboardStore.rescanSelectedWorkspace()"
       />
 
       <ProjectTerminalPanel

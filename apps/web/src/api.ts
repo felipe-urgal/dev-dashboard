@@ -15,6 +15,7 @@ export * from './api/project-coverage';
 export * from './api/project-files';
 export * from './api/terminal';
 export * from './api/deployments';
+export * from './api/production-contract';
 export * from './api/agent-runtime';
 
 export * from './api/task-contexts';
