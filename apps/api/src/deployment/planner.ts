@@ -53,6 +53,7 @@ function addPreDeploySteps(
   project: Project,
   steps: DeploymentPlanStep[],
   providerPreflight?: DeploymentProviderTarget,
+  { withMigrations = true }: { withMigrations?: boolean } = {},
 ): void {
   const production = project.production!;
   const commands = production.commands;
@@ -74,7 +75,7 @@ function addPreDeploySteps(
     );
   }
 
-  if (production.policies.migrations === 'before-deploy') {
+  if (withMigrations && production.policies.migrations === 'before-deploy') {
     if (!commands.migrate) {
       throw new DeploymentError(
         'DEPLOYMENT_MIGRATION_COMMAND_REQUIRED',
@@ -93,6 +94,84 @@ function addPreDeploySteps(
 
 export class DeploymentPlanner {
   public constructor(private readonly now: () => number = Date.now) {}
+
+  /**
+   * Volta para `targetRevision` (versão anterior bem-sucedida) pelo `prod:rollback`
+   * do projeto. Só existe quando o contrato declara o comando e uma política que o
+   * permita; `manual-restore` e `not-configured` ficam no guia de recuperação.
+   */
+  public buildRollback(
+    project: Project,
+    current: DeploymentRevision,
+    targetRevision: string,
+  ): DeploymentPlan {
+    const production = project.production;
+    if (
+      !production?.enabled ||
+      !project.capabilities.includes('production') ||
+      production.strategy !== 'command' ||
+      !production.commands.rollback ||
+      !production.commands.verify
+    ) {
+      throw new DeploymentError(
+        'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+        'O contrato não declara prod:rollback e prod:verify para este projeto.',
+      );
+    }
+    const policy = production.policies.rollback;
+    if (
+      policy !== 'restore-backup-when-schema-changed' &&
+      policy !== 'provider-only-when-schema-compatible'
+    ) {
+      throw new DeploymentError(
+        'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+        'A política de rollback do contrato não permite executar o rollback pelo Dev Dashboard.',
+      );
+    }
+    if (current.branch !== production.branch) {
+      throw new DeploymentError(
+        'DEPLOYMENT_BRANCH_MISMATCH',
+        `A produção exige a branch ${production.branch}, mas o projeto está em ${current.branch}.`,
+      );
+    }
+
+    const steps: DeploymentPlanStep[] = [];
+    addPreDeploySteps(project, steps, undefined, { withMigrations: false });
+    steps.push(
+      commandStep('rollback', 'deploying', {
+        mutating: true,
+        irreversible: true,
+      }),
+    );
+    steps.push(commandStep('verify', 'verifying'));
+
+    const planHash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          kind: 'rollback',
+          projectId: project.id,
+          provider: production.provider,
+          branch: production.branch,
+          revision: targetRevision,
+          fromRevision: current.revision,
+          steps,
+        }),
+      )
+      .digest('hex');
+
+    return {
+      kind: 'rollback',
+      projectId: project.id,
+      projectName: project.name,
+      provider: production.provider,
+      branch: production.branch,
+      revision: targetRevision,
+      fromRevision: current.revision,
+      planHash,
+      createdAt: new Date(this.now()).toISOString(),
+      steps,
+    };
+  }
 
   public build(project: Project, revision: DeploymentRevision): DeploymentPlan {
     const production = project.production;

@@ -18,11 +18,15 @@ const props = defineProps<{
   } | null;
   current?: string | undefined;
   open: boolean;
+  /** O contrato permite executar o rollback pelo Dev Dashboard. */
+  executable?: boolean;
+  busy?: boolean;
 }>();
 
 const emit = defineEmits<{
   'copy-revision': [revision: string];
   'open-terminal': [];
+  rollback: [];
 }>();
 
 const guide = computed(() =>
@@ -41,7 +45,9 @@ const guide = computed(() =>
         <span class="prod-recovery-eyebrow">Recuperação</span>
         <strong>Voltar para a versão anterior</strong>
       </div>
-      <small>Guia, sem executar nada</small>
+      <small>{{
+        executable ? 'Rollback disponível' : 'Guia, sem executar nada'
+      }}</small>
     </summary>
 
     <div class="prod-recovery-body">
@@ -69,6 +75,15 @@ const guide = computed(() =>
       </ol>
 
       <div class="prod-recovery-actions">
+        <UiButton
+          v-if="executable && previous"
+          size="sm"
+          variant="danger"
+          :disabled="busy"
+          @click="emit('rollback')"
+        >
+          Preparar rollback para {{ previous.revision.slice(0, 8) }}
+        </UiButton>
         <UiButton size="sm" @click="emit('open-terminal')"
           >Abrir Terminal</UiButton
         >

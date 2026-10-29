@@ -5,6 +5,7 @@ import type {
   Deployment,
   DeploymentConfirmation,
   DeploymentHistory,
+  DeploymentKind,
   DeploymentLog,
   DeploymentPlan,
   DeploymentPlanStep,
@@ -59,6 +60,7 @@ export interface DeploymentCommandRunner {
     signal: AbortSignal,
     onOutput: (output: MaskedLogContent) => void,
     onProviderDeploymentId?: (providerDeploymentId: string) => Promise<void>,
+    rollback?: { targetRevision: string; fromRevision: string },
   ): Promise<ProductionCommandResult>;
 }
 
@@ -125,9 +127,16 @@ export class DeploymentService {
     this.readyPromise = this.store.recoverInterrupted(this.now());
   }
 
-  public async plan(project: Project): Promise<DeploymentPlan> {
+  public async plan(
+    project: Project,
+    kind: DeploymentKind = 'deploy',
+  ): Promise<DeploymentPlan> {
     await this.readyPromise;
     const current = await this.revisionResolver.resolve(project);
+    if (kind === 'rollback') {
+      const target = await this.rollbackTarget(project, current.revision);
+      return this.planner.buildRollback(project, current, target);
+    }
     if (project.production?.strategy !== 'self-update') {
       return this.planner.build(project, current);
     }
@@ -148,11 +157,39 @@ export class DeploymentService {
     });
   }
 
+  /** Versão anterior comprovada: o deploy bem-sucedido imediatamente anterior ao ativo. */
+  private async rollbackTarget(
+    project: Project,
+    currentRevision: string,
+  ): Promise<string> {
+    const history = await this.store.history(project.id, 1, 50);
+    const succeeded = history.items.filter(
+      (item) => item.status === 'succeeded' && item.kind !== 'rollback',
+    );
+    const currentIndex = succeeded.findIndex(
+      (item) => item.revision === currentRevision,
+    );
+    const previous =
+      currentIndex < 0
+        ? undefined
+        : succeeded
+            .slice(currentIndex + 1)
+            .find((item) => item.revision !== currentRevision);
+    if (!previous) {
+      throw new DeploymentError(
+        'DEPLOYMENT_REVISION_UNAVAILABLE',
+        'Não há uma versão anterior bem-sucedida registrada para voltar.',
+      );
+    }
+    return previous.revision;
+  }
+
   public async prepareConfirmation(
     project: Project,
     expectedPlanHash: string,
+    kind: DeploymentKind = 'deploy',
   ): Promise<DeploymentConfirmation> {
-    const plan = await this.plan(project);
+    const plan = await this.plan(project, kind);
     this.assertPlanHash(plan, expectedPlanHash);
     const executionFingerprint =
       await this.executionFingerprintResolver.resolve(project);
@@ -163,11 +200,12 @@ export class DeploymentService {
     project: Project,
     expectedPlanHash: string,
     confirmationToken: string | undefined,
+    kind: DeploymentKind = 'deploy',
   ): Promise<Deployment> {
     await this.readyPromise;
     this.assertCanStart(project);
 
-    const plan = await this.plan(project);
+    const plan = await this.plan(project, kind);
     this.assertPlanHash(plan, expectedPlanHash);
     const executionFingerprint =
       await this.executionFingerprintResolver.resolve(project);
@@ -186,6 +224,9 @@ export class DeploymentService {
       branch: plan.branch,
       revision: plan.revision,
       planHash: plan.planHash,
+      ...(plan.kind === 'rollback'
+        ? { kind: 'rollback' as const, fromRevision: plan.fromRevision! }
+        : {}),
       status: 'planned',
       createdAt: new Date(this.now()).toISOString(),
       timeline: plan.steps.map((step) => ({ ...step, status: 'pending' })),
@@ -488,6 +529,12 @@ export class DeploymentService {
             deployment = { ...deployment, providerDeploymentId };
             await this.store.save(deployment);
           },
+          deployment.kind === 'rollback' && deployment.fromRevision
+            ? {
+                targetRevision: deployment.revision,
+                fromRevision: deployment.fromRevision,
+              }
+            : undefined,
         );
         await logQueue;
 
@@ -957,8 +1004,13 @@ export class DeploymentService {
       return;
     }
 
+    // No rollback o checkout parte da revisão ativa e termina na versão alvo.
+    const expectedRevisions =
+      deployment.kind === 'rollback' && deployment.fromRevision
+        ? [deployment.fromRevision, deployment.revision]
+        : [deployment.revision];
     if (
-      current.revision !== deployment.revision ||
+      !expectedRevisions.includes(current.revision) ||
       current.branch !== deployment.branch
     ) {
       throw new DeploymentError(

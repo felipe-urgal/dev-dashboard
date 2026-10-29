@@ -168,6 +168,7 @@ export type {
   DeploymentProviderTimelineStep,
   DeploymentScriptId,
   DeploymentStatus,
+  DeploymentKind,
   DeploymentStepId,
   DeploymentChangeCommit,
   DeploymentPendingChanges,

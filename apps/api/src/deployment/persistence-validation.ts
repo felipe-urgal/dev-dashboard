@@ -162,6 +162,11 @@ export function isPersistedDeployment(value: unknown): value is Deployment {
           deployment.currentStepId === 'self-update' ||
           deployment.currentStepId in COMMAND_SCRIPTS))) &&
     optionalString(deployment.providerDeploymentId) &&
+    (deployment.kind === undefined ||
+      deployment.kind === 'deploy' ||
+      deployment.kind === 'rollback') &&
+    (deployment.fromRevision === undefined ||
+      /^[0-9a-f]{40}$/i.test(String(deployment.fromRevision))) &&
     (deployment.failurePoint === undefined ||
       deployment.failurePoint === 'before-irreversible' ||
       deployment.failurePoint === 'after-mutation' ||

@@ -17,6 +17,7 @@ import {
 
 import type {
   Deployment,
+  DeploymentKind,
   DeploymentLog,
   DeploymentPendingChanges,
   DeploymentPlan,
@@ -676,6 +677,18 @@ const readinessItems = computed(() =>
 );
 
 /** Última versão estável anterior à que está no ar (ou à tentativa que falhou). */
+/** O contrato declara prod:rollback e uma política que permite executá-lo aqui. */
+const rollbackExecutable = computed(() => {
+  const production = props.project.production;
+  return (
+    canExecuteDeployment.value &&
+    production?.strategy === 'command' &&
+    Boolean(production.commands.rollback) &&
+    (production.policies.rollback === 'restore-backup-when-schema-changed' ||
+      production.policies.rollback === 'provider-only-when-schema-compatible')
+  );
+});
+
 const previousStable = computed(() => {
   const succeeded = history.value.filter((item) => item.status === 'succeeded');
   const latest = latestDeployment.value;
@@ -1128,9 +1141,10 @@ async function refresh(): Promise<void> {
   }
 }
 
-async function preparePlan(): Promise<void> {
+async function preparePlan(kind?: DeploymentKind): Promise<void> {
   if (!canExecuteDeployment.value || operation.value) return;
   if (
+    !kind &&
     isGitManaged.value &&
     gitManagedStatus.value?.providerAvailability !== 'available'
   ) {
@@ -1146,6 +1160,7 @@ async function preparePlan(): Promise<void> {
     const nextPlan = await fetchDeploymentPlan(
       props.project.id,
       requestController?.signal,
+      kind,
     );
     if (current !== generation) return;
     plan.value = nextPlan;
@@ -1181,10 +1196,12 @@ async function confirmAndStart(): Promise<void> {
   operation.value = 'starting';
   errorMessage.value = '';
   try {
+    const kind = currentPlan.kind === 'rollback' ? 'rollback' : undefined;
     const confirmation = await createDeploymentConfirmation(
       props.project.id,
       currentPlan.planHash,
       requestController?.signal,
+      kind,
     );
     if (current !== generation) return;
     const deployment = await startDeployment(
@@ -1192,6 +1209,7 @@ async function confirmAndStart(): Promise<void> {
       currentPlan.planHash,
       confirmation.token,
       requestController?.signal,
+      kind,
     );
     if (current !== generation) return;
     plan.value = null;
@@ -1433,7 +1451,7 @@ onBeforeUnmount(() => {
                   (isGitManaged &&
                     gitManagedStatus?.providerAvailability !== 'available')
                 "
-                @click="preparePlan"
+                @click="preparePlan()"
               >
                 <ArrowPathIcon
                   v-if="operation === 'planning'"
@@ -1454,14 +1472,29 @@ onBeforeUnmount(() => {
 
           <ProductionPlanPanel
             v-if="plan"
-            title="Plano de deployment"
+            :title="
+              plan.kind === 'rollback'
+                ? 'Plano de rollback'
+                : 'Plano de deployment'
+            "
+            :notice="
+              plan.kind === 'rollback'
+                ? `Volta de ${plan.fromRevision?.slice(0, 8) ?? '—'} para ${plan.revision.slice(0, 8)} executando prod:rollback. O script recebe as revisões por DEV_DASHBOARD_ROLLBACK_TARGET_REVISION e DEV_DASHBOARD_ROLLBACK_FROM_REVISION. Não desfaz migrations: confira a política de rollback antes de confirmar.`
+                : undefined
+            "
             :branch="plan.branch"
             :project-name="plan.projectName"
             :revision="plan.revision"
             :steps="planSteps"
             :busy="Boolean(operation)"
             :confirm-label="
-              operation === 'starting' ? 'Iniciando…' : 'Iniciar deployment'
+              plan.kind === 'rollback'
+                ? operation === 'starting'
+                  ? 'Voltando…'
+                  : 'Confirmar rollback'
+                : operation === 'starting'
+                  ? 'Iniciando…'
+                  : 'Iniciar deployment'
             "
             @cancel="closePlan"
             @confirm="confirmAndStart"
@@ -1475,6 +1508,9 @@ onBeforeUnmount(() => {
             :previous="previousStable"
             :current="productionRevision"
             :open="recoveryOpen"
+            :executable="rollbackExecutable"
+            :busy="Boolean(operation) || Boolean(plan)"
+            @rollback="preparePlan('rollback')"
             @copy-revision="copyRevision"
             @open-terminal="openTerminal"
           />

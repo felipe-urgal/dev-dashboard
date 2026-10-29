@@ -263,6 +263,7 @@ export class ProductionCommandAdapter {
     signal: AbortSignal,
     onOutput: (output: MaskedLogContent) => void,
     onProviderDeploymentId?: (providerDeploymentId: string) => Promise<void>,
+    rollback?: { targetRevision: string; fromRevision: string },
   ): Promise<ProductionCommandResult> {
     if (step.id === 'provider-deploy') {
       return this.providerAdapter.run(
@@ -304,10 +305,19 @@ export class ProductionCommandAdapter {
     }
 
     const packageManager = await resolveProductionPackageManager(project.path);
-    const environment = await loadProductionCommandEnvironment(
-      project.path,
-      step.id === 'check' ? 'check' : 'production',
-    );
+    const environment = {
+      ...(await loadProductionCommandEnvironment(
+        project.path,
+        step.id === 'check' ? 'check' : 'production',
+      )),
+      // O script de rollback do projeto recebe as revisões; nunca vêm da UI.
+      ...(step.id === 'rollback' && rollback
+        ? {
+            DEV_DASHBOARD_ROLLBACK_TARGET_REVISION: rollback.targetRevision,
+            DEV_DASHBOARD_ROLLBACK_FROM_REVISION: rollback.fromRevision,
+          }
+        : {}),
+    };
 
     if (step.prepareScript) {
       const prepareResult = await this.runScript(

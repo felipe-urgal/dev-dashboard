@@ -55,6 +55,8 @@ const stepStatusSchema = {
   enum: ['pending', 'running', 'succeeded', 'failed', 'cancelled'],
 } as const;
 
+const kindSchema = { type: 'string', enum: ['deploy', 'rollback'] } as const;
+
 const providerSchema = {
   type: 'string',
   enum: ['systemd', 'docker-compose', 'vercel', 'none'],
@@ -140,6 +142,8 @@ export const deploymentPlanResponseSchema = {
     revision: { type: 'string' },
     planHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
     createdAt: { type: 'string' },
+    kind: kindSchema,
+    fromRevision: { type: 'string' },
     steps: { type: 'array', items: deploymentPlanStepResponseSchema },
   },
 } as const;
@@ -247,6 +251,8 @@ export const deploymentResponseSchema = {
     finishedAt: { type: 'string' },
     currentStepId: stepIdSchema,
     providerDeploymentId: { type: 'string', minLength: 1 },
+    kind: kindSchema,
+    fromRevision: { type: 'string' },
     failurePoint: {
       type: 'string',
       enum: ['before-irreversible', 'after-mutation', 'after-irreversible'],
