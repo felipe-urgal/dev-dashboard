@@ -34,26 +34,6 @@ export const router = createRouter({
       component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
-      path: '/projects/:projectId/doctor',
-      name: 'project-doctor',
-      component: () => import('../views/ProjectDetailsView.vue'),
-    },
-    {
-      path: '/projects/:projectId/readiness',
-      name: 'project-readiness',
-      component: () => import('../views/ProjectDetailsView.vue'),
-    },
-    {
-      path: '/projects/:projectId/security',
-      name: 'project-security-center',
-      component: () => import('../views/ProjectDetailsView.vue'),
-    },
-    {
-      path: '/projects/:projectId/local-ci',
-      name: 'project-local-ci',
-      component: () => import('../views/ProjectDetailsView.vue'),
-    },
-    {
       path: '/projects/:projectId/server',
       name: 'project-server',
       component: () => import('../views/ProjectDetailsView.vue'),

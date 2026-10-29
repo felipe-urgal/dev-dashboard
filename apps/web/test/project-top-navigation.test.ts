@@ -51,7 +51,6 @@ describe('ProjectTopNavigation', () => {
       'Execução · Servidor',
       'Git',
       'Desenvolvimento',
-      'Qualidade',
       'Agente',
       'Produção',
       'README',

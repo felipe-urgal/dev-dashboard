@@ -13,13 +13,11 @@ export * from './api/database-explorer';
 export * from './api/project-environment';
 export * from './api/settings';
 export * from './api/browser';
-export * from './api/project-doctor';
 export * from './api/project-coverage';
 export * from './api/project-files';
 export * from './api/project-readme';
 export * from './api/terminal';
 export * from './api/deployments';
-export * from './api/security-center';
 export * from './api/agent-runtime';
 
 export * from './api/task-contexts';

@@ -9,16 +9,11 @@ export type ProjectToolIcon =
   | 'worktrees'
   | 'tests'
   | 'environment'
-  | 'local-ci'
-  | 'readiness'
-  | 'security'
-  | 'doctor'
   | 'agent'
   | 'production'
   | 'readme';
 
-export type ProjectToolGroup =
-  'server' | 'git' | 'development' | 'quality' | 'direct';
+export type ProjectToolGroup = 'server' | 'git' | 'development' | 'direct';
 
 export interface ProjectToolContext {
   project: Project;
@@ -150,50 +145,6 @@ export const PROJECT_TOOLS: readonly ProjectTool[] = [
     group: 'development',
     aliases: 'environment env variáveis ambiente',
     icon: 'environment',
-    environmentAware: true,
-    isAvailable: always,
-  },
-  {
-    id: 'local-ci',
-    label: 'Local CI',
-    description: 'Pipeline de verificação local',
-    routeName: 'project-local-ci',
-    group: 'quality',
-    aliases: 'ci local pipeline checks',
-    icon: 'local-ci',
-    environmentAware: false,
-    isAvailable: always,
-  },
-  {
-    id: 'readiness',
-    label: 'Readiness',
-    description: 'Prontidão para release',
-    routeName: 'project-readiness',
-    group: 'quality',
-    aliases: 'readiness release prontidão',
-    icon: 'readiness',
-    environmentAware: false,
-    isAvailable: always,
-  },
-  {
-    id: 'security',
-    label: 'Segurança',
-    description: 'Centro de segurança do projeto',
-    routeName: 'project-security-center',
-    group: 'quality',
-    aliases: 'security segurança vulnerabilidades audit',
-    icon: 'security',
-    environmentAware: false,
-    isAvailable: always,
-  },
-  {
-    id: 'doctor',
-    label: 'Diagnóstico',
-    description: 'Diagnóstico e saúde do projeto',
-    routeName: 'project-doctor',
-    group: 'quality',
-    aliases: 'doctor diagnóstico saúde health',
-    icon: 'doctor',
     environmentAware: true,
     isAvailable: always,
   },
