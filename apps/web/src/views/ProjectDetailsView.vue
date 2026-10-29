@@ -35,9 +35,6 @@ function lazyTool(loader: () => Promise<{ default: Component }>): Component {
 const ProjectGitPanel = lazyTool(
   () => import('../components/ProjectGitPanel.vue'),
 );
-const ProjectWorktreesPanel = lazyTool(
-  () => import('../components/ProjectWorktreesPanel.vue'),
-);
 const ProjectProductionPanel = lazyTool(
   () => import('../components/ProjectProductionPanel.vue'),
 );
@@ -98,7 +95,6 @@ const isServerRoute = computed(
 );
 const isGitRoute = computed(() => route.name === 'project-git');
 
-const isWorktreesRoute = computed(() => route.name === 'project-worktrees');
 const isTestsRoute = computed(() => route.name === 'project-tests');
 const isAgentRoute = computed(() => route.name === 'project-agent');
 const isProductionRoute = computed(() => route.name === 'project-production');
@@ -326,12 +322,6 @@ onBeforeUnmount(stopGitOverviewRefresh);
         :key="`git-${project.id}`"
         :project="project"
         @git-updated="updateGitOverview"
-      />
-
-      <ProjectWorktreesPanel
-        v-else-if="isWorktreesRoute"
-        :key="`worktrees-${project.id}`"
-        :project="project"
       />
 
       <ProjectTestsPanel

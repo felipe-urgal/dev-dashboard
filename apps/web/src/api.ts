@@ -5,7 +5,6 @@ export * from './api/processes';
 export * from './api/git';
 export * from './api/git-workspace';
 export * from './api/git-workflows';
-export * from './api/git-worktrees';
 export * from './api/tests';
 export * from './api/test-pty';
 export * from './api/rails';

@@ -6,7 +6,6 @@ export type ProjectToolIcon =
   | 'sidekiq'
   | 'webpack'
   | 'git'
-  | 'worktrees'
   | 'tests'
   | 'agent'
   | 'production'
@@ -124,17 +123,6 @@ export const PROJECT_TOOLS: readonly ProjectTool[] = [
     environmentAware: false,
     isAvailable: (project) => project.capabilities.includes('git'),
     sidebar: false,
-  },
-  {
-    id: 'worktrees',
-    label: 'Worktrees',
-    description: 'Worktrees e ambientes do repositório',
-    routeName: 'project-worktrees',
-    group: 'git',
-    aliases: 'worktree worktrees branches ambientes',
-    icon: 'worktrees',
-    environmentAware: false,
-    isAvailable: (project) => project.capabilities.includes('git'),
   },
   {
     id: 'agent',
