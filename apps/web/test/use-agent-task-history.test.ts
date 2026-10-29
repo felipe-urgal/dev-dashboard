@@ -37,22 +37,6 @@ function fakeTask(
   };
 }
 
-function archivedTask(
-  projectId: string,
-  taskId: string,
-  version: number,
-): AgentTaskRecord {
-  const record = fakeTask(projectId, taskId, version);
-  return {
-    ...record,
-    task: {
-      ...record.task,
-      state: 'completed',
-      archivedAt: '2026-10-23T14:00:00.000Z',
-    },
-  };
-}
-
 function client() {
   const requests: Request[] = [];
   const fetchPage: typeof fetchAgentTaskPage = (projectId, options = {}) =>
