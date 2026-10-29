@@ -8,12 +8,11 @@ export type ProjectToolIcon =
   | 'git'
   | 'worktrees'
   | 'tests'
-  | 'environment'
   | 'agent'
   | 'production'
   | 'readme';
 
-export type ProjectToolGroup = 'server' | 'git' | 'development' | 'direct';
+export type ProjectToolGroup = 'server' | 'git' | 'direct';
 
 export interface ProjectToolContext {
   project: Project;
@@ -104,6 +103,17 @@ export const PROJECT_TOOLS: readonly ProjectTool[] = [
     requiresDetection: 'webpack',
   },
   {
+    id: 'tests',
+    label: 'Testes',
+    description: 'Suítes e histórico de execução',
+    routeName: 'project-tests',
+    group: 'server',
+    aliases: 'test tests testes suíte suite',
+    icon: 'tests',
+    environmentAware: true,
+    isAvailable: (project) => project.capabilities.includes('tests'),
+  },
+  {
     id: 'git',
     label: 'Git',
     description: 'Sincronização, branches, commit e histórico',
@@ -125,28 +135,6 @@ export const PROJECT_TOOLS: readonly ProjectTool[] = [
     icon: 'worktrees',
     environmentAware: false,
     isAvailable: (project) => project.capabilities.includes('git'),
-  },
-  {
-    id: 'tests',
-    label: 'Testes',
-    description: 'Suítes e histórico de execução',
-    routeName: 'project-tests',
-    group: 'development',
-    aliases: 'test tests testes suíte suite',
-    icon: 'tests',
-    environmentAware: true,
-    isAvailable: (project) => project.capabilities.includes('tests'),
-  },
-  {
-    id: 'environment',
-    label: 'Variáveis de ambiente',
-    description: 'Configuração de ambiente do projeto',
-    routeName: 'project-environment',
-    group: 'development',
-    aliases: 'environment env variáveis ambiente',
-    icon: 'environment',
-    environmentAware: true,
-    isAvailable: always,
   },
   {
     id: 'agent',

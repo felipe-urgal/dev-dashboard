@@ -5,7 +5,6 @@ import {
   ArrowPathIcon,
   ArrowUpTrayIcon,
   ArrowUturnLeftIcon,
-  BeakerIcon,
   CheckCircleIcon,
   ChevronDownIcon,
   ClockIcon,
@@ -73,7 +72,6 @@ const gitTabIcons: Record<ProjectGitTabId, Component> = {
 const groupMeta: Record<NavGroupId, { label: string; icon: Component }> = {
   server: { label: 'Execução', icon: ServerStackIcon },
   git: { label: 'Git', icon: CodeBracketIcon },
-  development: { label: 'Desenvolvimento', icon: BeakerIcon },
 };
 
 function toolItem(tool: ProjectTool): NavItem {

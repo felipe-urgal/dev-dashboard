@@ -34,20 +34,14 @@
    cortar tabelas, históricos ou diagnósticos longos. */
 .project-details-page > :last-child {
   overflow: visible;
-}
-:deep(.server-dashboard),
+}:deep(.server-dashboard),
 :deep(.git-modern-panel),
-:deep(.project-environment-panel),
 :deep(.rails-runtime-panel),
 :deep(.tests-pty-panel) {
   height: auto;
   min-height: 0;
   overflow: visible;
-}
-:deep(.project-environment-panel) {
-  max-height: none;
-}
-:deep(.terminal-panel) {
+}:deep(.terminal-panel) {
   height: auto;
   overflow: visible;
 }
@@ -58,15 +52,13 @@
   height: calc(100vh - var(--app-topbar-height, 72px));
   min-height: calc(100vh - var(--app-topbar-height, 72px));
   overflow: hidden;
-}
-.project-details-page-pty > :last-child {
+}.project-details-page-pty > :last-child {
   display: flex;
   flex: 1 1 0;
   height: auto;
   min-height: 0;
   overflow: hidden;
-}
-.project-details-page-pty :deep(.server-dashboard),
+}.project-details-page-pty :deep(.server-dashboard),
 .project-details-page-pty :deep(.terminal-panel),
 .project-details-page-pty :deep(.tests-pty-panel),
 .project-details-page-pty :deep(.rails-runtime-panel) {
@@ -75,8 +67,7 @@
   min-height: 0;
   max-height: 100%;
   overflow: hidden;
-}
-.project-details-page-pty :deep(.terminal-window),
+}.project-details-page-pty :deep(.terminal-window),
 .project-details-page-pty :deep(.tests-pty-terminal) {
   flex: 1 1 0;
   height: auto;
@@ -88,32 +79,27 @@
 :deep(.server-dashboard),
 :deep(.server-dashboard-grid),
 :deep(.git-modern-panel),
-:deep(.project-environment-panel),
 :deep(.rails-runtime-panel),
 :deep(.terminal-panel) {
   min-height: 0;
   height: auto;
-}
-:deep(.readme-panel) {
+}:deep(.readme-panel) {
   height: 100%;
   width: 100%;
   min-width: 0;
-}
-:deep(.readme-document) {
+}:deep(.readme-document) {
   width: 100%;
   max-width: 1180px;
   box-sizing: border-box;
   margin: 0 auto;
-}
-:deep(.readme-code-block) {
+}:deep(.readme-code-block) {
   width: 100%;
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
 }
 
-@media (max-width: 720px) {
-  .project-details-page {
+@media (max-width: 720px) {.project-details-page {
     --project-sticky-offset: 140px;
   }
 }
@@ -121,27 +107,21 @@
 /* Com os painéis encostados, cada seção deve desenhar uma única borda. */
 :deep(.project-details-page .server-dashboard-grid) {
   border: 1px solid var(--border);
-}
-:deep(.project-details-page .server-card) {
+}:deep(.project-details-page .server-card) {
   border: 0;
-}
-:deep(.project-details-page .server-card + .server-card) {
+}:deep(.project-details-page .server-card + .server-card) {
   border-left: 1px solid var(--border);
-}
-:deep(.project-details-page .readme-panel) {
+}:deep(.project-details-page .readme-panel) {
   box-shadow: none;
-}
-.database-explorer {
+}.database-explorer {
   background: var(--surface-0);
-}
-.database-detail-title {
+}.database-detail-title {
   gap: 16px;
   padding: 18px 20px;
   background: linear-gradient(120deg, var(--surface-2), var(--surface-1));
 }
 
-@media (max-width: 720px) {
-  .database-detail-title {
+@media (max-width: 720px) {.database-detail-title {
     padding: 14px;
   }
 }
@@ -151,8 +131,7 @@
   display: none;
 }
 
-@media (max-width: 900px) {
-  .project-details-page-pty {
+@media (max-width: 900px) {.project-details-page-pty {
     height: calc(100vh - var(--app-topbar-height, 116px));
     min-height: calc(100vh - var(--app-topbar-height, 116px));
   }

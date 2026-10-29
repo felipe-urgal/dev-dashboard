@@ -1,6 +1,5 @@
 import type { Component } from 'vue';
 import {
-  AdjustmentsHorizontalIcon,
   BeakerIcon,
   CodeBracketIcon,
   CommandLineIcon,
@@ -23,7 +22,6 @@ export const projectToolIcons: Record<ProjectToolIcon, Component> = {
   git: CodeBracketIcon,
   worktrees: FolderIcon,
   tests: BeakerIcon,
-  environment: AdjustmentsHorizontalIcon,
   agent: CpuChipIcon,
   production: RocketLaunchIcon,
   readme: DocumentTextIcon,

@@ -47,9 +47,6 @@ const ProjectSelfUpdateProductionPanel = lazyTool(
 const ProjectRailsRuntimePanel = lazyTool(
   () => import('../components/ProjectRailsRuntimePanel.vue'),
 );
-const ProjectEnvironmentPanel = lazyTool(
-  () => import('../components/ProjectEnvironmentPanel.vue'),
-);
 const ProjectReadmePanel = lazyTool(
   () => import('../components/ProjectReadmePanel.vue'),
 );
@@ -111,7 +108,6 @@ const isRailsSidekiqRoute = computed(
 const isRailsWebpackRoute = computed(
   () => route.name === 'project-rails-webpack',
 );
-const isEnvironmentRoute = computed(() => route.name === 'project-environment');
 const isTerminalRoute = computed(() => route.name === 'project-terminal');
 const isConsoleRoute = computed(() => route.name === 'project-console');
 
@@ -404,13 +400,6 @@ onBeforeUnmount(stopGitOverviewRefresh);
         :key="`rails-webpack-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
         worker-id="webpack"
-        :environment-instance-id="environmentInstanceId"
-      />
-
-      <ProjectEnvironmentPanel
-        v-else-if="isEnvironmentRoute"
-        :key="`environment-${project.id}-${environmentInstanceId ?? 'primary'}`"
-        :project="project"
         :environment-instance-id="environmentInstanceId"
       />
     </template>
