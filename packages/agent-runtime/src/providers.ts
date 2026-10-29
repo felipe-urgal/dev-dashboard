@@ -1,9 +1,5 @@
 import path from 'node:path';
 
-import {
-  ChatGptBrowserAgentProvider,
-  type ChatGptBrowserAgentProviderOptions,
-} from './browser-provider.js';
 import { sanitizeAgentConversationContent } from './conversation-store.js';
 import { formatAgentProviderConversationContext } from './provider-context.js';
 import type {
@@ -30,9 +26,8 @@ const DEFAULT_EXECUTION_TIMEOUT_MS = 45 * 60 * 1000;
 const DEFAULT_PROBE_TIMEOUT_MS = 10_000;
 const MAX_PROVIDER_SUMMARY_CHARS = 32_000;
 const MAX_PROVIDER_RESPONSE_CHARS = 16_000;
-const CODEX_CLI_MIN_VERSION = [0, 156, 1] as const;
 const CLAUDE_CODE_MIN_VERSION = [2, 1, 259] as const;
-const LOCAL_PROVIDER_IDS = ['codex', 'claude-code'] as const;
+const LOCAL_PROVIDER_IDS = ['claude-code'] as const;
 const ALL_PROVIDER_IDS = [
   'automatic',
   'codex',
@@ -97,12 +92,10 @@ export interface LocalAgentProviderRegistryOptions extends Omit<
   LocalAgentProviderOptions,
   'command'
 > {
-  codexCommand?: string;
   claudeCommand?: string;
   preferredProviderId?: AgentConcreteProviderId;
   fallbackOrder?: readonly AgentConcreteProviderId[];
   resolveAutomaticPreference?: AutomaticAgentProviderOptions['resolvePreference'];
-  browser?: ChatGptBrowserAgentProviderOptions;
 }
 
 class ProviderProbeError extends Error {
@@ -421,30 +414,6 @@ function normalizeProviderResponseText(value: unknown): string | undefined {
   return normalized.slice(0, MAX_PROVIDER_RESPONSE_CHARS);
 }
 
-function codexResponseFromJsonl(stdout: string): string | undefined {
-  let responseText: string | undefined;
-  for (const line of stdout.split(/\r?\n/)) {
-    const value = line.trim();
-    if (!value) continue;
-    let event: unknown;
-    try {
-      event = JSON.parse(value);
-    } catch {
-      continue;
-    }
-    if (!event || typeof event !== 'object') continue;
-    const record = event as Record<string, unknown>;
-    if (record.type !== 'item.completed') continue;
-    const item = record.item;
-    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
-    const itemRecord = item as Record<string, unknown>;
-    if (itemRecord.type !== 'agent_message') continue;
-    const candidate = normalizeProviderResponseText(itemRecord.text);
-    if (candidate) responseText = candidate;
-  }
-  return responseText;
-}
-
 function claudeMessageText(value: unknown): string | undefined {
   if (typeof value === 'string') return normalizeProviderResponseText(value);
   if (!Array.isArray(value)) return undefined;
@@ -488,67 +457,6 @@ function claudeResponseFromJsonl(stdout: string): string | undefined {
     }
   }
   return resultText ?? assistantText;
-}
-
-function codexUsageFromJsonl(stdout: string): AgentUsage | undefined {
-  let normalized: AgentUsage | undefined;
-
-  for (const line of stdout.split(/\r?\n/)) {
-    const value = line.trim();
-    if (!value) continue;
-
-    let event: unknown;
-    try {
-      event = JSON.parse(value);
-    } catch {
-      continue;
-    }
-
-    if (
-      !event ||
-      typeof event !== 'object' ||
-      (event as { type?: unknown }).type !== 'turn.completed'
-    ) {
-      continue;
-    }
-
-    const rawUsage = (event as { usage?: unknown }).usage;
-    if (!rawUsage || typeof rawUsage !== 'object') continue;
-    const usage = rawUsage as Record<string, unknown>;
-
-    const inputTokens = nonNegativeInteger(usage.input_tokens);
-    const cachedInputTokens = nonNegativeInteger(usage.cached_input_tokens);
-    const cacheWriteInputTokens = nonNegativeInteger(
-      usage.cache_write_input_tokens,
-    );
-    const outputTokens = nonNegativeInteger(usage.output_tokens);
-    const reasoningTokens = nonNegativeInteger(usage.reasoning_output_tokens);
-    const totalTokens = nonNegativeInteger(usage.total_tokens);
-
-    if (
-      inputTokens === undefined &&
-      cachedInputTokens === undefined &&
-      cacheWriteInputTokens === undefined &&
-      outputTokens === undefined &&
-      reasoningTokens === undefined &&
-      totalTokens === undefined
-    ) {
-      continue;
-    }
-
-    normalized = {
-      providerId: 'codex',
-      source: 'provider',
-      ...(inputTokens !== undefined ? { inputTokens } : {}),
-      ...(cachedInputTokens !== undefined ? { cachedInputTokens } : {}),
-      ...(cacheWriteInputTokens !== undefined ? { cacheWriteInputTokens } : {}),
-      ...(outputTokens !== undefined ? { outputTokens } : {}),
-      ...(reasoningTokens !== undefined ? { reasoningTokens } : {}),
-      ...(totalTokens !== undefined ? { totalTokens } : {}),
-    };
-  }
-
-  return normalized;
 }
 
 function nonNegativeNumber(value: unknown): number | undefined {
@@ -749,9 +657,7 @@ abstract class LocalCliAgentProvider implements AgentProvider {
           status: 'unavailable',
           source: 'unavailable',
           reason:
-            this.id === 'codex'
-              ? 'Codex quota is only documented through interactive status/usage surfaces.'
-              : 'Claude Code quota is not exposed here through a supported machine-readable CLI interface.',
+            'Claude Code quota is not exposed here through a supported machine-readable CLI interface.',
         },
       };
     } catch (error) {
@@ -806,86 +712,6 @@ abstract class LocalCliAgentProvider implements AgentProvider {
     } catch (error) {
       return normalizeExecutionFailure(this.id, this.label, error);
     }
-  }
-}
-
-export class CodexAgentProvider extends LocalCliAgentProvider {
-  readonly id = 'codex' as const;
-  protected readonly label = 'Codex';
-
-  constructor(options: LocalAgentProviderOptions) {
-    super(options, 'codex');
-  }
-
-  protected async probe(): Promise<string> {
-    const versionResult = await runProbe(
-      this.runtime,
-      this.label,
-      ['--version'],
-      {
-        code: 'runtime-failed',
-        reason: 'Codex version check failed',
-        evidence: 'Codex command started but --version did not succeed.',
-      },
-    );
-    const version = providerVersion(versionResult);
-    const parsedVersion = semanticVersion(version);
-    if (!parsedVersion) {
-      throw new ProviderProbeError(
-        'degraded',
-        'runtime-failed',
-        'Codex version could not be determined',
-        'Codex --version returned no supported semantic version.',
-      );
-    }
-    if (versionIsBelow(parsedVersion, CODEX_CLI_MIN_VERSION)) {
-      throw new ProviderProbeError(
-        'degraded',
-        'version-unsupported',
-        'Codex version is below the supported minimum',
-        'Detected ' +
-          version +
-          '; minimum ' +
-          minimumVersionLabel(CODEX_CLI_MIN_VERSION) +
-          '.',
-      );
-    }
-
-    await runProbe(this.runtime, this.label, ['login', 'status'], {
-      code: 'authentication-required',
-      reason: 'Codex authentication was not confirmed',
-      evidence:
-        'Codex CLI is installed and compatible, but login status did not succeed.',
-    });
-    return version;
-  }
-
-  protected executionArgs(
-    request: AgentProviderExecutionRequest,
-    prompt: string,
-  ): readonly string[] {
-    const sandbox = request.allowedCapabilities.includes('workspace:write')
-      ? 'workspace-write'
-      : 'read-only';
-
-    return [
-      '--ask-for-approval',
-      'never',
-      'exec',
-      '--json',
-      '--skip-git-repo-check',
-      '--sandbox',
-      sandbox,
-      prompt,
-    ];
-  }
-
-  protected usage(result: AgentCliProcessResult): AgentUsage | undefined {
-    return codexUsageFromJsonl(result.stdout);
-  }
-
-  protected responseText(result: AgentCliProcessResult): string | undefined {
-    return codexResponseFromJsonl(result.stdout);
   }
 }
 
@@ -1066,8 +892,7 @@ export class AutomaticAgentProvider implements AgentProvider {
       reason: 'no healthy compatible provider is available',
       diagnostic: {
         code: 'automatic-unavailable',
-        evidence:
-          'No configured Codex or Claude Code provider passed preflight.',
+        evidence: 'The Claude Code provider did not pass preflight.',
       },
     };
   }
@@ -1085,7 +910,9 @@ export class AutomaticAgentProvider implements AgentProvider {
         )
       : this.defaultOrder;
 
-    for (const providerId of order) {
+    // Preferências antigas podem apontar para providers removidos (ex.: codex):
+    // os providers padrão entram no fim da ordem para não bloquear a execução.
+    for (const providerId of [...new Set([...order, ...this.defaultOrder])]) {
       const provider = this.options.registry.get(providerId);
       if (!provider) continue;
 
@@ -1126,23 +953,12 @@ export function createLocalAgentProviderRegistry(
     ...(options.now ? { now: options.now } : {}),
   } satisfies Omit<LocalAgentProviderOptions, 'command'>;
 
-  const codex = new CodexAgentProvider({
-    ...common,
-    ...(options.codexCommand ? { command: options.codexCommand } : {}),
-  });
   const claude = new ClaudeCodeAgentProvider({
     ...common,
     ...(options.claudeCommand ? { command: options.claudeCommand } : {}),
   });
 
-  const browser = options.browser
-    ? new ChatGptBrowserAgentProvider(options.browser)
-    : null;
-  const concreteProviders: AgentProvider[] = [
-    codex,
-    claude,
-    ...(browser ? [browser] : []),
-  ];
+  const concreteProviders: AgentProvider[] = [claude];
   const concreteRegistry = new StaticAgentProviderRegistry(concreteProviders);
   const automatic = new AutomaticAgentProvider({
     registry: concreteRegistry,
@@ -1156,10 +972,5 @@ export function createLocalAgentProviderRegistry(
     ...(options.now ? { now: options.now } : {}),
   });
 
-  return new StaticAgentProviderRegistry([
-    automatic,
-    codex,
-    claude,
-    ...(browser ? [browser] : []),
-  ]);
+  return new StaticAgentProviderRegistry([automatic, claude]);
 }
