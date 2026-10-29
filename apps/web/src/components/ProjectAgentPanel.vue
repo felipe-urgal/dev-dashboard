@@ -86,6 +86,12 @@ const capabilities: Array<{
       'Permite o shell no workspace: testes, builds, servidor local e chamadas a localhost.',
   },
   {
+    id: 'browser:use',
+    label: 'Usar navegador',
+    description:
+      'Dá ao Claude um navegador (Playwright) para abrir páginas locais, ver a tela e tirar screenshots.',
+  },
+  {
     id: 'git:commit',
     label: 'Criar commit',
     description: 'Permite registrar mudanças no Git.',
@@ -1269,10 +1275,25 @@ onBeforeUnmount(() => {
                   </small>
                 </span>
               </label>
+              <label class="ag-check">
+                <input
+                  v-model="requestedCapabilities"
+                  type="checkbox"
+                  value="browser:use"
+                />
+                <span>
+                  <strong>Usar navegador</strong>
+                  <small>
+                    Abre páginas locais, vê a tela e tira screenshots
+                    (Playwright). Combine com “Executar comandos” para ele subir
+                    o app.
+                  </small>
+                </span>
+              </label>
               <details>
                 <summary>Mais permissões (Git, PR, deploy…)</summary>
                 <label
-                  v-for="capability in capabilities.slice(2)"
+                  v-for="capability in capabilities.slice(3)"
                   :key="capability.id"
                   class="ag-check"
                 >

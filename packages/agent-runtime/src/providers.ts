@@ -1,3 +1,4 @@
+import os from 'node:os';
 import path from 'node:path';
 
 import { sanitizeAgentConversationContent } from './conversation-store.js';
@@ -290,10 +291,36 @@ async function resolveOwnedCwd(
   return path.normalize(value);
 }
 
+const BROWSER_MCP_SERVER = 'playwright';
+const BROWSER_MCP_TOOLS = `mcp__${BROWSER_MCP_SERVER}`;
+const PLAYWRIGHT_MCP_PACKAGE = '@playwright/mcp@0.0.83';
+
+function browserMcpConfig(): {
+  mcpServers: Record<string, { command: string; args: string[] }>;
+} {
+  return {
+    mcpServers: {
+      [BROWSER_MCP_SERVER]: {
+        command: 'npx',
+        args: [
+          '--yes',
+          PLAYWRIGHT_MCP_PACKAGE,
+          '--headless',
+          '--isolated',
+          '--output-dir',
+          path.join(os.tmpdir(), 'dev-dashboard-agent-browser'),
+        ],
+      },
+    },
+  };
+}
+
 const CAPABILITY_MEANINGS: Partial<Record<AgentCapability, string>> = {
   'workspace:write': 'edit files inside the working directory',
   'workspace:run':
     'run shell commands inside the working directory (tests, builds, local dev servers, requests to localhost or 127.0.0.1); do not contact other hosts',
+  'browser:use':
+    'use the Playwright browser tools (mcp__playwright) to open local pages (localhost or 127.0.0.1 only), inspect them and take screenshots',
 };
 
 function capabilityMeanings(
@@ -945,7 +972,14 @@ export class ClaudeCodeAgentProvider extends LocalCliAgentProvider {
     // Sem escrever nem executar comandos a execução é somente leitura (modo plan).
     const canWrite = request.allowedCapabilities.includes('workspace:write');
     const canRun = request.allowedCapabilities.includes('workspace:run');
-    const permissionMode = canWrite || canRun ? 'auto' : 'plan';
+    const canBrowse = request.allowedCapabilities.includes('browser:use');
+    // Só navegador: nada além do que foi pré-aprovado (leitura + ferramentas do navegador).
+    const permissionMode =
+      canWrite || canRun ? 'auto' : canBrowse ? 'dontAsk' : 'plan';
+    const allowedTools = [
+      ...(canRun ? ['Bash'] : []),
+      ...(canBrowse ? [BROWSER_MCP_TOOLS] : []),
+    ];
     return [
       '-p',
       '--permission-mode',
@@ -957,7 +991,15 @@ export class ClaudeCodeAgentProvider extends LocalCliAgentProvider {
         : []),
       // Pré-aprova o shell só quando concedido. Fica antes de outra flag: o
       // parser trata --allowedTools como lista e engoliria o prompt posicional.
-      ...(canRun ? ['--allowedTools', 'Bash'] : []),
+      ...(allowedTools.length > 0 ? ['--allowedTools', ...allowedTools] : []),
+      // Navegador: servidor MCP do Playwright em versão fixa e só ele (--strict).
+      ...(canBrowse
+        ? [
+            '--mcp-config',
+            JSON.stringify(browserMcpConfig()),
+            '--strict-mcp-config',
+          ]
+        : []),
       '--output-format',
       'stream-json',
       '--verbose',

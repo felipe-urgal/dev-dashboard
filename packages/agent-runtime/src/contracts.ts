@@ -25,6 +25,7 @@ export type AgentExecutionState =
 export type AgentCapability =
   | 'workspace:write'
   | 'workspace:run'
+  | 'browser:use'
   | 'git:commit'
   | 'git:push'
   | 'github:pull-request'

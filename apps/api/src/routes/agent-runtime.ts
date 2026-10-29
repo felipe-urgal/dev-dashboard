@@ -124,6 +124,7 @@ const concreteProviderIds = [
 const capabilities = [
   'workspace:write',
   'workspace:run',
+  'browser:use',
   'git:commit',
   'git:push',
   'github:pull-request',

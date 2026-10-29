@@ -1811,6 +1811,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     switch (capability) {
       case 'workspace:write':
       case 'workspace:run':
+      case 'browser:use':
       case 'deployment:run':
         if (!environmentInstanceId) {
           throw new AgentRuntimeApiServiceError(

@@ -59,6 +59,7 @@ export class AgentAuditStoreError extends Error {
 const capabilities = new Set<AgentCapability>([
   'workspace:write',
   'workspace:run',
+  'browser:use',
   'git:commit',
   'git:push',
   'github:pull-request',
