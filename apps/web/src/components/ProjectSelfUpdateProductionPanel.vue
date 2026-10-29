@@ -63,6 +63,9 @@ const TERMINAL = new Set<Deployment['status']>([
 const loading = ref(false);
 const operation = ref<'planning' | 'starting' | ''>('');
 const reconnecting = ref(false);
+// Verdadeiro quando esta página viu a execução terminar (não ao abrir um histórico antigo).
+const finishedNow = ref(false);
+const now = ref(Date.now());
 const errorMessage = ref('');
 const plan = ref<DeploymentPlan | null>(null);
 const latest = ref<Deployment | null>(null);
@@ -77,6 +80,8 @@ const log = ref<DeploymentLog | null>(null);
 let generation = 0;
 let timer: number | undefined;
 let controller: AbortController | undefined;
+let clock: number | undefined;
+const originalTitle = document.title;
 
 function clearTimer(): void {
   if (timer !== undefined) {
@@ -88,6 +93,19 @@ function clearTimer(): void {
 function schedulePoll(current: number, delay = 900): void {
   clearTimer();
   timer = window.setTimeout(() => void poll(current), delay);
+}
+
+function formatElapsed(deployment: Deployment): string {
+  const start = new Date(
+    deployment.startedAt ?? deployment.createdAt,
+  ).getTime();
+  if (!Number.isFinite(start)) return '';
+  const seconds = Math.max(0, Math.round((now.value - start) / 1000));
+  return `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`;
+}
+
+function reloadPage(): void {
+  window.location.reload();
 }
 
 function shortRevision(value: string | undefined): string {
@@ -185,6 +203,15 @@ const status = computed(() => {
       tone: 'info' as Tone,
     };
   }
+  if (finishedNow.value && deployment.status === 'succeeded') {
+    return {
+      title: 'Self-update concluído',
+      description:
+        'A nova versão já está no ar. Recarregue a página para usar a interface atualizada.',
+      detail: `Concluído às ${formatDate(deployment.finishedAt ?? deployment.createdAt)} em ${formatDuration(deployment)}.`,
+      tone: 'success' as Tone,
+    };
+  }
   if (deployment.status === 'succeeded') {
     return {
       title: 'Self-update disponível',
@@ -229,7 +256,7 @@ const status = computed(() => {
       'O worker externo assumiu a operação. A página reconcilia o resultado quando a API responder novamente.',
     detail: reconnecting.value
       ? 'Aguardando a nova API ficar pronta.'
-      : 'Atualização em andamento.',
+      : `Atualização em andamento há ${formatElapsed(deployment)}.`,
     tone: 'info' as Tone,
   };
 });
@@ -384,6 +411,7 @@ async function load(): Promise<void> {
   controller = new AbortController();
   loading.value = true;
   reconnecting.value = false;
+  finishedNow.value = false;
   errorMessage.value = '';
   plan.value = null;
   latest.value = null;
@@ -432,6 +460,8 @@ async function poll(current: number): Promise<void> {
     );
     if (current !== generation) return;
     reconnecting.value = false;
+    const wasActive = latest.value ? !TERMINAL.has(latest.value.status) : false;
+    if (wasActive && TERMINAL.has(deployment.status)) finishedNow.value = true;
     latest.value = deployment;
     history.value = [
       deployment,
@@ -512,8 +542,31 @@ watch(
   { immediate: true },
 );
 
+// Relógio da execução e aviso na aba, para quem fica em outra janela esperando.
+watch(
+  () => shouldPoll(latest.value),
+  (active) => {
+    window.clearInterval(clock);
+    clock = undefined;
+    if (active) {
+      now.value = Date.now();
+      clock = window.setInterval(() => (now.value = Date.now()), 1_000);
+      document.title = `⏳ Self-update… — ${originalTitle}`;
+    }
+  },
+  { immediate: true },
+);
+
+watch(finishedNow, (done) => {
+  if (!done) return;
+  const ok = latest.value?.status === 'succeeded';
+  document.title = `${ok ? '✅ Self-update concluído' : '❌ Self-update falhou'} — ${originalTitle}`;
+});
+
 onBeforeUnmount(() => {
   generation += 1;
+  window.clearInterval(clock);
+  document.title = originalTitle;
   clearTimer();
   controller?.abort();
 });
@@ -533,6 +586,14 @@ onBeforeUnmount(() => {
       label="Self-update"
       :facts="headerFacts"
     >
+      <UiButton
+        v-if="finishedNow && latest?.status === 'succeeded'"
+        variant="primary"
+        @click="reloadPage"
+      >
+        <ArrowPathIcon aria-hidden="true" />
+        Recarregar página
+      </UiButton>
       <UiButton
         :disabled="loading || Boolean(operation) || shouldPoll(latest)"
         @click="load"
