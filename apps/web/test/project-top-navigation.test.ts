@@ -64,8 +64,6 @@ describe('ProjectTopNavigation', () => {
 
     const wrapper = mountNavigation();
 
-    expect(wrapper.find('.project-nav-hub-active').text()).toContain(
-      'Git · Branches',
-    );
+    expect(wrapper.find('.project-nav-hub-active').text()).toBe('Branches');
   });
 });
