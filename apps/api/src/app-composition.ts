@@ -18,43 +18,21 @@ import {
   HttpBrowserBridgeClient,
   createLocalAgentProviderRegistry,
   readBrowserBridgeToken,
-  type AgentProviderExecutionRequest,
-  type BrowserBridgePort,
 } from '@dev-dashboard/agent-runtime';
 
 import type { AppContext } from './app-context.js';
 import { DeploymentService } from './deployment/service.js';
 import { ProductionOverviewService } from './deployment/production-overview.js';
 import { ActivitySnapshotService } from './services/activity-snapshot-service.js';
-import {
-  AgentRuntimeApiService,
-  type AgentRuntimeApiServicePort,
-} from './services/agent-runtime-api-service.js';
+import { AgentRuntimeApiService } from './services/agent-runtime-api-service.js';
 import { AgentRuntimeRealtimeService } from './services/agent-runtime-realtime-service.js';
 import { AgentTaskWorkspaceProvisioningService } from './services/agent-task-workspace-provisioning-service.js';
-import { DevContainerCleanupService } from './services/dev-container-cleanup-service.js';
-import { DevContainerConfigSnapshotService } from './services/dev-container-config-snapshot-service.js';
-import { DevContainerDiscoveryService } from './services/dev-container-discovery-service.js';
-import { DevContainerLifecycleConfirmationService } from './services/dev-container-lifecycle-confirmation-service.js';
-import { DevContainerLifecycleExecutionService } from './services/dev-container-lifecycle-execution-service.js';
-import { DevContainerLifecyclePlanningService } from './services/dev-container-lifecycle-planning-service.js';
-import { DevContainerRecoveryService } from './services/dev-container-recovery-service.js';
-import { DevContainerOwnershipStore } from './services/dev-container-ownership-store.js';
-import { DevContainerStartService } from './services/dev-container-start-service.js';
-import { DevContainerStopConfirmationService } from './services/dev-container-stop-confirmation-service.js';
-import { DockerComposeLifecycleConfirmationService } from './services/docker-compose-lifecycle-confirmation-service.js';
-import { DockerComposeLifecycleExecutionService } from './services/docker-compose-lifecycle-execution-service.js';
-import { DockerComposeLifecycleService } from './services/docker-compose-lifecycle-service.js';
 import { ConfirmedLifecycleJobJournal } from './services/confirmed-lifecycle-job-journal.js';
-import { ServiceResourceOperationLock } from './services/service-resource-operation-lock.js';
 import { DockerComposeOwnershipStore } from './services/docker-compose-ownership-store.js';
-import { DockerComposeRecoveryService } from './services/docker-compose-recovery-service.js';
-import { DockerComposePreflightService } from './services/docker-compose-preflight-service.js';
 import { DockerComposeProvider } from './services/docker-compose-provider.js';
 import { AttentionCenterService } from './services/attention-center-service.js';
 import { ProjectDoctorService } from './services/project-doctor-service.js';
 import { PortInspectorService } from './services/port-inspector-service.js';
-import { PortAllocationLeaseRegistry } from './services/port-registry-service.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
 import { ProjectDependencyHealthService } from './services/project-dependency-health-service.js';
 import { ProjectDependencyUpgradePlanService } from './services/project-dependency-upgrade-plan-service.js';
@@ -90,64 +68,11 @@ export interface AgentBrowserRuntimePort {
 export interface AppCompositionOptions {
   now?: () => number;
   dockerComposeProvider?: Pick<DockerComposeProvider, 'inspect'>;
-  dockerComposePreflightService?: Pick<
-    DockerComposePreflightService,
-    'inspect'
-  >;
-  dockerComposeLifecycleService?: Pick<
-    DockerComposeLifecycleService,
-    'start' | 'stop' | 'restart' | 'logs' | 'reconcile'
-  >;
-  dockerComposeLifecycleConfirmationService?: Pick<
-    DockerComposeLifecycleConfirmationService,
-    'prepare' | 'consume'
-  >;
-  dockerComposeLifecycleExecutionService?: Pick<
-    DockerComposeLifecycleExecutionService,
-    'start' | 'latest' | 'activityJobs'
-  >;
-  dockerComposeRecoveryService?: Pick<
-    DockerComposeRecoveryService,
-    'reconcile'
-  >;
   dockerComposeOwnershipStore?: Pick<
     DockerComposeOwnershipStore,
     'get' | 'claim' | 'release'
   >;
   projectDoctorService?: ProjectDoctorService;
-  devContainerDiscoveryService?: Pick<DevContainerDiscoveryService, 'inspect'>;
-  devContainerLifecyclePlanningService?: Pick<
-    DevContainerLifecyclePlanningService,
-    'plan'
-  >;
-  devContainerLifecycleConfirmationService?: Pick<
-    DevContainerLifecycleConfirmationService,
-    'prepare' | 'consume'
-  >;
-  devContainerOwnershipStore?: Pick<
-    DevContainerOwnershipStore,
-    'reserve' | 'attach' | 'get' | 'release'
-  >;
-  devContainerCleanupService?: Pick<
-    DevContainerCleanupService,
-    'inspect' | 'cleanup'
-  >;
-  devContainerStartService?: Pick<
-    DevContainerStartService,
-    'start' | 'rebuild'
-  >;
-  devContainerStopConfirmationService?: Pick<
-    DevContainerStopConfirmationService,
-    'prepare' | 'consume'
-  >;
-  devContainerLifecycleExecutionService?: Pick<
-    DevContainerLifecycleExecutionService,
-    'start' | 'latest' | 'cancel' | 'activityJobs'
-  >;
-  devContainerRecoveryService?: Pick<
-    DevContainerRecoveryService,
-    'reconcile' | 'reconcileProject'
-  >;
   portInspectorService?: PortInspectorService;
   projectLanguageServerService?: ProjectLanguageServerService;
   projectTerminalService?: ProjectTerminalService;
@@ -193,29 +118,10 @@ export function createAppComposition(
       ...(options.now ? { now: options.now } : {}),
       environmentInstanceStore: context.developmentEnvironmentInstanceStore,
     });
-  const devContainerDiscoveryService =
-    options.devContainerDiscoveryService ??
-    new DevContainerDiscoveryService(
-      undefined,
-      options.now ? () => new Date(options.now!()) : undefined,
-    );
-  const devContainerOwnershipStore =
-    options.devContainerOwnershipStore ??
-    new DevContainerOwnershipStore(
-      path.join(
-        context.processManager.stateDirectory,
-        'dev-container-ownership.json',
-      ),
-      options.now ? { now: () => new Date(options.now!()) } : {},
-    );
   const portInspectorService =
     options.portInspectorService ?? new PortInspectorService();
   const dockerComposeProvider =
     options.dockerComposeProvider ?? new DockerComposeProvider();
-  const dockerComposePreflightService =
-    options.dockerComposePreflightService ??
-    new DockerComposePreflightService(portInspectorService);
-  const dockerComposePortLeaseRegistry = new PortAllocationLeaseRegistry();
   const dockerComposeOwnershipStore =
     options.dockerComposeOwnershipStore ??
     new DockerComposeOwnershipStore(
@@ -224,104 +130,6 @@ export function createAppComposition(
         'docker-compose-ownership.json',
       ),
       options.now ? { now: () => new Date(options.now!()) } : {},
-    );
-  const devContainerLifecyclePlanningService =
-    options.devContainerLifecyclePlanningService ??
-    new DevContainerLifecyclePlanningService(
-      devContainerDiscoveryService,
-      context.developmentEnvironmentInstanceStore,
-      options.now ? () => new Date(options.now!()) : undefined,
-      devContainerOwnershipStore,
-      {
-        provider: dockerComposeProvider,
-        preflight: dockerComposePreflightService,
-        ownershipStore: dockerComposeOwnershipStore,
-      },
-    );
-  const devContainerLifecycleConfirmationService =
-    options.devContainerLifecycleConfirmationService ??
-    new DevContainerLifecycleConfirmationService(
-      options.now ? { now: options.now } : {},
-    );
-  const devContainerCleanupService =
-    options.devContainerCleanupService ??
-    new DevContainerCleanupService(
-      context.developmentEnvironmentInstanceStore,
-      devContainerOwnershipStore,
-    );
-  const devContainerStopConfirmationService =
-    options.devContainerStopConfirmationService ??
-    new DevContainerStopConfirmationService(
-      options.now ? { now: options.now } : {},
-    );
-  const devContainerConfigSnapshotService =
-    new DevContainerConfigSnapshotService(
-      path.join(
-        context.processManager.stateDirectory,
-        'dev-container-snapshots',
-      ),
-    );
-  const devContainerStartService =
-    options.devContainerStartService ??
-    new DevContainerStartService(
-      devContainerLifecyclePlanningService,
-      devContainerLifecycleConfirmationService,
-      devContainerConfigSnapshotService,
-      devContainerOwnershipStore,
-      devContainerCleanupService,
-      context.developmentEnvironmentInstanceStore,
-    );
-  const devContainerLifecycleExecutionService =
-    options.devContainerLifecycleExecutionService ??
-    new DevContainerLifecycleExecutionService(
-      context.developmentEnvironmentInstanceStore,
-      devContainerStartService,
-      devContainerCleanupService,
-      devContainerStopConfirmationService,
-      context.activityEventRepository,
-      options.now ? () => new Date(options.now!()) : undefined,
-    );
-  const devContainerRecoveryService =
-    options.devContainerRecoveryService ??
-    new DevContainerRecoveryService(
-      context.projectStore,
-      context.developmentEnvironmentInstanceStore,
-      devContainerCleanupService,
-    );
-  const dockerComposeLifecycleService =
-    options.dockerComposeLifecycleService ??
-    new DockerComposeLifecycleService(
-      dockerComposeProvider,
-      dockerComposePreflightService,
-      undefined,
-      {
-        ownershipStore: dockerComposeOwnershipStore,
-        portLeaseRegistry: dockerComposePortLeaseRegistry,
-        resourceLock: new ServiceResourceOperationLock({
-          stateDirectory: context.processManager.stateDirectory,
-        }),
-        ...(options.now ? { now: () => new Date(options.now!()) } : {}),
-      },
-    );
-  const dockerComposeLifecycleConfirmationService =
-    options.dockerComposeLifecycleConfirmationService ??
-    new DockerComposeLifecycleConfirmationService(options.now ?? Date.now);
-  const dockerComposeLifecycleExecutionService =
-    options.dockerComposeLifecycleExecutionService ??
-    new DockerComposeLifecycleExecutionService(
-      dockerComposeLifecycleService,
-      dockerComposeLifecycleConfirmationService,
-      context.activityEventRepository,
-      options.now ? () => new Date(options.now!()) : undefined,
-    );
-  const dockerComposeRecoveryService =
-    options.dockerComposeRecoveryService ??
-    new DockerComposeRecoveryService(
-      context.projectStore,
-      context.developmentEnvironmentInstanceStore,
-      dockerComposeOwnershipStore,
-      dockerComposeProvider,
-      dockerComposeLifecycleService,
     );
 
   const projectFileMutationService = new ProjectFileMutationService(
@@ -482,8 +290,6 @@ export function createAppComposition(
           ]
         : []),
       context.projectDependenciesPtyService,
-      devContainerLifecycleExecutionService,
-      dockerComposeLifecycleExecutionService,
       confirmedLifecycleJobs,
       deploymentService,
       ...(migrationMutationExecutionService
@@ -496,24 +302,9 @@ export function createAppComposition(
   return {
     databaseExplorerSessionStore,
     projectDoctorService,
-    devContainerDiscoveryService,
-    devContainerLifecyclePlanningService,
-    devContainerLifecycleConfirmationService,
-    devContainerOwnershipStore,
-    devContainerCleanupService,
-    devContainerStartService,
-    devContainerStopConfirmationService,
-    devContainerLifecycleExecutionService,
-    devContainerRecoveryService,
     portInspectorService,
     dockerComposeProvider,
-    dockerComposePreflightService,
-    dockerComposeLifecycleService,
-    dockerComposeLifecycleConfirmationService,
-    dockerComposeLifecycleExecutionService,
-    dockerComposeRecoveryService,
     dockerComposeOwnershipStore,
-    dockerComposePortLeaseRegistry,
     projectFileMutationService,
     projectWorkspaceEditService: context.projectWorkspaceEditService,
     projectLanguageServerService,
@@ -724,19 +515,9 @@ export function registerAppLifecycle(
 ): void {
   app.addHook('onListen', async () => {
     try {
-      await composition.devContainerRecoveryService?.reconcile();
-    } catch (error) {
-      app.log.warn({ err: error }, 'dev container recovery unavailable');
-    }
-    try {
       await composition.agentBrowserRuntime?.start();
     } catch (error) {
       app.log.warn({ err: error }, 'agent browser bridge unavailable');
-    }
-    try {
-      await composition.dockerComposeRecoveryService?.reconcile();
-    } catch (error) {
-      app.log.warn({ err: error }, 'docker compose recovery unavailable');
     }
   });
 
