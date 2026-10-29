@@ -124,8 +124,11 @@ function percent(done: number, all: number): number {
 
 <style scoped>
 .git-diff-files {
+  /* Acompanha a rolagem da página; se a lista for maior que a tela, rola por dentro. */
+  position: sticky;
+  top: calc(var(--diff-sticky-top) + 12px);
   display: flex;
-  max-height: calc(100vh - var(--diff-sticky-top) - 16px);
+  max-height: calc(100vh - var(--diff-sticky-top) - 28px);
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--border);
