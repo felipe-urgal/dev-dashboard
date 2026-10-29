@@ -3,6 +3,7 @@ import path from 'node:path';
 import { sanitizeAgentConversationContent } from './conversation-store.js';
 import { formatAgentProviderConversationContext } from './provider-context.js';
 import type {
+  AgentCapability,
   AgentConcreteProviderId,
   AgentLiveEventInput,
   AgentProvider,
@@ -289,6 +290,25 @@ async function resolveOwnedCwd(
   return path.normalize(value);
 }
 
+const CAPABILITY_MEANINGS: Partial<Record<AgentCapability, string>> = {
+  'workspace:write': 'edit files inside the working directory',
+  'workspace:run':
+    'run shell commands inside the working directory (tests, builds, local dev servers, requests to localhost or 127.0.0.1); do not contact other hosts',
+};
+
+function capabilityMeanings(
+  granted: readonly AgentCapability[],
+): readonly string[] {
+  const lines = granted
+    .filter((capability) => CAPABILITY_MEANINGS[capability])
+    .map(
+      (capability) => `  - ${capability}: ${CAPABILITY_MEANINGS[capability]}`,
+    );
+  return lines.length > 0
+    ? ['- What the granted capabilities allow:', ...lines]
+    : [];
+}
+
 function buildProviderPrompt(
   request: AgentProviderExecutionRequest,
   resumed = false,
@@ -341,6 +361,7 @@ function buildProviderPrompt(
     'Execution boundary:',
     '- Work only inside the backend-selected working directory.',
     '- Granted capabilities: ' + capabilities + '.',
+    ...capabilityMeanings(request.allowedCapabilities),
     ...(scopedAuthorizations.length > 0
       ? [
           '- Granted resource scopes:',
@@ -921,12 +942,10 @@ export class ClaudeCodeAgentProvider extends LocalCliAgentProvider {
     prompt: string,
     resume: boolean,
   ): readonly string[] {
-    // Sem permissão de escrita a execução é somente leitura (modo plan).
-    const permissionMode = request.allowedCapabilities.includes(
-      'workspace:write',
-    )
-      ? 'auto'
-      : 'plan';
+    // Sem escrever nem executar comandos a execução é somente leitura (modo plan).
+    const canWrite = request.allowedCapabilities.includes('workspace:write');
+    const canRun = request.allowedCapabilities.includes('workspace:run');
+    const permissionMode = canWrite || canRun ? 'auto' : 'plan';
     return [
       '-p',
       '--permission-mode',
@@ -936,6 +955,9 @@ export class ClaudeCodeAgentProvider extends LocalCliAgentProvider {
       ...(resume && request.resumeSessionId
         ? ['--resume', request.resumeSessionId]
         : []),
+      // Pré-aprova o shell só quando concedido. Fica antes de outra flag: o
+      // parser trata --allowedTools como lista e engoliria o prompt posicional.
+      ...(canRun ? ['--allowedTools', 'Bash'] : []),
       '--output-format',
       'stream-json',
       '--verbose',

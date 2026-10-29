@@ -275,6 +275,28 @@ test('Claude roda somente leitura sem workspace:write e retoma a sessão com --r
   assert.equal(prompt.includes('Implement the requested change'), false);
 });
 
+test('Claude só recebe o shell pré-aprovado com workspace:run e o prompt explica a permissão', async () => {
+  const fake = createProviderRunner();
+  const provider = new ClaudeCodeAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    command: 'claude-test',
+    runProcess: fake.runner,
+  });
+
+  await provider.execute(request(['workspace:write']));
+  assert.equal(fake.calls.at(-1)?.args.includes('--allowedTools'), false);
+
+  await provider.execute(request(['workspace:run']));
+  const args = fake.calls.at(-1)?.args ?? [];
+  const flag = args.indexOf('--allowedTools');
+  assert.equal(args[2], 'auto');
+  assert.equal(args[flag + 1], 'Bash');
+  assert.equal(args[flag + 2], '--output-format');
+  const prompt = String(args.at(-1));
+  assert.match(prompt, /workspace:run: run shell commands/);
+  assert.equal(args.at(-1), prompt);
+});
+
 test('Claude devolve o session_id e transmite progresso saneado ao vivo', async () => {
   const lines = [
     JSON.stringify({

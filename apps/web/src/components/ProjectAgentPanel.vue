@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
   ArrowPathIcon,
@@ -54,6 +54,7 @@ import {
   type AgentTaskRecord,
   type AgentTaskStatus,
 } from '../api/agent-runtime';
+import { renderMarkdown } from '../utils/markdown';
 import EmptyState from './EmptyState.vue';
 import ProjectAgentLiveFeed from './ProjectAgentLiveFeed.vue';
 import ProjectAgentTaskHistoryCard from './ProjectAgentTaskHistoryCard.vue';
@@ -77,6 +78,12 @@ const capabilities: Array<{
     id: 'workspace:write',
     label: 'Alterar arquivos',
     description: 'Permite escrever no workspace do projeto.',
+  },
+  {
+    id: 'workspace:run',
+    label: 'Executar comandos',
+    description:
+      'Permite o shell no workspace: testes, builds, servidor local e chamadas a localhost.',
   },
   {
     id: 'git:commit',
@@ -350,6 +357,7 @@ const {
   },
 );
 const showAllHistory = ref(false);
+const replyAnchor = ref<HTMLElement | null>(null);
 const composing = ref(false);
 const confirmingComplete = ref(false);
 const completionNotice = ref('');
@@ -875,6 +883,16 @@ async function executeCurrent(): Promise<void> {
   });
 }
 
+// Abre a conversa no fim (última resposta + campo de resposta), como num chat.
+watch(
+  () => [selectedTaskId.value, conversationTurns.value.length] as const,
+  async ([taskId, count]) => {
+    if (!taskId || count === 0) return;
+    await nextTick();
+    replyAnchor.value?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+  },
+);
+
 function startNewTask(): void {
   composing.value = true;
   errorMessage.value = '';
@@ -1237,10 +1255,24 @@ onBeforeUnmount(() => {
                   </small>
                 </span>
               </label>
+              <label class="ag-check">
+                <input
+                  v-model="requestedCapabilities"
+                  type="checkbox"
+                  value="workspace:run"
+                />
+                <span>
+                  <strong>Executar comandos</strong>
+                  <small>
+                    Deixa o Claude rodar testes, builds, abrir o app local e
+                    chamar localhost. Os comandos podem alterar arquivos.
+                  </small>
+                </span>
+              </label>
               <details>
                 <summary>Mais permissões (Git, PR, deploy…)</summary>
                 <label
-                  v-for="capability in capabilities.slice(1)"
+                  v-for="capability in capabilities.slice(2)"
                   :key="capability.id"
                   class="ag-check"
                 >
@@ -1435,9 +1467,9 @@ onBeforeUnmount(() => {
           </p>
 
           <ProjectAgentLiveFeed
-            v-if="liveEvents.length > 0 || status?.runtime.state === 'running'"
+            v-if="status?.runtime.state === 'running'"
             :events="liveEvents"
-            :running="status?.runtime.state === 'running'"
+            :running="true"
           />
 
           <section
@@ -1529,7 +1561,7 @@ onBeforeUnmount(() => {
                   }}</strong>
                   <small>{{ new Date(turn.createdAt).toLocaleString() }}</small>
                 </div>
-                <p>{{ turn.content }}</p>
+                <div class="ag-md" v-html="renderMarkdown(turn.content)" />
                 <small v-if="turn.attachmentIds?.length" class="ag-muted">
                   Anexos:
                   {{
@@ -1541,6 +1573,7 @@ onBeforeUnmount(() => {
               </li>
             </ol>
 
+            <div ref="replyAnchor" class="ag-anchor" aria-hidden="true" />
             <div v-if="currentTask.task.state === 'review'" class="ag-reply">
               <textarea
                 v-model="conversationInstruction"
@@ -2363,25 +2396,76 @@ textarea:focus,
   color: var(--text-dim);
 }
 
-.ag-turn p {
-  margin: 0;
+.ag-md {
   overflow-wrap: anywhere;
   font-size: 13.5px;
   line-height: 1.55;
-  white-space: pre-wrap;
 }
 
 .ag-reply {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-top: 8px;
+  margin: 0 -18px -16px;
+  padding: 12px 18px 16px;
   border-top: 1px solid var(--border);
+  border-radius: 0 0 14px 14px;
+  background: var(--surface-1);
+}
+
+.ag-anchor {
+  height: 0;
+}
+
+.ag-md :deep(p) {
+  margin: 0 0 8px;
+}
+
+.ag-md :deep(p:last-child),
+.ag-md :deep(ul:last-child),
+.ag-md :deep(ol:last-child) {
+  margin-bottom: 0;
+}
+
+.ag-md :deep(ul),
+.ag-md :deep(ol) {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.ag-md :deep(li) {
+  margin: 2px 0;
+}
+
+.ag-md :deep(code) {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--surface-2);
+}
+
+.ag-md :deep(pre) {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: var(--surface-0);
+}
+
+.ag-md :deep(pre code) {
+  padding: 0;
+  background: transparent;
+}
+
+.ag-md :deep(a) {
+  color: var(--accent);
 }
 
 .ag-tabs {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
   padding: 4px;
   border: 1px solid var(--border);
@@ -2390,8 +2474,7 @@ textarea:focus,
 }
 
 .ag-tabs button {
-  flex: 1 1 auto;
-  padding: 6px 10px;
+  padding: 7px 8px;
   border: 0;
   border-radius: 8px;
   color: var(--text-muted);
