@@ -11,7 +11,7 @@ Trabalhe de forma autônoma, incremental e verificável. Prefira a menor soluç�
 - A task central registra estado/handoff da execução; backlog permanece em issues e documentação viva do projeto.
 - Preserve os owners entre `apps/api`, `apps/web`, `packages/contracts`, `packages/core`, `packages/project-discovery` e `packages/process-manager`.
 - O browser envia intenção estruturada: não aceite shell livre, path de autoridade ou credenciais vindos da UI.
-- Capacidade local não concede push, PR, merge, deploy, release ou self-update.
+- Agente com `workspace:run` pode commitar, enviar a branch da task e abrir/acompanhar PR deste repositório; merge, deploy, release e self-update exigem autorização explícita.
 
 ## Fluxo
 

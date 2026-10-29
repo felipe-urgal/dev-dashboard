@@ -318,7 +318,7 @@ function browserMcpConfig(): {
 const CAPABILITY_MEANINGS: Partial<Record<AgentCapability, string>> = {
   'workspace:write': 'edit files inside the working directory',
   'workspace:run':
-    'run shell commands inside the working directory (tests, builds, local dev servers, requests to localhost or 127.0.0.1); do not contact other hosts',
+    'run shell commands inside the working directory (tests, builds, local dev servers, requests to localhost or 127.0.0.1). You may also commit, push the current task branch to origin and use gh to create or inspect pull requests (pr create/view/checks) for this repository only. Never merge, force-push, push other branches, deploy, release or contact other hosts',
   'browser:use':
     'use the Playwright browser tools (mcp__playwright) to open local pages (localhost or 127.0.0.1 only), inspect them and take screenshots',
 };
