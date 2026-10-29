@@ -185,7 +185,7 @@ function activeLabel(hub: NavHub): string {
       >
         <button
           type="button"
-          class="project-nav-hub"
+          class="project-nav-hub project-nav-hub-menu"
           :class="{ 'project-nav-hub-active': hub === activeHub }"
           :aria-current="hub === activeHub ? 'page' : undefined"
           aria-haspopup="menu"
@@ -243,6 +243,12 @@ function activeLabel(hub: NavHub): string {
   white-space: nowrap;
   cursor: pointer;
   transition: color 150ms ease;
+}
+
+/* O dropdown segue a largura do botão: o mínimo evita quebrar os submenus. */
+.project-nav-hub-menu {
+  min-width: 150px;
+  justify-content: center;
 }
 
 .project-nav-hub svg {

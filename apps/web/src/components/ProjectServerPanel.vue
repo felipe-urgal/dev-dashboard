@@ -525,7 +525,7 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
-.server-console-stopped svg {
+.server-console-stopped > svg {
   width: 40px;
   height: 40px;
   color: var(--text-dim);

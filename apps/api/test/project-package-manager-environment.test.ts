@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  parseProjectDotenv,
   parseShellEnvironmentOutput,
   referencedPackageManagerEnvironmentVariables,
   resolvePackageManagerEnvironment,
@@ -99,4 +100,38 @@ test('não abre shell quando todas as referências já existem no processo', asy
   });
 
   assert.deepEqual(environment, { NPM_TOKEN: 'already-present' });
+});
+
+test('parseProjectDotenv lê NOME=valor, com aspas e comentários', () => {
+  assert.deepEqual(
+    parseProjectDotenv(
+      ['# comentário', 'A=1', 'B="com espaço"', "C='x=y'", 'invalida', ''].join(
+        '\n',
+      ),
+    ),
+    { A: '1', B: 'com espaço', C: 'x=y' },
+  );
+});
+
+test('usa o .env do projeto quando nem o processo nem o shell têm a variável', async (context) => {
+  const projectPath = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-package-manager-dotenv-'),
+  );
+  context.after(() => rm(projectPath, { recursive: true, force: true }));
+
+  await writeFile(
+    path.join(projectPath, '.npmrc'),
+    '//npm.fontawesome.com/:_authToken=${FONTAWESOME_TOKEN}\n',
+  );
+  await writeFile(
+    path.join(projectPath, '.env'),
+    'FONTAWESOME_TOKEN=token-from-dotenv\nUNRELATED=do-not-forward\n',
+  );
+
+  const environment = await resolvePackageManagerEnvironment(projectPath, {
+    processEnvironment: {},
+    resolveShellEnvironment: async () => ({}),
+  });
+
+  assert.deepEqual(environment, { FONTAWESOME_TOKEN: 'token-from-dotenv' });
 });

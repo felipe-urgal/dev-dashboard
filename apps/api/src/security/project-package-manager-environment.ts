@@ -87,6 +87,37 @@ async function readProjectConfig(file: string): Promise<string | undefined> {
   }
 }
 
+/**
+ * Lê `NOME=valor` do `.env` do projeto (aspas simples ou duplas removidas).
+ * Sem expansão nem `export`: só o suficiente para tokens de registry.
+ */
+export function parseProjectDotenv(contents: string): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = {};
+
+  for (const rawLine of contents.split(/\r?\n/u)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const separator = line.indexOf('=');
+    if (separator <= 0) continue;
+
+    const name = line.slice(0, separator).trim();
+    if (!ENVIRONMENT_NAME_PATTERN.test(name)) continue;
+
+    let value = line.slice(separator + 1).trim();
+    const quote = value[0];
+    if (
+      value.length >= 2 &&
+      (quote === '"' || quote === "'") &&
+      value.endsWith(quote)
+    ) {
+      value = value.slice(1, -1);
+    }
+    environment[name] = value;
+  }
+
+  return environment;
+}
+
 async function resolveInteractiveShellEnvironment(
   projectPath: string,
   environment: NodeJS.ProcessEnv,
@@ -161,7 +192,8 @@ async function resolveInteractiveShellEnvironment(
  * files such as .npmrc. The installed Dashboard runs under systemd and does
  * not inherit variables exported only by the user's interactive shell.
  *
- * Resolve only names explicitly referenced by those config files. Values are
+ * Resolve only names explicitly referenced by those config files, from the
+ * process, the interactive shell and finally the project's own .env. Values are
  * forwarded in-memory to the worker and are never persisted or returned by
  * the API.
  */
@@ -202,9 +234,24 @@ export async function resolvePackageManagerEnvironment(
     options.resolveShellEnvironment ?? resolveInteractiveShellEnvironment
   )(projectPath, processEnvironment);
 
+  const stillMissing: string[] = [];
   for (const name of missing) {
     const value = shellEnvironment[name];
     if (value !== undefined) resolved[name] = value;
+    else stillMissing.push(name);
+  }
+
+  if (stillMissing.length === 0) return resolved;
+
+  // Último recurso: o próprio .env do projeto, para quem não exporta o token
+  // no shell.
+  const dotenv = await readProjectConfig(path.join(projectPath, '.env'));
+  if (dotenv) {
+    const projectEnvironment = parseProjectDotenv(dotenv);
+    for (const name of stillMissing) {
+      const value = projectEnvironment[name];
+      if (value !== undefined) resolved[name] = value;
+    }
   }
 
   return resolved;
