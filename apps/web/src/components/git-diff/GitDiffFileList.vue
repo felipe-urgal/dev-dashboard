@@ -125,7 +125,6 @@ function percent(done: number, all: number): number {
 <style scoped>
 .git-diff-files {
   display: flex;
-  max-height: calc(100vh - var(--diff-sticky-top) - 16px);
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -222,7 +221,6 @@ function percent(done: number, all: number): number {
 
 .git-diff-files-list {
   flex: 1;
-  overflow: auto;
   padding: 6px 6px 10px;
 }
 
