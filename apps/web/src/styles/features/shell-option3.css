@@ -175,14 +175,12 @@
   padding: 12px 22px 0;
 }
 
-.git-diff-page,
-.git-history-page {
+.git-diff-page {
   background: var(--surface-1);
 }
 
 .git-command-card,
-.git-table-card,
-.git-history-table-wrapper {
+.git-table-card {
   border-color: var(--border);
   border-radius: 10px;
   background: var(--surface-1);
@@ -191,8 +189,7 @@
 .git-status-grid article,
 .git-command-card,
 .git-preview-grid article,
-.git-table-card,
-.git-history-list article {
+.git-table-card {
   border-color: var(--border);
   border-radius: 10px;
   background: var(--surface-1);
@@ -211,8 +208,7 @@
 
 .git-quick-actions button,
 .git-preview-grid header button,
-.git-table-row button,
-.git-history-refresh {
+.git-table-row button {
   border-color: var(--border);
   border-radius: 8px;
   color: var(--text-muted);
@@ -221,54 +217,16 @@
 
 .git-quick-actions button:hover,
 .git-preview-grid header button:hover,
-.git-table-row button:hover,
-.git-history-refresh:hover:not(:disabled) {
+.git-table-row button:hover {
   border-color: var(--border-strong);
   color: var(--text);
   background: var(--surface-3);
 }
 
-.git-history-toolbar {
-  padding: 14px 18px;
-  border-color: var(--border);
-  background: var(--surface-1);
-}
-
-.git-history-reference,
-.git-history-filter,
-.git-history-search {
-  border-color: var(--border);
-  border-radius: 8px;
-  background: var(--surface-2);
-}
-
-.git-history-table thead th,
-.git-history-day th,
 .git-diff-file-head {
   border-color: var(--border);
   background: var(--surface-2);
   color: var(--text-dim);
-}
-
-.git-history-row td {
-  border-color: var(--border);
-}
-
-.git-history-row:hover td {
-  background: var(--surface-2);
-}
-
-.git-history-row.active td {
-  background: var(--accent-soft);
-}
-
-.git-history-subject code,
-.git-history-subject-text {
-  color: var(--text);
-}
-
-.git-history-refresh svg {
-  color: var(--accent);
 }
 
 @media (max-width: 720px) {
@@ -527,7 +485,6 @@
 .git-quick-actions button,
 .git-preview-grid header button,
 .git-table-row button,
-.git-history-refresh,
 .terminal-icon-button,
 .terminal-start,
 .tests-button-with-icon,

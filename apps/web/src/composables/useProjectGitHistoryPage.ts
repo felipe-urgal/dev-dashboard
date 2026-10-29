@@ -23,11 +23,6 @@ export function useProjectGitHistoryPage(
 ) {
   const PAGE_SIZE = 20;
   const VIEW_MODE_KEY = 'dev-dashboard-git-history-view-mode';
-  const LIST_WIDTH_KEY = 'dev-dashboard-git-history-list-width';
-  const DEFAULT_LIST_WIDTH = 260;
-  const MIN_LIST_WIDTH = 160;
-  const MAX_LIST_WIDTH = 560;
-  const RESIZE_KEYBOARD_STEP = 16;
 
   type DiffViewMode = 'unified' | 'split';
 
@@ -58,9 +53,6 @@ export function useProjectGitHistoryPage(
   const selectedFilePath = ref('');
   const viewMode = ref<DiffViewMode>(readStoredViewMode());
   const copiedHash = ref('');
-  const listWidth = ref(readStoredListWidth());
-  const resizingList = ref(false);
-  const diffLayoutEl = ref<HTMLElement | null>(null);
   const modalDialog = ref<HTMLElement | null>(null);
 
   let previousFocus: HTMLElement | null = null;
@@ -91,65 +83,6 @@ export function useProjectGitHistoryPage(
     { value: 'regular', label: 'Sem merges' },
     { value: 'merge', label: 'Somente merges' },
   ];
-
-  function clampListWidth(value: number): number {
-    return Math.min(
-      MAX_LIST_WIDTH,
-      Math.max(MIN_LIST_WIDTH, Math.round(value)),
-    );
-  }
-
-  function readStoredListWidth(): number {
-    try {
-      const raw = window.localStorage.getItem(LIST_WIDTH_KEY);
-      const value = raw ? Number.parseInt(raw, 10) : Number.NaN;
-      return Number.isFinite(value)
-        ? clampListWidth(value)
-        : DEFAULT_LIST_WIDTH;
-    } catch {
-      return DEFAULT_LIST_WIDTH;
-    }
-  }
-
-  function persistListWidth(value: number): void {
-    try {
-      window.localStorage.setItem(LIST_WIDTH_KEY, String(value));
-    } catch {
-      // Preferência visual opcional.
-    }
-  }
-
-  /** Arrastar a divisória entre a lista de arquivos e o diff. */
-  function startListResize(event: PointerEvent): void {
-    event.preventDefault();
-    const layout = diffLayoutEl.value;
-    if (!layout) return;
-
-    const { left } = layout.getBoundingClientRect();
-    resizingList.value = true;
-
-    const onMove = (moveEvent: PointerEvent): void => {
-      listWidth.value = clampListWidth(moveEvent.clientX - left);
-    };
-    const onUp = (): void => {
-      resizingList.value = false;
-      persistListWidth(listWidth.value);
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  }
-
-  function handleResizeKeydown(event: KeyboardEvent): void {
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-    event.preventDefault();
-    const delta =
-      event.key === 'ArrowLeft' ? -RESIZE_KEYBOARD_STEP : RESIZE_KEYBOARD_STEP;
-    listWidth.value = clampListWidth(listWidth.value + delta);
-    persistListWidth(listWidth.value);
-  }
 
   function readStoredViewMode(): DiffViewMode {
     try {
@@ -211,38 +144,6 @@ export function useProjectGitHistoryPage(
   const totalPages = computed(() =>
     Math.max(1, history.value?.totalPages ?? 1),
   );
-
-  /**
-   * Repositórios grandes têm centenas de páginas: mostramos uma janela ao redor
-   * da atual, com as pontas sempre acessíveis.
-   */
-  const pageWindow = computed<Array<number | 'gap'>>(() => {
-    const total = totalPages.value;
-    const current = page.value;
-    if (total <= 7)
-      return Array.from({ length: total }, (_unused, index) => index + 1);
-
-    const pages = new Set<number>([1, total, current]);
-    for (const offset of [-1, 1]) {
-      const target = current + offset;
-      if (target > 1 && target < total) pages.add(target);
-    }
-    if (current <= 3) [2, 3, 4].forEach((item) => pages.add(item));
-    if (current >= total - 2)
-      [total - 3, total - 2, total - 1].forEach((item) => pages.add(item));
-
-    const ordered = [...pages]
-      .filter((item) => item >= 1 && item <= total)
-      .sort((left, right) => left - right);
-    const result: Array<number | 'gap'> = [];
-    let previous = 0;
-    for (const item of ordered) {
-      if (previous && item - previous > 1) result.push('gap');
-      result.push(item);
-      previous = item;
-    }
-    return result;
-  });
 
   const rangeLabel = computed(() => {
     const total = history.value?.total ?? 0;
@@ -600,11 +501,6 @@ export function useProjectGitHistoryPage(
   return {
     PAGE_SIZE,
     VIEW_MODE_KEY,
-    LIST_WIDTH_KEY,
-    DEFAULT_LIST_WIDTH,
-    MIN_LIST_WIDTH,
-    MAX_LIST_WIDTH,
-    RESIZE_KEYBOARD_STEP,
     history,
     workspace,
     reference,
@@ -623,9 +519,6 @@ export function useProjectGitHistoryPage(
     selectedFilePath,
     viewMode,
     copiedHash,
-    listWidth,
-    resizingList,
-    diffLayoutEl,
     modalDialog,
     historyController,
     detailController,
@@ -633,18 +526,12 @@ export function useProjectGitHistoryPage(
     statusLabels,
     scopeOptions,
     kindOptions,
-    clampListWidth,
-    readStoredListWidth,
-    persistListWidth,
-    startListResize,
-    handleResizeKeydown,
     readStoredViewMode,
     selectViewMode,
     branchGroups,
     referenceInWorkspace,
     commitBody,
     totalPages,
-    pageWindow,
     rangeLabel,
     commitDays,
     formatTime,
