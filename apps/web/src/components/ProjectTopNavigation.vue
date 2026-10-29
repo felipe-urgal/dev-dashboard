@@ -254,9 +254,8 @@ function activeLabel(hub: NavHub): string {
 .project-nav-hub-menu {
   min-width: 150px;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  gap: 2px;
 }
 
 .project-nav-hub svg {
@@ -271,10 +270,15 @@ function activeLabel(hub: NavHub): string {
   gap: 8px;
 }
 
+/* O grupo fica sempre no mesmo lugar; o item atual aparece logo abaixo sem empurrá-lo. */
 .project-nav-sub {
+  position: absolute;
+  top: calc(50% + 9px);
+  left: 12px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  line-height: 1.2;
   color: var(--text-muted);
   font-size: 11.5px;
   font-weight: 500;
