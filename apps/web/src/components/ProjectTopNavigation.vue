@@ -177,9 +177,12 @@ function activeLabel(hub: NavHub): string {
     <template v-for="hub in hubs" :key="hub.id">
       <NDropdown
         v-if="hub.items.length > 1"
-        trigger="click"
+        trigger="hover"
+        :delay="0"
+        :duration="150"
         placement="bottom-start"
         width="trigger"
+        :menu-props="() => ({ class: 'project-nav-menu' })"
         :options="menuOptions(hub)"
         @select="(key) => selectItem(hub, key)"
       >
@@ -296,6 +299,13 @@ function activeLabel(hub: NavHub): string {
 </style>
 
 <style>
+/* O menu encosta na borda inferior do topbar (o padrão deixa 6px de folga). */
+.n-dropdown-menu.project-nav-menu {
+  margin-top: 1px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
 .n-dropdown-option-body.project-nav-menu-active .n-dropdown-option-body__label {
   color: var(--accent);
 }
