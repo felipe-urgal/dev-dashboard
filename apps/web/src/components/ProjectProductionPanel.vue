@@ -1157,11 +1157,14 @@ async function preparePlan(kind?: DeploymentKind): Promise<void> {
   operation.value = 'planning';
   errorMessage.value = '';
   try {
-    const nextPlan = await fetchDeploymentPlan(
-      props.project.id,
-      requestController?.signal,
-      kind,
-    );
+    // Sem `kind` a chamada permanece idêntica à do deploy comum.
+    const nextPlan = kind
+      ? await fetchDeploymentPlan(
+          props.project.id,
+          requestController?.signal,
+          kind,
+        )
+      : await fetchDeploymentPlan(props.project.id, requestController?.signal);
     if (current !== generation) return;
     plan.value = nextPlan;
     await nextTick();
@@ -1197,20 +1200,33 @@ async function confirmAndStart(): Promise<void> {
   errorMessage.value = '';
   try {
     const kind = currentPlan.kind === 'rollback' ? 'rollback' : undefined;
-    const confirmation = await createDeploymentConfirmation(
-      props.project.id,
-      currentPlan.planHash,
-      requestController?.signal,
-      kind,
-    );
+    const confirmation = kind
+      ? await createDeploymentConfirmation(
+          props.project.id,
+          currentPlan.planHash,
+          requestController?.signal,
+          kind,
+        )
+      : await createDeploymentConfirmation(
+          props.project.id,
+          currentPlan.planHash,
+          requestController?.signal,
+        );
     if (current !== generation) return;
-    const deployment = await startDeployment(
-      props.project.id,
-      currentPlan.planHash,
-      confirmation.token,
-      requestController?.signal,
-      kind,
-    );
+    const deployment = kind
+      ? await startDeployment(
+          props.project.id,
+          currentPlan.planHash,
+          confirmation.token,
+          requestController?.signal,
+          kind,
+        )
+      : await startDeployment(
+          props.project.id,
+          currentPlan.planHash,
+          confirmation.token,
+          requestController?.signal,
+        );
     if (current !== generation) return;
     plan.value = null;
     activeDeployment.value = deployment;
@@ -1477,10 +1493,12 @@ onBeforeUnmount(() => {
                 ? 'Plano de rollback'
                 : 'Plano de deployment'
             "
-            :notice="
+            v-bind="
               plan.kind === 'rollback'
-                ? `Volta de ${plan.fromRevision?.slice(0, 8) ?? '—'} para ${plan.revision.slice(0, 8)} executando prod:rollback. O script recebe as revisões por DEV_DASHBOARD_ROLLBACK_TARGET_REVISION e DEV_DASHBOARD_ROLLBACK_FROM_REVISION. Não desfaz migrations: confira a política de rollback antes de confirmar.`
-                : undefined
+                ? {
+                    notice: `Volta de ${plan.fromRevision?.slice(0, 8) ?? '—'} para ${plan.revision.slice(0, 8)} executando prod:rollback. O script recebe as revisões por DEV_DASHBOARD_ROLLBACK_TARGET_REVISION e DEV_DASHBOARD_ROLLBACK_FROM_REVISION. Não desfaz migrations: confira a política de rollback antes de confirmar.`,
+                  }
+                : {}
             "
             :branch="plan.branch"
             :project-name="plan.projectName"
