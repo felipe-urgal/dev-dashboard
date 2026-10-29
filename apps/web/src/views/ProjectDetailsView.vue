@@ -344,6 +344,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
         :key="`production-${project.id}`"
         :project="project"
         :git-overview="gitOverview"
+        @contract-saved="dashboardStore.rescanSelectedWorkspace()"
       />
 
       <ProjectTerminalPanel

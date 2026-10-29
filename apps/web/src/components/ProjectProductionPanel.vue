@@ -64,7 +64,6 @@ import ProductionTimeline, {
   type ProductionTimelineStep,
 } from './production/ProductionTimeline.vue';
 import StatusBadge from './StatusBadge.vue';
-import { dashboardStore } from '../stores/dashboard';
 import { buildProductionReadiness } from '../utils/production-readiness';
 import UiButton from './ui/UiButton.vue';
 
@@ -74,6 +73,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), { gitOverview: null });
+const emit = defineEmits<{ 'contract-saved': [] }>();
 
 type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 type Operation =
@@ -691,9 +691,9 @@ const recoveryOpen = computed(() => {
   return status === 'failed' || status === 'recovery_required';
 });
 
-/** Contrato criado pelo assistente: reescaneia o workspace para o projeto ganhar a capability. */
-async function handleContractSaved(): Promise<void> {
-  await dashboardStore.rescanSelectedWorkspace();
+/** Contrato criado pelo assistente: a página do projeto reescaneia o workspace. */
+function handleContractSaved(): void {
+  emit('contract-saved');
 }
 
 async function copyRevision(revision: string): Promise<void> {

@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import type { ProductionContractDraft } from '@dev-dashboard/contracts';
-import { detectProductionContract } from '@dev-dashboard/project-discovery';
+import { validateProductionManifest } from '@dev-dashboard/project-discovery';
 
 import {
   ContractSetupError,
@@ -101,13 +101,21 @@ test('grava um contrato válido que o discovery reconhece e não sobrescreve sem
     const written = await service.write(root, draft, { overwrite: false });
     assert.equal(written.valid, true);
 
-    const detected = await detectProductionContract(root, {
-      'prod:status': 'echo',
-      'prod:check': 'echo',
-      'prod:deploy': 'echo',
-      'prod:verify': 'echo',
-      'prod:backup': 'echo',
-    });
+    const detected = validateProductionManifest(
+      JSON.parse(
+        await readFile(
+          path.join(root, '.dev-dashboard/production.json'),
+          'utf8',
+        ),
+      ),
+      {
+        'prod:status': 'echo',
+        'prod:check': 'echo',
+        'prod:deploy': 'echo',
+        'prod:verify': 'echo',
+        'prod:backup': 'echo',
+      },
+    );
     assert.equal(detected.contract?.strategy, 'command');
     assert.equal(detected.contract?.health?.url, 'http://127.0.0.1:8787/ready');
 
