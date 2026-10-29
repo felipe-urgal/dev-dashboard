@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-
 import { PortInspectorService } from '../src/services/port-inspector-service.js';
 import {
   declaredPortsFromResolvedCompose,
