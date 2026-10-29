@@ -1,6 +1,6 @@
 .git-diff-page {
-  /* Abaixo da barra global e do cabeçalho fixo do projeto. */
-  --diff-sticky-top: calc(var(--app-topbar-height, 72px) + 52px);
+  /* Abaixo da barra global (o menu do projeto agora vive nela). */
+  --diff-sticky-top: var(--app-topbar-height, 72px);
 
   display: flex;
   width: 100%;
