@@ -54,6 +54,8 @@ type SpawnProcess = (
     cwd: string;
     env: NodeJS.ProcessEnv;
     shell: false;
+    /** Novo grupo de processos: o cancelamento precisa alcançar os filhos do npm. */
+    detached: true;
     stdio: ['ignore', 'pipe', 'pipe'];
   },
 ) => ChildProcessByStdio<null, Readable, Readable>;
@@ -160,8 +162,23 @@ export class ProductionCommandAdapter {
       cwd: project.path,
       env: { ...process.env, ...environment },
       shell: false,
+      detached: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+
+    // Sinaliza o grupo todo (npm → sh → check…): matar só o npm deixa os filhos
+    // segurando stdout e o passo nunca fecha, então o cancelamento "não funciona".
+    const killTree = (signal: NodeJS.Signals): void => {
+      try {
+        if (child.pid !== undefined) {
+          process.kill(-child.pid, signal);
+          return;
+        }
+      } catch {
+        // Grupo já encerrado ou sem permissão: cai no kill direto abaixo.
+      }
+      child.kill(signal);
+    };
 
     return new Promise<ProductionCommandResult>((resolve, reject) => {
       let settled = false;
@@ -185,11 +202,8 @@ export class ProductionCommandAdapter {
 
       const abort = () => {
         cancelled = true;
-        child.kill('SIGTERM');
-        escalation = setTimeout(
-          () => child.kill('SIGKILL'),
-          KILL_ESCALATION_MS,
-        );
+        killTree('SIGTERM');
+        escalation = setTimeout(() => killTree('SIGKILL'), KILL_ESCALATION_MS);
         escalation.unref();
       };
       signal.addEventListener('abort', abort, { once: true });
