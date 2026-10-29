@@ -185,14 +185,17 @@ function activeLabel(hub: NavHub): string {
           class="project-nav-hub project-nav-hub-menu"
           :class="{ 'project-nav-hub-active': hub === activeHub }"
           :aria-current="hub === activeHub ? 'page' : undefined"
+          :title="hub.label"
+          :aria-label="
+            hub === activeHub ? `${hub.label} · ${activeLabel(hub)}` : hub.label
+          "
           aria-haspopup="menu"
         >
-          <component :is="hub.icon" aria-hidden="true" />
-          <span>{{ hub.label }}</span>
-          <span v-if="hub === activeHub" class="project-nav-current">
-            · {{ activeLabel(hub) }}
+          <span class="project-nav-glyph">
+            <component :is="hub.icon" aria-hidden="true" />
+            <ChevronDownIcon class="project-nav-chevron" aria-hidden="true" />
           </span>
-          <ChevronDownIcon class="project-nav-chevron" aria-hidden="true" />
+          <span>{{ hub === activeHub ? activeLabel(hub) : hub.label }}</span>
         </button>
       </NDropdown>
 
@@ -254,16 +257,19 @@ function activeLabel(hub: NavHub): string {
   flex: 0 0 18px;
 }
 
-.project-nav-hub .project-nav-chevron {
-  width: 13px;
-  height: 13px;
-  flex-basis: 13px;
-  margin-left: -2px;
+.project-nav-glyph {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
 }
 
-.project-nav-current {
-  color: var(--text-muted);
-  font-weight: 500;
+.project-nav-hub .project-nav-chevron {
+  width: 12px;
+  height: 12px;
+  flex-basis: 12px;
+  opacity: 0.7;
 }
 
 .project-nav-hub:hover {

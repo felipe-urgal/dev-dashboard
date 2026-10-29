@@ -48,14 +48,14 @@ describe('ProjectTopNavigation', () => {
     const hubs = wrapper.findAll('.project-nav-hub');
 
     expect(hubs.map((hub) => hub.text().replace(/\s+/g, ' '))).toEqual([
-      'Execução · Servidor',
+      'Servidor',
       'Git',
       'Agente',
       'Produção',
     ]);
     expect(
       wrapper.findAll('.project-nav-hub-active').map((hub) => hub.text()),
-    ).toEqual(['Execução · Servidor']);
+    ).toEqual(['Servidor']);
   });
 
   it('marca a aba do Git ativa a partir da query da rota', () => {
