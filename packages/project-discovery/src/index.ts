@@ -101,6 +101,11 @@ export async function scanWorkspace(
 }
 
 export {
+  PRODUCTION_SCRIPT_BY_OPERATION,
+  validateProductionManifest,
+} from './production-contract.js';
+
+export {
   DEFAULT_PROJECT_PROFILE_PROVIDERS,
   detectProjectProfile,
   enrichProjectProfile,

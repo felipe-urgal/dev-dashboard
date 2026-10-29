@@ -500,6 +500,17 @@ function parseManifest(
   };
 }
 
+/** Valida um manifesto já carregado (o mesmo parser que lê o arquivo do projeto). */
+export function validateProductionManifest(
+  parsed: unknown,
+  scripts: PackageScripts,
+): ProductionContractDetection {
+  return parseManifest(parsed, scripts);
+}
+
+/** Script canônico do package.json exigido por cada operação de produção. */
+export const PRODUCTION_SCRIPT_BY_OPERATION = SCRIPT_BY_OPERATION;
+
 export async function detectProductionContract(
   projectPath: string,
   scripts: PackageScripts,

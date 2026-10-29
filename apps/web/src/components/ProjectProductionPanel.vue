@@ -54,6 +54,7 @@ import ProductionHistory, {
   type ProductionHistoryItem,
 } from './production/ProductionHistory.vue';
 import ProductionReadiness from './production/ProductionReadiness.vue';
+import ProductionSetupWizard from './production/ProductionSetupWizard.vue';
 import ProductionRecovery from './production/ProductionRecovery.vue';
 import ProductionPlanPanel, {
   type ProductionPlanStepView,
@@ -63,6 +64,7 @@ import ProductionTimeline, {
   type ProductionTimelineStep,
 } from './production/ProductionTimeline.vue';
 import StatusBadge from './StatusBadge.vue';
+import { dashboardStore } from '../stores/dashboard';
 import { buildProductionReadiness } from '../utils/production-readiness';
 import UiButton from './ui/UiButton.vue';
 
@@ -689,6 +691,11 @@ const recoveryOpen = computed(() => {
   return status === 'failed' || status === 'recovery_required';
 });
 
+/** Contrato criado pelo assistente: reescaneia o workspace para o projeto ganhar a capability. */
+async function handleContractSaved(): Promise<void> {
+  await dashboardStore.rescanSelectedWorkspace();
+}
+
 async function copyRevision(revision: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(revision);
@@ -1274,6 +1281,16 @@ watch(
   { immediate: true },
 );
 
+// O contrato pode aparecer/mudar sem trocar de projeto (assistente de configuração).
+watch(
+  () => [
+    props.project.capabilities.includes('production'),
+    props.project.production?.strategy,
+    props.project.production?.enabled,
+  ],
+  () => void load(),
+);
+
 onBeforeUnmount(() => {
   generation += 1;
   clearPoll();
@@ -1379,6 +1396,14 @@ onBeforeUnmount(() => {
       <ArrowPathIcon class="prod-spin" aria-hidden="true" />
       <span>Consultando o estado real de produção…</span>
     </div>
+
+    <ProductionSetupWizard
+      v-if="!hasProductionCapability"
+      :key="`setup-${project.id}`"
+      :project-id="project.id"
+      :default-branch="gitOverview?.branch ?? 'main'"
+      @saved="handleContractSaved"
+    />
 
     <template v-if="hasProductionCapability && production">
       <div v-if="canExecuteDeployment" class="prod-columns">

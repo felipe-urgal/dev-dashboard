@@ -289,7 +289,7 @@ describe('ProjectProductionPanel', () => {
     expect(wrapper.text()).toContain('Produção não configurada');
     expect(wrapper.get('.prod-page').attributes('aria-label')).toBe('Produção');
     expect(wrapper.find('.prod-eyebrow').exists()).toBe(false);
-    expect(wrapper.find('button').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Preparar deployment');
     expect(api.fetchDeploymentHistory).not.toHaveBeenCalled();
     wrapper.unmount();
   });
@@ -309,7 +309,7 @@ describe('ProjectProductionPanel', () => {
 
     expect(wrapper.text()).toContain('Contrato de produção inválido');
     expect(wrapper.text()).toContain('O contrato precisa ser corrigido.');
-    expect(wrapper.find('button').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Preparar deployment');
     wrapper.unmount();
   });
 

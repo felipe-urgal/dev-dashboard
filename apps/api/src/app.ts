@@ -19,6 +19,7 @@ import { confirmedLifecycleReconciliationRoutes } from './routes/confirmed-lifec
 import { projectRoutes } from './routes/projects.js';
 import { projectCoverageRoutes } from './routes/project-coverage.js';
 import { deploymentRoutes } from './routes/deployments.js';
+import { productionContractRoutes } from './routes/production-contract.js';
 import { productionOverviewRoutes } from './routes/production-overview.js';
 import { deploymentSudoRoutes } from './routes/deployment-sudo.js';
 import { gitMutationRoutes } from './routes/git-mutations.js';
@@ -325,6 +326,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     deploymentService,
+  });
+
+  app.register(productionContractRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
   });
 
   app.register(productionOverviewRoutes, {
