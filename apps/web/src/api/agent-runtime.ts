@@ -669,6 +669,26 @@ export async function executeAgentTask(
   );
 }
 
+export interface AgentTaskCompletion {
+  task: AgentTaskRecord;
+  cleanup: { status: string; diagnostic?: string };
+}
+
+/** Conclui uma task em revisão; exige confirmação explícita (`confirmed: true`). */
+export async function completeAgentTask(
+  projectId: string,
+  taskId: string,
+): Promise<AgentTaskCompletion> {
+  return requestJson<AgentTaskCompletion>(
+    taskPath(projectId, taskId) + '/complete',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmed: true }),
+    },
+  );
+}
+
 export async function cancelAgentTask(
   projectId: string,
   taskId: string,

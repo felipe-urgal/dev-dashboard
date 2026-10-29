@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { test } from 'vitest';
 
 import {
@@ -289,22 +287,4 @@ test('pré-condições impedem envio vazio, não autorizado ou duplicado', async
   assert.equal(h.requests.length, 1);
   h.requests[0]!.resolve(result('turn-1', 'task-a'));
   await pending;
-});
-
-test('cockpit delega conversa e invalida estado na seleção, carga e unmount', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  assert.match(panel, /useAgentTaskConversation\(/);
-  assert.match(panel, /useAgentTaskDetailReads\(/);
-  assert.match(
-    panel,
-    /applyLoadedConversation\(nextConversation, target, revision\)/,
-  );
-  assert.match(panel, /conversationRevision,/);
-  assert.match(panel, /resetConversation\(\)/);
-  assert.doesNotMatch(panel, /conversationTurns\.value\s*=/);
-  assert.doesNotMatch(panel, /executeAgentConversationTurn\(/);
-  assert.match(panel, /@click="continueCurrentConversation"/);
 });

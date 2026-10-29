@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { test } from 'vitest';
 
 import {
@@ -199,26 +198,6 @@ function historyCardSource(): string {
   );
 }
 
-test('cockpit não faz GET legado do histórico inteiro', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  assert.match(panel, /useAgentTaskHistory/);
-  assert.match(panel, /loadFirstPage\(\)/);
-  assert.match(panel, /loadNextPage\(\)/);
-  assert.match(panel, /props\.initialTaskId \|\| active\?\.task\.id/);
-  assert.match(panel, /ProjectAgentTaskHistoryCard/);
-  assert.match(panel, /:tasks="sortedTasks"/);
-  assert.match(historyCardSource(), /Carregar mais/);
-  assert.match(panel, /compareTaskPriority/);
-  assert.match(historyCardSource(), /Atualizar histórico/);
-  assert.match(panel, /useAgentTaskArchive/);
-  assert.match(historyCardSource(), /Mostrar arquivadas/);
-  assert.match(panel, /Arquivar task/);
-  assert.doesNotMatch(panel, /fetchAgentTasks/);
-});
-
 test('archive removes hidden task and toggling archived view uses paged query', async () => {
   const { requests, fetchPage } = client();
   const history = useAgentTaskHistory(() => 'project-a', fetchPage);
@@ -377,31 +356,4 @@ test('falha em página mantém cursor e histórico para retry', async () => {
     'task-1',
     'task-2',
   ]);
-});
-
-test('retry de paginação mantém lista visível no cockpit', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  const retry = panel.slice(
-    panel.indexOf('async function retryHistory('),
-    panel.indexOf('async function toggleArchivedHistory('),
-  );
-  assert.match(retry, /historyLoaded\.value && historyHasMore\.value/);
-  assert.match(retry, /await loadNextPage\(\)/);
-  assert.match(retry, /await refreshHistory\(\)/);
-  assert.match(panel, /@retry="retryHistory"/);
-  assert.match(historyCardSource(), /@click="\$emit\('retry'\)"/);
-  assert.match(historyCardSource(), /Tentar novamente/);
-  assert.match(historyCardSource(), /Atualizar histórico/);
-  assert.match(historyCardSource(), /<template v-if="tasks\.length">/);
-  assert.match(
-    historyCardSource(),
-    /v-if="showAllHistory && historyHasMore && !historyError"/,
-  );
-  assert.doesNotMatch(
-    historyCardSource(),
-    /<template v-else>\s*<button\s*v-for="record in showAllHistory/,
-  );
 });

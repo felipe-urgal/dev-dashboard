@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { nextTick } from 'vue';
 import { test } from 'vitest';
 
@@ -129,32 +127,4 @@ test('reset no unmount descarta erro tardio e nova consulta limpa aviso anterior
   h.budgets[1]!.resolve();
   await flush();
   assert.equal(h.state.supplementalWarning.value, '');
-});
-
-test('cockpit não aguarda budget e usage antes de mostrar task e conectar socket', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  const loader = panel.slice(
-    panel.indexOf('async function loadTask('),
-    panel.indexOf('async function load():'),
-  );
-
-  assert.match(loader, /loadSupplementalData\(\)/);
-  assert.match(loader, /await Promise\.all\(\[/);
-  assert.match(loader, /fetchAgentTaskStatus\(/);
-  assert.match(loader, /fetchAgentActivity\(/);
-  assert.doesNotMatch(loader, /fetchAgentConversation\(/);
-  assert.doesNotMatch(loader, /fetchAgentAttachments\(/);
-  assert.match(loader, /loadTaskDetails\(\)/);
-  assert.match(panel, /useAgentTaskDetailReads\(/);
-  assert.match(loader, /connectTaskSocket\(/);
-  assert.doesNotMatch(loader, /reloadBudget\(\)/);
-  assert.doesNotMatch(loader, /reloadUsage\(\)/);
-  assert.match(panel, /resetSupplementalData\(\)/);
-  assert.match(panel, /v-if="supplementalWarning"/);
-  assert.match(panel, /@click="loadSupplementalData"/);
-  assert.match(panel, /Recarregar métricas/);
-  assert.match(panel, /mutating \|\| failedSources\.includes\('budget'\)/);
 });

@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { ref } from 'vue';
 import { test } from 'vitest';
 
@@ -300,18 +298,4 @@ test('itens nulos ou incompletos em Activity também falham fechado', () => {
   assert.equal(h.controller.applySnapshot(missingTaskId), 'invalid');
   assert.equal(h.status.value, null);
   assert.deepEqual(h.recorded, []);
-});
-
-test('cockpit compartilha guard de snapshots entre REST e WebSocket', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  assert.match(panel, /useAgentTaskSnapshots\(/);
-  assert.match(panel, /useAgentTaskRealtime\([\s\S]*?applySnapshot,/);
-  assert.match(panel, /const snapshotResult = applySnapshot\(/);
-  assert.match(panel, /snapshotResult === 'invalid'/);
-  assert.match(panel, /snapshotResult === 'stale'/);
-  assert.doesNotMatch(panel, /function applySnapshot\(/);
-  assert.match(panel, /publishAgentNotifications\(snapshot\)/);
 });

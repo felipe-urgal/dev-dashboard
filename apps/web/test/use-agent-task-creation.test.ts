@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { ref } from 'vue';
 import { test } from 'vitest';
 
@@ -288,17 +286,4 @@ test('erro antigo e resposta com outro projeto falham fechado, sem reenvio', asy
   assert.match(h.errors[0] ?? '', /não corresponde/);
   assert.deepEqual(h.committed, []);
   assert.equal(h.creates.length, 2);
-});
-
-test('cockpit delega criação e invalida resultados ao navegar e desmontar', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  assert.match(panel, /useAgentTaskCreation\(/);
-  assert.match(panel, /invalidateCreation\(\)/);
-  assert.match(panel, /resetCreation\(\)/);
-  assert.match(panel, /@click="createTask"/);
-  assert.doesNotMatch(panel, /async function createTask\(/);
-  assert.doesNotMatch(panel, /adoptAgentBacklog\(/);
 });

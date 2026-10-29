@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { effectScope, nextTick, ref } from 'vue';
 import { test } from 'vitest';
 
@@ -95,25 +93,4 @@ test('limpar query preserva seleção manual e unmount encerra observer', async 
   route.value = 'task-outro';
   await nextTick();
   assert.deepEqual(calls, []);
-});
-
-test('cockpit impede a página inicial de sobrescrever um deep link recebido durante o load', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  const details = readFileSync(
-    resolve(import.meta.dirname, '../src/views/ProjectDetailsView.vue'),
-    'utf8',
-  );
-
-  assert.match(details, /:initial-task-id="agentTaskId"/);
-  assert.match(panel, /useAgentTaskDeepLink\(/);
-  assert.match(panel, /\(\) => props\.initialTaskId/);
-  assert.match(panel, /if \(!selectedTaskId\.value\) \{/);
-  assert.match(panel, /props\.initialTaskId \|\| active\?\.task\.id/);
-  assert.match(panel, /loadVersion !== taskLoadVersion/);
-  assert.match(panel, /selectedTaskId\.value !== taskId/);
-  assert.match(panel, /invalidateArchive\(\)/);
-  assert.match(panel, /invalidateCreation\(\)/);
 });

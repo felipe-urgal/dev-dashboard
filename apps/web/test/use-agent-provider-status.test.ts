@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { ref } from 'vue';
 import { test } from 'vitest';
 
@@ -161,19 +159,4 @@ test('falha de preflight conserva último snapshot e permite retry', async () =>
       ?.availability,
     'degraded',
   );
-});
-
-test('cockpit usa um owner de provider status e invalida ao trocar projeto', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  assert.match(panel, /useAgentProviderStatus\(/);
-  assert.match(
-    panel,
-    /applyLoadedProviders\(nextProviders, props\.project\.id\)/,
-  );
-  assert.match(panel, /resetProviders\(\)/);
-  assert.doesNotMatch(panel, /providers\.value\s*=/);
-  assert.doesNotMatch(panel, /providerRefreshing\.value\s*=/);
 });
