@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
   ArrowPathIcon,
@@ -363,7 +363,6 @@ const {
   },
 );
 const showAllHistory = ref(false);
-const replyAnchor = ref<HTMLElement | null>(null);
 const composing = ref(false);
 const confirmingComplete = ref(false);
 const completionNotice = ref('');
@@ -587,6 +586,9 @@ const canExecute = computed(
 const canCreate = computed(
   () => instruction.value.trim().length > 0 && !mutating.value,
 );
+
+// Mais recente primeiro: a resposta fica no topo, sem precisar rolar.
+const turnsNewestFirst = computed(() => [...conversationTurns.value].reverse());
 
 const canContinue = computed(
   () =>
@@ -888,16 +890,6 @@ async function executeCurrent(): Promise<void> {
     attachmentIds: [...selectedAttachmentIds.value],
   });
 }
-
-// Abre a conversa no fim (última resposta + campo de resposta), como num chat.
-watch(
-  () => [selectedTaskId.value, conversationTurns.value.length] as const,
-  async ([taskId, count]) => {
-    if (!taskId || count === 0) return;
-    await nextTick();
-    replyAnchor.value?.scrollIntoView({ block: 'end', behavior: 'smooth' });
-  },
-);
 
 function startNewTask(): void {
   composing.value = true;
@@ -1562,39 +1554,6 @@ onBeforeUnmount(() => {
                 Recarregar
               </button>
             </div>
-            <p
-              v-if="!conversationTurns.length && !detailWarning"
-              class="ag-muted"
-            >
-              Ainda não há mensagens nesta task. Clique em Executar para o
-              Claude começar.
-            </p>
-            <ol v-else class="ag-turns">
-              <li
-                v-for="turn in conversationTurns"
-                :key="turn.id"
-                class="ag-turn"
-                :class="{ 'ag-turn-user': turn.role === 'user' }"
-              >
-                <div class="ag-turn-meta">
-                  <strong>{{
-                    turn.role === 'user' ? 'Você' : 'Claude'
-                  }}</strong>
-                  <small>{{ new Date(turn.createdAt).toLocaleString() }}</small>
-                </div>
-                <div class="ag-md" v-html="renderMarkdown(turn.content)" />
-                <small v-if="turn.attachmentIds?.length" class="ag-muted">
-                  Anexos:
-                  {{
-                    turn.attachmentIds
-                      .map((id) => attachmentFor(id)?.filename ?? id)
-                      .join(', ')
-                  }}
-                </small>
-              </li>
-            </ol>
-
-            <div ref="replyAnchor" class="ag-anchor" aria-hidden="true" />
             <div v-if="currentTask.task.state === 'review'" class="ag-reply">
               <textarea
                 v-model="conversationInstruction"
@@ -1623,6 +1582,37 @@ onBeforeUnmount(() => {
             <p v-else-if="conversationTurns.length" class="ag-muted">
               Você poderá responder quando a task chegar em revisão.
             </p>
+            <p
+              v-if="!conversationTurns.length && !detailWarning"
+              class="ag-muted"
+            >
+              Ainda não há mensagens nesta task. Clique em Executar para o
+              Claude começar.
+            </p>
+            <ol v-else class="ag-turns">
+              <li
+                v-for="turn in turnsNewestFirst"
+                :key="turn.id"
+                class="ag-turn"
+                :class="{ 'ag-turn-user': turn.role === 'user' }"
+              >
+                <div class="ag-turn-meta">
+                  <strong>{{
+                    turn.role === 'user' ? 'Você' : 'Claude'
+                  }}</strong>
+                  <small>{{ new Date(turn.createdAt).toLocaleString() }}</small>
+                </div>
+                <div class="ag-md" v-html="renderMarkdown(turn.content)" />
+                <small v-if="turn.attachmentIds?.length" class="ag-muted">
+                  Anexos:
+                  {{
+                    turn.attachmentIds
+                      .map((id) => attachmentFor(id)?.filename ?? id)
+                      .join(', ')
+                  }}
+                </small>
+              </li>
+            </ol>
           </section>
         </template>
       </main>
@@ -2435,10 +2425,6 @@ textarea:focus,
   border-top: 1px solid var(--border);
   border-radius: 0 0 14px 14px;
   background: var(--surface-1);
-}
-
-.ag-anchor {
-  height: 0;
 }
 
 .ag-md :deep(p) {
