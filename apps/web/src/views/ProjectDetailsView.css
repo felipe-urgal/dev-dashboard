@@ -37,8 +37,7 @@
 }
 :deep(.server-dashboard),
 :deep(.git-modern-panel),
-:deep(.rails-runtime-panel),
-:deep(.tests-pty-panel) {
+:deep(.rails-runtime-panel) {
   height: auto;
   min-height: 0;
   overflow: visible;
@@ -64,7 +63,6 @@
 }
 .project-details-page-pty :deep(.server-dashboard),
 .project-details-page-pty :deep(.terminal-panel),
-.project-details-page-pty :deep(.tests-pty-panel),
 .project-details-page-pty :deep(.rails-runtime-panel) {
   flex: 1 1 0;
   height: 100%;
@@ -72,8 +70,7 @@
   max-height: 100%;
   overflow: hidden;
 }
-.project-details-page-pty :deep(.terminal-window),
-.project-details-page-pty :deep(.tests-pty-terminal) {
+.project-details-page-pty :deep(.terminal-window) {
   flex: 1 1 0;
   height: auto;
   min-height: 0;

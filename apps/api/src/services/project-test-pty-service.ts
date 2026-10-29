@@ -1,4 +1,9 @@
-import type { ExecutionContext, Project } from '@dev-dashboard/contracts';
+import type {
+  ExecutionContext,
+  Project,
+  ProjectTestRunner,
+  TestRunResult,
+} from '@dev-dashboard/contracts';
 import type { WebSocket } from 'ws';
 
 import {
@@ -24,6 +29,12 @@ import {
   RelatedTestError,
   RelatedTestService,
 } from './related-test-service.js';
+import {
+  discardStructuredResult,
+  planStructuredReporter,
+  readStructuredResult,
+  type StructuredReporterPlan,
+} from './test-result-reporters.js';
 
 export type ProjectTestPtyErrorCode =
   | 'TEST_COMMAND_NOT_FOUND'
@@ -43,12 +54,14 @@ export class ProjectTestPtyError extends Error {
   }
 }
 
-export type ProjectTestPtyMode = 'full-suite' | 'file' | 'related';
+export type ProjectTestPtyMode = 'full-suite' | 'file' | 'files' | 'related';
 
 export interface ProjectTestPtyStartRequest {
   commandId: string;
   mode?: ProjectTestPtyMode;
   path?: string;
+  /** Arquivos de teste escolhidos pelo usuário (mode `files`). */
+  paths?: string[];
   line?: number;
   namePattern?: string;
 }
@@ -59,6 +72,12 @@ export interface ProjectTestPtySnapshot extends DetachableExecutionSnapshot {
   scope: 'full-suite' | 'targeted';
   targetFiles: string[];
   cancelled: boolean;
+}
+
+interface StructuredRun {
+  runner: ProjectTestRunner;
+  outFile: string;
+  projectPath: string;
 }
 
 interface ExecutionMetadata {
@@ -182,6 +201,8 @@ function devContainerTestCommand(
  */
 export class ProjectTestPtyService {
   private readonly metadata = new Map<string, ExecutionMetadata>();
+  /** Arquivo do reporter estruturado da última execução de cada ambiente. */
+  private readonly structuredRuns = new Map<string, StructuredRun>();
   private readonly relatedTestService: RelatedTestService;
 
   public constructor(
@@ -247,6 +268,21 @@ export class ProjectTestPtyService {
         );
         scope = 'targeted';
         targetFiles = [input.path];
+      } else if (input.mode === 'files') {
+        const paths = input.paths ?? [];
+        if (paths.length === 0) {
+          throw new ProjectTestPtyError(
+            'TARGET_INVALID',
+            'Selecione ao menos um arquivo de teste.',
+          );
+        }
+        resolved = await this.testDetectionService.resolveFilesCommand(
+          scopedProject,
+          input.commandId,
+          paths,
+        );
+        scope = 'targeted';
+        targetFiles = Array.from(new Set(paths));
       } else if (input.mode === 'related') {
         const related = await this.relatedTestService.resolve(
           scopedProject,
@@ -286,10 +322,20 @@ export class ProjectTestPtyService {
     }
 
     const environment = await testEnvironment(scopedProject, executionContext);
+    const reporter = await this.planReporter(
+      scopedProject,
+      executionContext,
+      input.commandId,
+      resolved,
+      environment,
+    );
     const command =
       executionContext.runtime === 'devcontainer'
         ? devContainerTestCommand(scopedProject, executionContext, resolved)
-        : { file: resolved.command, args: resolved.args };
+        : {
+            file: (reporter?.resolved ?? resolved).command,
+            args: (reporter?.resolved ?? resolved).args,
+          };
 
     let snapshot: DetachableExecutionSnapshot;
     try {
@@ -297,7 +343,7 @@ export class ProjectTestPtyService {
         file: command.file,
         args: command.args,
         cwd: executionContext.cwd,
-        env: environment,
+        env: reporter ? { ...environment, ...reporter.env } : environment,
       });
     } catch (error) {
       if (
@@ -332,6 +378,8 @@ export class ProjectTestPtyService {
       }
     }
 
+    await this.rememberStructuredRun(key, reporter, scopedProject);
+
     this.metadata.set(key, {
       commandId: input.commandId,
       environmentInstanceId: executionContext.environmentInstanceId,
@@ -353,6 +401,58 @@ export class ProjectTestPtyService {
     }
 
     return this.withMetadata(key, snapshot);
+  }
+
+  private async planReporter(
+    project: Project,
+    executionContext: ExecutionContext,
+    commandId: string,
+    resolved: { command: string; args: string[] },
+    environment: NodeJS.ProcessEnv,
+  ): Promise<StructuredReporterPlan | null> {
+    // O arquivo do reporter precisa ser visível ao processo: só no host.
+    if (executionContext.runtime !== 'host') return null;
+    try {
+      const overview = await this.testDetectionService.getOverview(project);
+      const runner = overview.commands.find(
+        (command) => command.id === commandId,
+      )?.runner;
+      if (!runner) return null;
+      return await planStructuredReporter(runner, resolved, environment);
+    } catch {
+      // Sem reporter, a execução continua só com a saída do terminal.
+      return null;
+    }
+  }
+
+  private async rememberStructuredRun(
+    key: string,
+    reporter: StructuredReporterPlan | null,
+    project: Project,
+  ): Promise<void> {
+    const previous = this.structuredRuns.get(key);
+    if (previous) await discardStructuredResult(previous.outFile);
+    this.structuredRuns.delete(key);
+    if (!reporter) return;
+    this.structuredRuns.set(key, {
+      runner: reporter.runner,
+      outFile: reporter.outFile,
+      projectPath: project.path,
+    });
+  }
+
+  /** Resultado estruturado da última execução já encerrada, quando disponível. */
+  public async result(
+    project: Project,
+    executionContext: ExecutionContext = primaryExecutionContext(project),
+  ): Promise<TestRunResult | null> {
+    const key = executionKey(
+      project.id,
+      executionContext.environmentInstanceId,
+    );
+    const run = this.structuredRuns.get(key);
+    if (!run || this.detachable.isRunning(key)) return null;
+    return readStructuredResult(run.runner, run.outFile, run.projectPath);
   }
 
   /** Reanexa ao WebSocket: sem stdin (execução não-interativa), só envia saída/estado. */

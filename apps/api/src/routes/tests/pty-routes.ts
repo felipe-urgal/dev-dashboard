@@ -19,8 +19,9 @@ interface EnvironmentQuery {
 
 interface StartBody {
   commandId: string;
-  mode?: 'full-suite' | 'file' | 'related';
+  mode?: 'full-suite' | 'file' | 'files' | 'related';
   path?: string;
+  paths?: string[];
   line?: number;
   namePattern?: string;
 }
@@ -43,8 +44,17 @@ const startBodySchema = {
   required: ['commandId'],
   properties: {
     commandId: { type: 'string', minLength: 1, maxLength: 200 },
-    mode: { type: 'string', enum: ['full-suite', 'file', 'related'] },
+    mode: {
+      type: 'string',
+      enum: ['full-suite', 'file', 'files', 'related'],
+    },
     path: { type: 'string', minLength: 1, maxLength: 2048 },
+    paths: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 500,
+      items: { type: 'string', minLength: 1, maxLength: 2048 },
+    },
     line: { type: 'integer', minimum: 1, maximum: 1_000_000 },
     namePattern: { type: 'string', minLength: 1, maxLength: 200 },
   },
@@ -136,6 +146,45 @@ export function registerTestPtyRoutes(
     developmentEnvironmentInstanceStore,
     projectTestPtyService,
   } = options;
+
+  app.get<{ Params: ProjectParams; Querystring: EnvironmentQuery }>(
+    '/projects/:projectId/tests/pty/result',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: environmentQuerySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: {
+              result: {
+                anyOf: [
+                  { type: 'null' },
+                  { type: 'object', additionalProperties: true },
+                ],
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = resolveExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
+      return {
+        result:
+          (await projectTestPtyService.result(project, executionContext)) ??
+          null,
+      };
+    },
+  );
 
   app.get<{ Params: ProjectParams; Querystring: EnvironmentQuery }>(
     '/projects/:projectId/tests/pty/status',

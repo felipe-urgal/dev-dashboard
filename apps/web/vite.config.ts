@@ -8,7 +8,7 @@ export default defineConfig(async () => {
   const localToken = await new LocalTokenStore().getOrCreate();
 
   const apiProxy: ProxyOptions = {
-    target: 'http://127.0.0.1:4343',
+    target: `http://127.0.0.1:${process.env.DEV_DASHBOARD_API_PORT ?? '4343'}`,
     changeOrigin: false,
     ws: true,
 

@@ -9,6 +9,7 @@ import type {
 import {
   CASE_TARGET_RUNNERS,
   composeFileCommand,
+  composeFilesCommand,
   composeNamePatternArgs,
   ensureTestPathInsideProject,
   findTestFiles,
@@ -133,6 +134,47 @@ export class TestDetectionService {
     return namePattern === undefined
       ? resolved
       : composeNamePatternArgs(resolved, command.runner, namePattern);
+  }
+
+  /** Executa vários arquivos de teste numa única invocação do runner. */
+  public async resolveFilesCommand(
+    project: Project,
+    commandId: string,
+    filePaths: readonly string[],
+  ): Promise<ResolvedCommand | null> {
+    const commands = await this.detect(project);
+    const command = commands.find((entry) => entry.id === commandId);
+    if (!command) return null;
+
+    const pattern = FILE_TARGET_PATTERNS[command.runner];
+    if (!pattern) {
+      throw new TestFileError(
+        'TEST_FILE_TARGET_UNSUPPORTED',
+        'Este comando não suporta executar arquivos específicos.',
+      );
+    }
+    if (filePaths.length === 0) {
+      throw new TestFileError(
+        'TEST_FILE_NOT_FOUND',
+        'Selecione ao menos um arquivo de teste.',
+      );
+    }
+
+    const safePaths = Array.from(
+      new Set(
+        filePaths.map((filePath) => {
+          const safePath = ensureTestPathInsideProject(project.path, filePath);
+          if (!pattern.test(path.basename(safePath))) {
+            throw new TestFileError(
+              'TEST_FILE_NOT_FOUND',
+              'Um dos arquivos informados não é um arquivo de teste reconhecido.',
+            );
+          }
+          return safePath;
+        }),
+      ),
+    );
+    return composeFilesCommand(command.resolved, safePaths);
   }
 
   private async detect(project: Project): Promise<DetectedTestCommand[]> {

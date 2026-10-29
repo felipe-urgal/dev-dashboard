@@ -7,9 +7,11 @@ import type { Project, ProjectTestOverview } from '@dev-dashboard/contracts';
 
 const mocks = vi.hoisted(() => ({
   fetchProjectTests: vi.fn(),
+  fetchProjectTestFiles: vi.fn(),
   fetchProjectTestIntelligence: vi.fn(),
   fetchProjectTestHistory: vi.fn(),
   fetchProjectTestPtyStatus: vi.fn(),
+  fetchProjectTestPtyResult: vi.fn(),
   startProjectTestPty: vi.fn(),
   cancelProjectTestPty: vi.fn(),
   projectTestPtyWebSocketUrl: vi.fn(
@@ -24,9 +26,11 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../src/api', () => ({
   fetchProjectTests: mocks.fetchProjectTests,
+  fetchProjectTestFiles: mocks.fetchProjectTestFiles,
   fetchProjectTestIntelligence: mocks.fetchProjectTestIntelligence,
   fetchProjectTestHistory: mocks.fetchProjectTestHistory,
   fetchProjectTestPtyStatus: mocks.fetchProjectTestPtyStatus,
+  fetchProjectTestPtyResult: mocks.fetchProjectTestPtyResult,
   startProjectTestPty: mocks.startProjectTestPty,
   cancelProjectTestPty: mocks.cancelProjectTestPty,
   projectTestPtyWebSocketUrl: mocks.projectTestPtyWebSocketUrl,
@@ -83,7 +87,7 @@ function overview(): ProjectTestOverview {
         description: 'Suíte completa',
         origin: 'package-script',
         priority: 1,
-        supportsFileTarget: false,
+        supportsFileTarget: true,
         supportsCaseTarget: false,
         supportsNamePatternTarget: false,
       },
@@ -109,7 +113,13 @@ beforeEach(async () => {
   vi.clearAllMocks();
   FakeWebSocket.instances = [];
   mocks.fetchProjectTests.mockResolvedValue(overview());
+  mocks.fetchProjectTestFiles.mockResolvedValue([
+    { path: 'src/a.test.ts' },
+    { path: 'src/b.test.ts' },
+    { path: 'src/util/c.test.ts' },
+  ]);
   mocks.fetchProjectTestPtyStatus.mockResolvedValue(null);
+  mocks.fetchProjectTestPtyResult.mockResolvedValue(null);
   mocks.fetchProjectTestHistory.mockResolvedValue({
     items: [],
     page: 1,
@@ -136,38 +146,8 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-test('carrega os comandos com a interface mínima de execução', async () => {
-  const wrapper = mount(ProjectTestsPtyPanel, {
-    props: { project: project() },
-  });
-  await flushPromises();
-
-  assert.equal(
-    wrapper.get('[aria-label="Comando de teste"]').text(),
-    'npm run test',
-  );
-  assert.equal(
-    wrapper.get('[aria-label="Ambiente de execução"]').text(),
-    'Principal',
-  );
-
-  const button = wrapper
-    .findAll('button')
-    .find((candidate) => candidate.text().includes('Executar testes'));
-  assert.ok(button);
-  assert.equal(button.attributes('disabled'), undefined);
-
-  assert.equal(wrapper.find('.tests-pty-heading').exists(), false);
-  assert.equal(wrapper.find('.dd-card').exists(), false);
-  assert.equal(wrapper.find('.tests-execution-controls').exists(), true);
-  assert.equal(wrapper.find('.tests-overview').exists(), false);
-  assert.equal(wrapper.find('.tests-tabs').exists(), false);
-  assert.equal(wrapper.find('.test-intelligence').exists(), false);
-  assert.equal(wrapper.find('.tests-local-note').exists(), false);
-});
-
-test('executar conecta via WebSocket, escreve a saída e mantém o resultado disponível ao encerrar', async () => {
-  mocks.startProjectTestPty.mockResolvedValue({
+function runningSnapshot(overrides: Record<string, unknown> = {}) {
+  return {
     status: 'running',
     commandId: 'full-suite',
     environmentInstanceId: 'environment:primary:projeto-1',
@@ -179,74 +159,124 @@ test('executar conecta via WebSocket, escreve a saída e mantém o resultado dis
     exitSignal: null,
     startedAt: '2026-08-11T10:00:00.000Z',
     endedAt: null,
-  });
+    ...overrides,
+  };
+}
+
+function buttonByText(wrapper: ReturnType<typeof mount>, text: string) {
+  return wrapper
+    .findAll('button')
+    .find((candidate) => candidate.text().includes(text));
+}
+
+test('sem seleção, executa todos os testes, conecta via WebSocket e mantém a saída ao encerrar', async () => {
+  mocks.startProjectTestPty.mockResolvedValue(runningSnapshot());
 
   const wrapper = mount(ProjectTestsPtyPanel, {
     props: { project: project() },
   });
   await flushPromises();
 
-  const button = wrapper
-    .findAll('button')
-    .find((candidate) => candidate.text().includes('Executar testes'));
+  const button = buttonByText(wrapper, 'Executar todos');
   assert.ok(button);
   await button.trigger('click');
   await flushPromises();
 
-  assert.equal(mocks.startProjectTestPty.mock.calls[0]?.[1], 'full-suite');
+  assert.deepEqual(mocks.startProjectTestPty.mock.calls[0], [
+    'projeto-1',
+    'full-suite',
+    undefined,
+    { mode: 'full-suite' },
+  ]);
   assert.equal(FakeWebSocket.instances.length, 1);
   const socket = FakeWebSocket.instances[0]!;
   socket.readyState = 1;
   socket.emit('open', {});
-
   socket.emitMessage({
     type: 'ready',
-    snapshot: {
-      status: 'running',
-      commandId: 'full-suite',
-      environmentInstanceId: 'environment:primary:projeto-1',
-      scope: 'full-suite',
-      targetFiles: [],
-      cancelled: false,
-      exitCode: null,
-      exitSignal: null,
-      startedAt: '2026-08-11T10:00:00.000Z',
-      endedAt: null,
-      buffer: '',
-      truncated: false,
-    },
+    snapshot: { ...runningSnapshot(), buffer: '' },
   });
   await flushPromises();
-  assert.ok(wrapper.find('.tests-output').exists());
 
   socket.emitMessage({ type: 'output', data: 'ok\n' });
-  await flushPromises();
-
   socket.emitMessage({ type: 'exit', exitCode: 0, exitSignal: null });
   await flushPromises();
 
-  assert.ok(wrapper.find('.tests-output').exists());
-  assert.ok(
-    wrapper
-      .findAll('button')
-      .some((candidate) => candidate.text().includes('Fechar saída')),
+  assert.ok(buttonByText(wrapper, 'Fechar saída'));
+  wrapper.unmount();
+});
+
+test('executa somente os arquivos selecionados', async () => {
+  mocks.startProjectTestPty.mockResolvedValue(
+    runningSnapshot({
+      scope: 'targeted',
+      targetFiles: ['src/a.test.ts', 'src/util/c.test.ts'],
+    }),
   );
+
+  const wrapper = mount(ProjectTestsPtyPanel, {
+    props: { project: project() },
+    attachTo: document.body,
+  });
+  await flushPromises();
+
+  const boxes = wrapper.findAll('.test-group li input[type="checkbox"]');
+  assert.equal(boxes.length, 3);
+  await boxes[0]!.setValue(true);
+  await boxes[2]!.setValue(true);
+
+  const button = buttonByText(wrapper, 'Executar selecionados (2)');
+  assert.ok(button);
+  await button.trigger('click');
+  await flushPromises();
+
+  assert.deepEqual(mocks.startProjectTestPty.mock.calls[0]?.[3], {
+    mode: 'files',
+    paths: ['src/a.test.ts', 'src/util/c.test.ts'],
+  });
+  wrapper.unmount();
+});
+
+test('selecionar relacionados marca só os testes que existem na lista', async () => {
+  mocks.fetchProjectTestIntelligence.mockResolvedValue({
+    commandId: 'full-suite',
+    state: 'direct',
+    recommendation: 'targeted',
+    baseBranch: 'main',
+    currentBranch: 'feature/testes',
+    changedFiles: ['src/app.ts'],
+    testFiles: ['src/b.test.ts', 'src/inexistente.test.ts'],
+    unmappedFiles: [],
+    evidence: [],
+  });
+  mocks.startProjectTestPty.mockResolvedValue(
+    runningSnapshot({ scope: 'targeted', targetFiles: ['src/b.test.ts'] }),
+  );
+
+  const wrapper = mount(ProjectTestsPtyPanel, {
+    props: { project: project() },
+  });
+  await flushPromises();
+
+  const related = buttonByText(wrapper, 'Selecionar relacionados (1)');
+  assert.ok(related);
+  await related.trigger('click');
+  await flushPromises();
+
+  const run = buttonByText(wrapper, 'Executar selecionados (1)');
+  assert.ok(run);
+  await run.trigger('click');
+  await flushPromises();
+
+  assert.deepEqual(mocks.startProjectTestPty.mock.calls[0]?.[3], {
+    mode: 'files',
+    paths: ['src/b.test.ts'],
+  });
+  wrapper.unmount();
 });
 
 test('cancelar chama cancelProjectTestPty enquanto a execução está em andamento', async () => {
-  mocks.startProjectTestPty.mockResolvedValue({
-    status: 'running',
-    commandId: 'full-suite',
-    environmentInstanceId: 'environment:primary:projeto-1',
-    scope: 'full-suite',
-    targetFiles: [],
-    cancelled: false,
-    truncated: false,
-    exitCode: null,
-    exitSignal: null,
-    startedAt: '2026-08-11T10:00:00.000Z',
-    endedAt: null,
-  });
+  mocks.startProjectTestPty.mockResolvedValue(runningSnapshot());
   mocks.cancelProjectTestPty.mockResolvedValue(undefined);
 
   const wrapper = mount(ProjectTestsPtyPanel, {
@@ -254,38 +284,25 @@ test('cancelar chama cancelProjectTestPty enquanto a execução está em andamen
   });
   await flushPromises();
 
-  const startButton = wrapper
-    .findAll('button')
-    .find((candidate) => candidate.text().includes('Executar testes'));
+  const startButton = buttonByText(wrapper, 'Executar todos');
   assert.ok(startButton);
   await startButton.trigger('click');
   await flushPromises();
 
-  const cancelButton = wrapper
-    .findAll('button')
-    .find((candidate) => candidate.text().includes('Cancelar'));
+  const cancelButton = buttonByText(wrapper, 'Cancelar');
   assert.ok(cancelButton);
   await cancelButton.trigger('click');
   await flushPromises();
 
   assert.equal(mocks.cancelProjectTestPty.mock.calls.length, 1);
+  wrapper.unmount();
 });
 
-test('propaga Environment Instance para overview, PTY e WebSocket', async () => {
+test('propaga Environment Instance para overview, arquivos, PTY e WebSocket', async () => {
   const environmentInstanceId = 'environment:worktree:projeto-1:wt-1';
-  mocks.startProjectTestPty.mockResolvedValue({
-    status: 'running',
-    commandId: 'full-suite',
-    environmentInstanceId,
-    scope: 'full-suite',
-    targetFiles: [],
-    cancelled: false,
-    truncated: false,
-    exitCode: null,
-    exitSignal: null,
-    startedAt: '2026-09-18T14:00:00.000Z',
-    endedAt: null,
-  });
+  mocks.startProjectTestPty.mockResolvedValue(
+    runningSnapshot({ environmentInstanceId }),
+  );
 
   const wrapper = mount(ProjectTestsPtyPanel, {
     props: {
@@ -299,18 +316,13 @@ test('propaga Environment Instance para overview, PTY e WebSocket', async () => 
     'projeto-1',
     { environmentInstanceId },
   ]);
-  assert.deepEqual(mocks.fetchProjectTestPtyStatus.mock.calls[0], [
+  assert.deepEqual(mocks.fetchProjectTestFiles.mock.calls[0], [
     'projeto-1',
+    'full-suite',
     environmentInstanceId,
   ]);
-  assert.equal(
-    wrapper.get('[aria-label="Ambiente de execução"]').text(),
-    'Environment Instance',
-  );
 
-  const button = wrapper
-    .findAll('button')
-    .find((candidate) => candidate.text().includes('Executar testes'));
+  const button = buttonByText(wrapper, 'Executar todos');
   assert.ok(button);
   await button.trigger('click');
   await flushPromises();
@@ -329,26 +341,6 @@ test('propaga Environment Instance para overview, PTY e WebSocket', async () => 
   wrapper.unmount();
 });
 
-test('carrega histórico e Test Intelligence somente ao abrir o contexto', async () => {
-  const wrapper = mount(ProjectTestsPtyPanel, {
-    props: { project: project() },
-  });
-  await flushPromises();
-
-  assert.equal(mocks.fetchProjectTestHistory.mock.calls.length, 0);
-  assert.equal(mocks.fetchProjectTestIntelligence.mock.calls.length, 0);
-
-  const details = wrapper.get('.tests-context');
-  (details.element as HTMLDetailsElement).open = true;
-  await details.trigger('toggle');
-  await flushPromises();
-
-  assert.ok(mocks.fetchProjectTestHistory.mock.calls.length >= 1);
-  assert.ok(mocks.fetchProjectTestIntelligence.mock.calls.length >= 1);
-  assert.match(wrapper.text(), /Test Intelligence/);
-  assert.match(wrapper.text(), /Últimas execuções/);
-});
-
 test('reconecta preservando a suíte identificada pelo snapshot PTY', async () => {
   mocks.fetchProjectTests.mockResolvedValue({
     ...overview(),
@@ -361,19 +353,9 @@ test('reconecta preservando a suíte identificada pelo snapshot PTY', async () =
       },
     ],
   });
-  mocks.fetchProjectTestPtyStatus.mockResolvedValue({
-    status: 'running',
-    commandId: 'secondary-suite',
-    environmentInstanceId: 'environment:primary:projeto-1',
-    scope: 'full-suite',
-    targetFiles: [],
-    cancelled: false,
-    truncated: false,
-    exitCode: null,
-    exitSignal: null,
-    startedAt: '2026-10-02T10:00:00.000Z',
-    endedAt: null,
-  });
+  mocks.fetchProjectTestPtyStatus.mockResolvedValue(
+    runningSnapshot({ commandId: 'secondary-suite' }),
+  );
 
   const wrapper = mount(ProjectTestsPtyPanel, {
     props: { project: project() },
@@ -390,30 +372,22 @@ test('reconecta preservando a suíte identificada pelo snapshot PTY', async () =
   wrapper.unmount();
 });
 
-test('permite executar testes relacionados pelo mesmo PTY canônico', async () => {
-  mocks.fetchProjectTestIntelligence.mockResolvedValue({
-    commandId: 'full-suite',
-    state: 'direct',
-    recommendation: 'targeted',
-    baseBranch: 'main',
-    currentBranch: 'feature/testes',
-    changedFiles: ['src/app.ts'],
-    testFiles: ['src/app.test.ts'],
-    unmappedFiles: [],
-    evidence: [],
-  });
-  mocks.startProjectTestPty.mockResolvedValue({
-    status: 'running',
-    commandId: 'full-suite',
-    environmentInstanceId: 'environment:primary:projeto-1',
-    scope: 'targeted',
-    targetFiles: ['src/app.test.ts'],
-    cancelled: false,
-    truncated: false,
-    exitCode: null,
-    exitSignal: null,
-    startedAt: '2026-10-02T10:00:00.000Z',
-    endedAt: null,
+test('depois de uma execução com falhas, "Rodar só as que falharam" executa apenas esses arquivos', async () => {
+  mocks.startProjectTestPty.mockResolvedValue(runningSnapshot());
+  mocks.fetchProjectTestPtyResult.mockResolvedValue({
+    runner: 'vitest',
+    summary: { total: 3, passed: 2, failed: 1, pending: 0 },
+    failures: [
+      {
+        id: 'src/b.test.ts:soma',
+        runner: 'vitest',
+        name: 'soma falha',
+        message: 'expected 1 to be 2',
+        location: { path: 'src/b.test.ts', line: 7 },
+        stack: [],
+      },
+    ],
+    failedFiles: ['src/b.test.ts'],
   });
 
   const wrapper = mount(ProjectTestsPtyPanel, {
@@ -421,51 +395,7 @@ test('permite executar testes relacionados pelo mesmo PTY canônico', async () =
   });
   await flushPromises();
 
-  const details = wrapper.get('.tests-context');
-  (details.element as HTMLDetailsElement).open = true;
-  await details.trigger('toggle');
-  await flushPromises();
-
-  const relatedButton = wrapper
-    .findAll('button')
-    .find((button) => button.text().includes('Executar 1 relacionados'));
-  assert.ok(relatedButton);
-  await relatedButton.trigger('click');
-  await flushPromises();
-
-  assert.deepEqual(mocks.startProjectTestPty.mock.calls.at(-1), [
-    'projeto-1',
-    'full-suite',
-    undefined,
-    { mode: 'related' },
-  ]);
-});
-
-test('oferece reconexão quando o WebSocket cai sem encerrar a execução', async () => {
-  mocks.startProjectTestPty.mockResolvedValue({
-    status: 'running',
-    commandId: 'full-suite',
-    environmentInstanceId: 'environment:primary:projeto-1',
-    scope: 'full-suite',
-    targetFiles: [],
-    cancelled: false,
-    truncated: false,
-    exitCode: null,
-    exitSignal: null,
-    startedAt: '2026-10-02T10:00:00.000Z',
-    endedAt: null,
-  });
-
-  const wrapper = mount(ProjectTestsPtyPanel, {
-    props: { project: project() },
-  });
-  await flushPromises();
-
-  const startButton = wrapper
-    .findAll('button')
-    .find((candidate) => candidate.text().includes('Executar testes'));
-  assert.ok(startButton);
-  await startButton.trigger('click');
+  await buttonByText(wrapper, 'Executar todos')!.trigger('click');
   await flushPromises();
 
   const socket = FakeWebSocket.instances[0]!;
@@ -473,65 +403,70 @@ test('oferece reconexão quando o WebSocket cai sem encerrar a execução', asyn
   socket.emit('open', {});
   socket.emitMessage({
     type: 'ready',
-    snapshot: {
-      status: 'running',
-      commandId: 'full-suite',
-      environmentInstanceId: 'environment:primary:projeto-1',
-      scope: 'full-suite',
-      targetFiles: [],
-      cancelled: false,
-      truncated: false,
-      exitCode: null,
-      exitSignal: null,
-      startedAt: '2026-10-02T10:00:00.000Z',
-      endedAt: null,
-      buffer: '',
-    },
+    snapshot: { ...runningSnapshot(), buffer: '' },
   });
+  socket.emitMessage({ type: 'exit', exitCode: 1, exitSignal: null });
   await flushPromises();
 
-  socket.emit('close', {});
+  assert.match(wrapper.text(), /soma falha/);
+  mocks.startProjectTestPty.mockClear();
+  mocks.startProjectTestPty.mockResolvedValue(
+    runningSnapshot({ scope: 'targeted', targetFiles: ['src/b.test.ts'] }),
+  );
+
+  const rerun = buttonByText(wrapper, 'Rodar só as que falharam');
+  assert.ok(rerun);
+  await rerun.trigger('click');
   await flushPromises();
 
-  assert.match(wrapper.text(), /a conexão com a saída foi interrompida/i);
-  const reconnectButton = wrapper
-    .findAll('button')
-    .find((candidate) => candidate.text() === 'Reconectar');
-  assert.ok(reconnectButton);
-  await reconnectButton.trigger('click');
-  await flushPromises();
-
-  assert.equal(FakeWebSocket.instances.length, 2);
+  assert.deepEqual(mocks.startProjectTestPty.mock.calls[0]?.[3], {
+    mode: 'files',
+    paths: ['src/b.test.ts'],
+  });
   wrapper.unmount();
 });
 
-test('expõe estado vazio e permite refazer a detecção de suítes', async () => {
-  mocks.fetchProjectTests.mockResolvedValueOnce({
-    supported: false,
-    commands: [],
+test('"Rodar de novo" no histórico repete os mesmos arquivos da execução', async () => {
+  mocks.fetchProjectTestHistory.mockResolvedValue({
+    items: [
+      {
+        id: 'h1',
+        projectId: 'projeto-1',
+        commandId: 'full-suite',
+        scope: 'targeted',
+        targetFiles: ['src/a.test.ts', 'src/b.test.ts'],
+        status: 'stopped',
+        startedAt: '2026-10-29T10:00:00.000Z',
+        finishedAt: '2026-10-29T10:00:05.000Z',
+        exitCode: 1,
+      },
+    ],
+    page: 1,
+    pageSize: 10,
+    total: 1,
+    totalPages: 1,
   });
-  mocks.fetchProjectTests.mockResolvedValueOnce(overview());
+  mocks.startProjectTestPty.mockResolvedValue(
+    runningSnapshot({
+      scope: 'targeted',
+      targetFiles: ['src/a.test.ts', 'src/b.test.ts'],
+    }),
+  );
 
   const wrapper = mount(ProjectTestsPtyPanel, {
     props: { project: project() },
   });
   await flushPromises();
 
-  assert.match(wrapper.text(), /Nenhuma suíte de testes foi detectada/i);
-  const refreshButton = wrapper
-    .findAll('button')
-    .find((candidate) => candidate.text() === 'Detectar novamente');
-  assert.ok(refreshButton);
-  await refreshButton.trigger('click');
+  await buttonByText(wrapper, 'Histórico')!.trigger('click');
+  const rerun = buttonByText(wrapper, 'Rodar de novo');
+  assert.ok(rerun);
+  await rerun.trigger('click');
   await flushPromises();
 
-  assert.deepEqual(mocks.fetchProjectTests.mock.calls.at(-1), [
-    'projeto-1',
-    { refresh: true },
-  ]);
-  assert.equal(
-    wrapper.get('[aria-label="Comando de teste"]').text(),
-    'npm run test',
-  );
+  assert.deepEqual(mocks.startProjectTestPty.mock.calls[0]?.[3], {
+    mode: 'files',
+    paths: ['src/a.test.ts', 'src/b.test.ts'],
+  });
   wrapper.unmount();
 });

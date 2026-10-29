@@ -361,6 +361,8 @@ export type {
   TestExecutionRecord,
   TestExecutionScope,
   TestExecutionStatus,
+  TestRunResult,
+  TestRunSummary,
 } from './test.js';
 
 export type {
