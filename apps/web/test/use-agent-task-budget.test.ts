@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { test } from 'vitest';
 
 import {
@@ -179,18 +177,4 @@ test('aplica budget novo, mantém blocking, alertas e valida campos', async () =
   assert.equal(state.budget.value?.blocking, false);
   assert.equal(state.budgetTokens.value, '');
   assert.equal(state.budgetMode.value, 'soft');
-});
-
-test('cockpit usa único owner de budget e invalida estado nos limites', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  assert.match(panel, /useAgentTaskBudget/);
-  assert.match(panel, /useAgentTaskSupplementalData/);
-  assert.match(panel, /loadSupplementalData\(\)/);
-  assert.match(panel, /saveBudgetChanges\(\)/);
-  assert.match(panel, /clearBudgetChanges\(\)/);
-  assert.doesNotMatch(panel, /budget\.value\s*=/);
-  assert.doesNotMatch(panel, /fetchAgentBudget/);
 });

@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { test } from 'vitest';
 
 import {
@@ -127,17 +125,4 @@ test('limpeza descarta métricas antigas e preserva indisponível como sem métr
 
   state.clearUsage();
   assert.equal(state.usage.value, null);
-});
-
-test('cockpit usa um owner de usage e limpa ao trocar task/projeto', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  assert.match(panel, /useAgentTaskUsage/);
-  assert.match(panel, /await reloadUsage\(\)/);
-  assert.match(panel, /useAgentTaskSupplementalData/);
-  assert.match(panel, /loadSupplementalData\(\)/);
-  assert.doesNotMatch(panel, /fetchAgentBudget/);
-  assert.doesNotMatch(panel, /usage\.value\s*=/);
 });

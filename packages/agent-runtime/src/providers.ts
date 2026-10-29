@@ -4,6 +4,7 @@ import { sanitizeAgentConversationContent } from './conversation-store.js';
 import { formatAgentProviderConversationContext } from './provider-context.js';
 import type {
   AgentConcreteProviderId,
+  AgentLiveEventInput,
   AgentProvider,
   AgentProviderAvailability,
   AgentProviderDiagnosticCode,
@@ -288,7 +289,10 @@ async function resolveOwnedCwd(
   return path.normalize(value);
 }
 
-function buildProviderPrompt(request: AgentProviderExecutionRequest): string {
+function buildProviderPrompt(
+  request: AgentProviderExecutionRequest,
+  resumed = false,
+): string {
   validateSummary(request);
   const capabilities =
     request.allowedCapabilities.length > 0
@@ -308,13 +312,25 @@ function buildProviderPrompt(request: AgentProviderExecutionRequest): string {
       return `- ${evidence.kind}: ${evidence.summary}${reference} (observed ${evidence.observedAt})`;
     });
 
+  // Em sessão retomada o Claude já tem o histórico: só a nova instrução segue.
+  const head = resumed
+    ? [
+        (request.continuationInstruction ?? request.summary).trim(),
+        ...(contextEvidence.length > 0
+          ? ['', 'Observed task context evidence:', ...contextEvidence]
+          : []),
+      ]
+    : [
+        request.summary.trim(),
+        ...formatAgentProviderConversationContext(request.conversationContext),
+        ...(contextEvidence.length > 0
+          ? ['', 'Observed task context evidence:', ...contextEvidence]
+          : []),
+      ];
+
   return [
-    request.summary.trim(),
-    ...formatAgentProviderConversationContext(request.conversationContext),
-    ...(contextEvidence.length > 0
-      ? ['', 'Observed task context evidence:', ...contextEvidence]
-      : []),
-    ...(request.continuationInstruction
+    ...head,
+    ...(!resumed && request.continuationInstruction
       ? [
           '',
           'Continuation instruction:',
@@ -457,6 +473,103 @@ function claudeResponseFromJsonl(stdout: string): string | undefined {
     }
   }
   return resultText ?? assistantText;
+}
+
+const MAX_LIVE_TEXT_CHARS = 1_200;
+const MAX_LIVE_TOOL_CHARS = 160;
+const SESSION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{7,79}$/;
+
+function liveText(value: unknown, limit: number): string {
+  if (typeof value !== 'string') return '';
+  const text = sanitizeAgentConversationContent(value).trim();
+  return text.length > limit ? text.slice(0, limit - 1) + '…' : text;
+}
+
+function claudeToolSummary(input: unknown): string {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return '';
+  const record = input as Record<string, unknown>;
+  for (const key of [
+    'file_path',
+    'path',
+    'command',
+    'pattern',
+    'url',
+    'description',
+    'prompt',
+  ]) {
+    const text = liveText(record[key], MAX_LIVE_TOOL_CHARS);
+    if (text) return text;
+  }
+  return '';
+}
+
+/** Converte uma linha do stream-json do Claude em eventos curtos e saneados para a tela. */
+export function claudeLiveEventsFromLine(line: string): AgentLiveEventInput[] {
+  let event: unknown;
+  try {
+    event = JSON.parse(line);
+  } catch {
+    return [];
+  }
+  if (!event || typeof event !== 'object') return [];
+  const record = event as Record<string, unknown>;
+
+  if (record.type === 'assistant') {
+    const message = record.message;
+    if (!message || typeof message !== 'object') return [];
+    const content = (message as Record<string, unknown>).content;
+    if (!Array.isArray(content)) return [];
+    const events: AgentLiveEventInput[] = [];
+    for (const block of content) {
+      if (!block || typeof block !== 'object') continue;
+      const item = block as Record<string, unknown>;
+      if (item.type === 'text') {
+        const text = liveText(item.text, MAX_LIVE_TEXT_CHARS);
+        if (text) events.push({ kind: 'text', text });
+      } else if (item.type === 'tool_use') {
+        const tool = liveText(item.name, 40);
+        if (tool) {
+          events.push({
+            kind: 'tool',
+            tool,
+            text: claudeToolSummary(item.input),
+          });
+        }
+      }
+    }
+    return events;
+  }
+
+  if (record.type === 'result' && record.is_error === true) {
+    return [
+      {
+        kind: 'error',
+        text:
+          liveText(record.result, MAX_LIVE_TEXT_CHARS) || 'Erro do Claude Code',
+      },
+    ];
+  }
+  return [];
+}
+
+function claudeSessionFromJsonl(stdout: string): string | undefined {
+  let sessionId: string | undefined;
+  for (const line of stdout.split(/\r?\n/)) {
+    const value = line.trim();
+    if (!value.includes('session_id')) continue;
+    try {
+      const record = JSON.parse(value) as Record<string, unknown>;
+      if (
+        typeof record.session_id === 'string' &&
+        SESSION_ID_PATTERN.test(record.session_id)
+      ) {
+        sessionId = record.session_id;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return sessionId;
 }
 
 function nonNegativeNumber(value: unknown): number | undefined {
@@ -629,7 +742,16 @@ abstract class LocalCliAgentProvider implements AgentProvider {
   protected abstract executionArgs(
     request: AgentProviderExecutionRequest,
     prompt: string,
+    resume: boolean,
   ): readonly string[];
+
+  protected liveEvents(_line: string): AgentLiveEventInput[] {
+    return [];
+  }
+
+  protected sessionId(_result: AgentCliProcessResult): string | undefined {
+    return undefined;
+  }
 
   protected usage(_result: AgentCliProcessResult): AgentUsage | undefined {
     return undefined;
@@ -689,26 +811,52 @@ abstract class LocalCliAgentProvider implements AgentProvider {
     }
 
     const cwd = await resolveOwnedCwd(this.runtime.resolveCwd, request);
-    const prompt = buildProviderPrompt(request);
 
-    const processRequest: AgentCliProcessRequest = {
-      command: this.runtime.command,
-      args: this.executionArgs(request, prompt),
-      cwd,
-      timeoutMs: this.runtime.executionTimeoutMs,
-      label: this.label,
-      ...(request.signal ? { signal: request.signal } : {}),
+    const run = (resume: boolean): Promise<AgentCliProcessResult> => {
+      const processRequest: AgentCliProcessRequest = {
+        command: this.runtime.command,
+        args: this.executionArgs(
+          request,
+          buildProviderPrompt(request, resume),
+          resume,
+        ),
+        cwd,
+        timeoutMs: this.runtime.executionTimeoutMs,
+        label: this.label,
+        ...(request.signal ? { signal: request.signal } : {}),
+        ...(request.onProgress
+          ? {
+              onStdoutLine: (line: string) => {
+                for (const event of this.liveEvents(line)) {
+                  request.onProgress?.(event);
+                }
+              },
+            }
+          : {}),
+      };
+      return this.runtime.runProcess(processRequest);
     };
 
     try {
-      const result = await this.runtime.runProcess(processRequest);
-      return normalizeProcessResult(
+      const resumed = request.resumeSessionId !== undefined;
+      let result = await run(resumed);
+      if (resumed && result.exitCode !== 0 && !this.responseText(result)) {
+        // Sessão expirada/removida: recomeça com o contexto salvo da conversa.
+        request.onProgress?.({
+          kind: 'error',
+          text: 'A sessão anterior não está mais disponível; recomeçando com o contexto salvo.',
+        });
+        result = await run(false);
+      }
+      const normalized = normalizeProcessResult(
         this.id,
         this.label,
         result,
         this.usage(result),
         this.responseText(result),
       );
+      const sessionId = this.sessionId(result);
+      return sessionId ? { ...normalized, sessionId } : normalized;
     } catch (error) {
       return normalizeExecutionFailure(this.id, this.label, error);
     }
@@ -769,21 +917,38 @@ export class ClaudeCodeAgentProvider extends LocalCliAgentProvider {
   }
 
   protected executionArgs(
-    _request: AgentProviderExecutionRequest,
+    request: AgentProviderExecutionRequest,
     prompt: string,
+    resume: boolean,
   ): readonly string[] {
+    // Sem permissão de escrita a execução é somente leitura (modo plan).
+    const permissionMode = request.allowedCapabilities.includes(
+      'workspace:write',
+    )
+      ? 'auto'
+      : 'plan';
     return [
       '-p',
       '--permission-mode',
-      'auto',
+      permissionMode,
       '--permission-prompts',
       'none',
-      '--no-session-persistence',
+      ...(resume && request.resumeSessionId
+        ? ['--resume', request.resumeSessionId]
+        : []),
       '--output-format',
       'stream-json',
       '--verbose',
       prompt,
     ];
+  }
+
+  protected liveEvents(line: string): AgentLiveEventInput[] {
+    return claudeLiveEventsFromLine(line);
+  }
+
+  protected sessionId(result: AgentCliProcessResult): string | undefined {
+    return claudeSessionFromJsonl(result.stdout);
   }
 
   protected usage(result: AgentCliProcessResult): AgentUsage | undefined {

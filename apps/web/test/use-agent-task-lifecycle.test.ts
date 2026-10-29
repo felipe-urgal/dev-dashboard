@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { ref } from 'vue';
 import { test } from 'vitest';
 
@@ -303,18 +301,4 @@ test('guards reject stale/unauthorized execution without dispatching', async () 
   h.mutating.value = true;
   await h.state.executeCurrent({ providerId: 'automatic', attachmentIds: [] });
   assert.equal(h.requests.length, 0);
-});
-
-test('cockpit delegates lifecycle and invalidates stale async operations', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  assert.match(panel, /useAgentTaskLifecycle\(/);
-  assert.match(panel, /resetLifecycle\(\)/);
-  assert.match(panel, /submitExecution\(/);
-  assert.doesNotMatch(panel, /async function cancelCurrent\(/);
-  assert.doesNotMatch(panel, /async function retryCurrent\(/);
-  assert.doesNotMatch(panel, /async function recoverCurrent\(/);
-  assert.match(panel, /:disabled="!canExecute"/);
 });

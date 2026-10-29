@@ -23,6 +23,9 @@ export type {
   AgentProviderAvailability,
   AgentProviderConversationContext,
   AgentProviderConversationTurn,
+  AgentLiveEvent,
+  AgentLiveEventInput,
+  AgentLiveEventKind,
   AgentProviderExecutionRequest,
   AgentProviderId,
   AgentProviderRegistry,
@@ -200,3 +203,9 @@ export type {
   AgentExecutionProfileConfiguration,
   AgentExecutionProfileStoreOptions,
 } from './execution-profile-store.js';
+
+export { AgentLiveFeed } from './live-feed.js';
+export type { AgentLiveFeedOptions } from './live-feed.js';
+export { AgentSessionStore } from './session-store.js';
+export type { AgentSessionStoreOptions } from './session-store.js';
+export { claudeLiveEventsFromLine } from './providers.js';

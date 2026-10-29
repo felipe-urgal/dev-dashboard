@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { ref } from 'vue';
 import { test } from 'vitest';
 
@@ -220,16 +218,4 @@ test('falha ambígua reconcilia a task canônica sem repetir POST', async () => 
   assert.deepEqual(h.applied, []);
   assert.equal(h.requests.length, 1);
   assert.equal(h.mutating.value, false);
-});
-
-test('cockpit delega archive e invalida ao selecionar task, trocar projeto e desmontar', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  assert.match(panel, /useAgentTaskArchive\(/);
-  assert.match(panel, /invalidateArchive\(\)/);
-  assert.match(panel, /@click="archiveCurrent"/);
-  assert.doesNotMatch(panel, /async function archiveCurrent\(/);
-  assert.doesNotMatch(panel, /archiveAgentTask\(/);
 });

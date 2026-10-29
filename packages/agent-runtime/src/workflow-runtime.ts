@@ -20,6 +20,7 @@ import type {
   AgentExecutionOwnership,
   AgentEffectiveExecutionConfiguration,
   AgentEvidence,
+  AgentLiveEventInput,
   AgentProvider,
   AgentProviderConversationContext,
   AgentProviderId,
@@ -31,6 +32,8 @@ import {
   AgentRuntimeStateStore,
   type AgentRuntimeState,
 } from './runtime-state.js';
+import type { AgentLiveFeed } from './live-feed.js';
+import type { AgentSessionStore } from './session-store.js';
 import { transitionAgentTask } from './state-machine.js';
 import { AgentTaskLockManager } from './task-lock.js';
 
@@ -98,6 +101,10 @@ export interface AgentWorkflowRuntimeOptions {
   executionResultStore: Pick<AgentAuditStore, 'appendExecutionResult'>;
   conversationStore?: Pick<AgentConversationStore, 'list' | 'append'>;
   gitRefVerifier?: AgentGitRefVerifier;
+  /** Progresso ao vivo da execução (opcional). */
+  liveFeed?: Pick<AgentLiveFeed, 'reset' | 'append'>;
+  /** Sessão do provider por task, para continuar a conversa (opcional). */
+  sessionStore?: Pick<AgentSessionStore, 'get' | 'set'>;
   now?: () => string;
   createExecutionId?: () => string;
   createCheckpointId?: () => string;
@@ -252,6 +259,8 @@ export class AgentWorkflowRuntime {
   private readonly conversationStore:
     AgentWorkflowRuntimeOptions['conversationStore'] | undefined;
   private readonly gitRefVerifier: AgentGitRefVerifier | undefined;
+  private readonly liveFeed: AgentWorkflowRuntimeOptions['liveFeed'];
+  private readonly sessionStore: AgentWorkflowRuntimeOptions['sessionStore'];
   private readonly now: () => string;
   private readonly createExecutionId: () => string;
   private readonly createCheckpointId: () => string;
@@ -272,6 +281,8 @@ export class AgentWorkflowRuntime {
     this.executionResultStore = options.executionResultStore;
     this.conversationStore = options.conversationStore;
     this.gitRefVerifier = options.gitRefVerifier;
+    this.liveFeed = options.liveFeed;
+    this.sessionStore = options.sessionStore;
     this.now = options.now ?? (() => new Date().toISOString());
     this.createExecutionId = options.createExecutionId ?? randomUUID;
     this.createCheckpointId = options.createCheckpointId ?? randomUUID;
@@ -523,8 +534,22 @@ export class AgentWorkflowRuntime {
       const startedAt = this.now();
       let providerResult: AgentProviderResult;
 
+      const taskId = runningRecord.task.id;
+      this.liveFeed?.reset(taskId);
+      const liveFeed = this.liveFeed;
+      const resumeSessionId = await this.sessionStore
+        ?.get(taskId)
+        .catch(() => undefined);
+
       try {
         providerResult = await provider.execute({
+          ...(resumeSessionId ? { resumeSessionId } : {}),
+          ...(liveFeed
+            ? {
+                onProgress: (event: AgentLiveEventInput) =>
+                  liveFeed.append(taskId, event),
+              }
+            : {}),
           taskId: runningRecord.task.id,
           executionId,
           projectId: runningRecord.task.projectId,
@@ -572,6 +597,11 @@ export class AgentWorkflowRuntime {
 
       if (timeout !== undefined) clearTimeout(timeout);
       const finishedAt = this.now();
+      if (providerResult.sessionId) {
+        await this.sessionStore
+          ?.set(runningRecord.task.id, providerResult.sessionId)
+          .catch(() => undefined);
+      }
       let checkpoint: AgentCheckpoint | undefined;
       let checkpointToPersist: AgentCheckpoint | undefined;
       if (providerResult.outcome === 'checkpoint') {

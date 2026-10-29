@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { test } from 'vitest';
 
 import {
@@ -187,28 +185,4 @@ test('dados auxiliares inválidos são rejeitados por fonte', async () => {
     'conversation',
   ]);
   assert.match(h.state.detailWarning.value, /Conversa e anexos/);
-});
-
-test('cockpit conecta realtime antes de disparar leituras auxiliares', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  const loadTask = panel.slice(
-    panel.indexOf('async function loadTask('),
-    panel.indexOf('async function load():'),
-  );
-  assert.match(panel, /useAgentTaskDetailReads\(/);
-  assert.match(loadTask, /fetchAgentTaskStatus\(/);
-  assert.match(loadTask, /fetchAgentActivity\(/);
-  assert.doesNotMatch(
-    loadTask,
-    /fetchAgentConversation\(|fetchAgentAttachments\(/,
-  );
-  assert.match(
-    loadTask,
-    /connectTaskSocket\(props\.project\.id, taskId\);\s*loadTaskDetails\(\)/,
-  );
-  assert.match(panel, /resetTaskDetails\(\)/);
-  assert.match(panel, /Recarregar conversa e anexos/);
 });

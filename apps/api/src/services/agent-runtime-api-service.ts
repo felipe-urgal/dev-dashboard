@@ -25,6 +25,8 @@ import type {
   AgentExecutionProfile,
   AgentExecutionProfileConfiguration,
   AgentGitRefAdoptionRequest,
+  AgentLiveEvent,
+  AgentLiveFeed,
   AgentTaskBudget,
   AgentAttachmentStore,
   AgentAuditStore,
@@ -243,6 +245,7 @@ export interface AgentRuntimeApiServicePort {
     input: AgentGitRefAdoptionRequest,
   ): Promise<AgentTaskRecord>;
   status(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
+  live?(projectId: string, taskId: string): Promise<AgentLiveEvent[]>;
   conversation(
     projectId: string,
     taskId: string,
@@ -311,6 +314,7 @@ export interface AgentRuntimeApiServicePort {
 }
 
 export interface AgentRuntimeApiServiceOptions {
+  liveFeed?: Pick<AgentLiveFeed, 'list'>;
   taskStore: AgentTaskStore;
   auditStore: Pick<
     AgentAuditStore,
@@ -1048,6 +1052,15 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     return this.withRuntimeErrors(() =>
       this.options.workflowRuntime.status(projectId, taskId),
     );
+  }
+
+  public async live(
+    projectId: string,
+    taskId: string,
+    afterSeq = 0,
+  ): Promise<AgentLiveEvent[]> {
+    await this.getTask(projectId, taskId);
+    return this.options.liveFeed?.list(taskId, afterSeq) ?? [];
   }
 
   public async conversation(

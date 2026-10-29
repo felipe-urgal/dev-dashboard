@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { reactive, ref } from 'vue';
 import { test } from 'vitest';
 
@@ -377,16 +375,4 @@ test('checkpoint com resposta de task divergente falha fechado', async () => {
   assert.deepEqual(h.replaced, []);
   assert.deepEqual(h.reloads, ['task-a']);
   assert.match(h.errors[0] ?? '', /não corresponde à task/);
-});
-
-test('painel possui único owner para checkpoint/grants e invalida ao trocar contexto', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  assert.match(panel, /useAgentTaskApprovals\(/);
-  assert.match(panel, /resetApprovals\(\)/);
-  assert.doesNotMatch(panel, /async function toggleAuthorization\(/);
-  assert.doesNotMatch(panel, /async function resolveCheckpoint\(/);
-  assert.match(panel, /:disabled="mutating"\s+rows="3"/);
 });

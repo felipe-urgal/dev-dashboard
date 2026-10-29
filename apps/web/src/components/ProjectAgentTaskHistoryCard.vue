@@ -194,7 +194,7 @@ const taskStateSummary = (state: string): string => {
   border-radius: 999px;
   color: var(--text-muted);
   background: transparent;
-  font-size: 9px;
+  font-size: 12px;
   cursor: pointer;
 }
 
@@ -231,7 +231,7 @@ const taskStateSummary = (state: string): string => {
 
 .agent-history-item strong {
   overflow: hidden;
-  font-size: 10px;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -239,7 +239,7 @@ const taskStateSummary = (state: string): string => {
 .agent-history-item small {
   overflow: hidden;
   color: var(--text-dim);
-  font-size: 9px;
+  font-size: 11.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

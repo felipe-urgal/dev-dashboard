@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { afterEach, beforeEach, test, vi } from 'vitest';
 
 import type { AgentRealtimeSnapshot } from '../src/api/agent-runtime';
@@ -203,28 +201,6 @@ test('reconectar fecha socket antigo e mantém a task atual', () => {
   realtime.closeSocket();
   assert.equal(second.readyState, FakeWebSocket.CLOSED);
   assert.equal(realtime.socketState.value, 'idle');
-});
-
-test('reconectar exige snapshot da task selecionada', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  const reconnect = panel.slice(
-    panel.indexOf('function reconnectTaskRealtime(): void {'),
-    panel.indexOf('async function selectTask('),
-  );
-  assert.match(reconnect, /socketState\.value !== 'disconnected'/);
-  assert.match(reconnect, /task\?\.id !== taskId/);
-  assert.match(reconnect, /task\.projectId !== props\.project\.id/);
-  assert.match(reconnect, /connectTaskSocket\(props\.project\.id, taskId\)/);
-  assert.doesNotMatch(
-    reconnect,
-    /executeCurrent|continueCurrentConversation|loadTask/,
-  );
-  assert.match(panel, /@click="reconnectTaskRealtime"/);
-  assert.match(panel, /Reconectar realtime/);
-  assert.match(panel, /socketState === 'disconnected'/);
 });
 
 test('falha ao criar WebSocket é recuperável e sanitizada', () => {

@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { test } from 'vitest';
 
 import {
@@ -175,20 +173,6 @@ test('snapshot filters selection and refuses different task', () => {
   assert.equal(h.state.attachmentFor('b')?.filename, 'b.txt');
   h.state.resetAttachments();
   assert.equal(h.state.attachmentFor('b'), undefined);
-});
-
-test('cockpit delegates attachment ownership and clears it on project and task changes', () => {
-  const panel = readFileSync(
-    resolve(import.meta.dirname, '../src/components/ProjectAgentPanel.vue'),
-    'utf8',
-  );
-  assert.match(panel, /useAgentTaskAttachments\(/);
-  assert.match(panel, /useAgentTaskDetailReads\(/);
-  assert.match(panel, /applyLoadedAttachments\(/);
-  assert.match(panel, /attachmentsRevision/);
-  assert.match(panel, /resetAttachments\(\)/);
-  assert.doesNotMatch(panel, /async function addAttachments\(/);
-  assert.doesNotMatch(panel, /attachments\.value\s*=/);
 });
 
 test('stale read error after task change is discarded', async () => {

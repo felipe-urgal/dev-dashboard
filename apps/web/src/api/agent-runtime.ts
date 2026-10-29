@@ -367,9 +367,19 @@ export interface AgentConversationExecutionResult extends AgentExecutionResult {
   agentTurn: AgentConversationTurn;
 }
 
+export interface AgentLiveEvent {
+  seq: number;
+  at: string;
+  kind: 'text' | 'tool' | 'result' | 'error';
+  text: string;
+  tool?: string;
+}
+
 export interface AgentRealtimeSnapshot {
   status: AgentTaskStatus;
   activity: AgentActivity;
+  /** Progresso ao vivo da execução em andamento. */
+  live?: AgentLiveEvent[];
 }
 
 interface ProvidersResponse {
@@ -655,6 +665,26 @@ export async function executeAgentTask(
         ...(attachmentIds.length ? { attachmentIds } : {}),
         ...(profileId ? { profileId } : {}),
       }),
+    },
+  );
+}
+
+export interface AgentTaskCompletion {
+  task: AgentTaskRecord;
+  cleanup: { status: string; diagnostic?: string };
+}
+
+/** Conclui uma task em revisão; exige confirmação explícita (`confirmed: true`). */
+export async function completeAgentTask(
+  projectId: string,
+  taskId: string,
+): Promise<AgentTaskCompletion> {
+  return requestJson<AgentTaskCompletion>(
+    taskPath(projectId, taskId) + '/complete',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmed: true }),
     },
   );
 }
