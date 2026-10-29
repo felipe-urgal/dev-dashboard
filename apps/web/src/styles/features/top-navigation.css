@@ -108,6 +108,7 @@
   align-self: stretch;
   /* Vai até as bordas da barra: o realce do item ativo fica sobre a borda. */
   margin-block: -10px;
+  margin-left: 14px;
 }
 
 .topbar-project-actions {

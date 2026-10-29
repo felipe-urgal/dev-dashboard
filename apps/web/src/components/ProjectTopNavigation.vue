@@ -179,6 +179,7 @@ function activeLabel(hub: NavHub): string {
         v-if="hub.items.length > 1"
         trigger="click"
         placement="bottom-start"
+        width="trigger"
         :options="menuOptions(hub)"
         @select="(key) => selectItem(hub, key)"
       >
