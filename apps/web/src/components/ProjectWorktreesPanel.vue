@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import {
   ArrowPathIcon,
+  FolderIcon,
   FolderPlusIcon,
   TrashIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, ref, watch } from 'vue';
+import { NModal } from 'naive-ui';
+import { computed, nextTick, ref, watch } from 'vue';
 
 import type { Project, ProjectGitWorkspace } from '@dev-dashboard/contracts';
 
@@ -18,6 +20,8 @@ import {
   type PrepareProjectGitWorktreeRemovalResult,
   type ProjectGitWorktree,
 } from '../api/git-worktrees';
+import UiButton from './ui/UiButton.vue';
+import UiTag from './ui/UiTag.vue';
 
 const props = defineProps<{ project: Project }>();
 
@@ -33,6 +37,7 @@ const branchMode = ref<'existing' | 'new'>('existing');
 const branch = ref('');
 const directoryName = ref('');
 const pendingRemoval = ref<PrepareProjectGitWorktreeRemovalResult | null>(null);
+const createForm = ref<HTMLFormElement | null>(null);
 let generation = 0;
 
 const linkedWorktreeCount = computed(
@@ -337,725 +342,539 @@ watch(
   },
   { immediate: true },
 );
+
+/** O diálogo abre fora do fluxo normal: o foco no campo é dado por aqui. */
+watch(showCreateForm, async (open) => {
+  if (!open) return;
+  await nextTick();
+  setTimeout(() => {
+    createForm.value
+      ?.querySelector<HTMLElement>('select:not(:disabled), input[type=text]')
+      ?.focus();
+  }, 60);
+});
 </script>
 
 <template>
-  <section class="worktrees-tool">
-    <header class="worktrees-toolbar">
-      <span class="worktrees-count">
+  <section class="git-wt-page">
+    <header class="git-wt-toolbar">
+      <span class="git-wt-count">
         <strong>{{ linkedWorktreeCount }}</strong>
         vinculado{{ linkedWorktreeCount === 1 ? '' : 's' }}
       </span>
 
-      <div class="worktrees-toolbar-actions">
-        <button
-          class="worktrees-secondary-button worktrees-refresh-button"
-          type="button"
-          :disabled="loading || mutationRunning"
-          aria-label="Atualizar worktrees"
-          title="Atualizar worktrees"
-          @click="load"
-        >
-          <ArrowPathIcon
-            :class="{ 'is-spinning': loading }"
-            aria-hidden="true"
-          />
-        </button>
-        <button
-          class="worktrees-primary-button"
-          type="button"
-          :disabled="mutationRunning"
-          @click="toggleCreateForm"
-        >
-          <FolderPlusIcon aria-hidden="true" />
-          {{ showCreateForm ? 'Fechar' : 'Novo worktree' }}
-        </button>
-      </div>
+      <span class="git-wt-spacer" />
+
+      <UiButton
+        icon
+        variant="ghost"
+        aria-label="Atualizar worktrees"
+        title="Atualizar worktrees"
+        :disabled="loading || mutationRunning"
+        @click="load"
+      >
+        <ArrowPathIcon :class="{ spinning: loading }" aria-hidden="true" />
+      </UiButton>
+      <UiButton
+        variant="primary"
+        class="worktrees-primary-button"
+        :disabled="mutationRunning"
+        @click="toggleCreateForm"
+      >
+        <FolderPlusIcon aria-hidden="true" />
+        Novo worktree
+      </UiButton>
     </header>
 
-    <div class="worktrees-content">
-      <form
-        v-if="showCreateForm"
-        class="worktrees-create-card"
-        @submit.prevent="submitCreate"
+    <p
+      v-if="successMessage"
+      class="git-wt-banner is-success"
+      aria-live="polite"
+    >
+      {{ successMessage }}
+    </p>
+    <p v-if="errorMessage" class="git-wt-banner is-error" role="alert">
+      {{ errorMessage }}
+    </p>
+
+    <div v-if="loading && worktrees.length === 0" class="git-wt-note">
+      Consultando worktrees…
+    </div>
+
+    <div v-else-if="worktrees.length === 0" class="git-wt-note">
+      Nenhum worktree encontrado para este projeto.
+    </div>
+
+    <section v-else class="git-wt-list">
+      <article
+        v-for="worktree in worktrees"
+        :key="worktree.id"
+        class="git-wt-row"
       >
-        <div class="worktrees-create-heading">
-          <div>
-            <h3>Novo worktree</h3>
-            <p>
-              Escolha uma branch local livre ou crie uma nova a partir do
-              checkout principal.
-            </p>
+        <FolderIcon class="git-wt-icon" aria-hidden="true" />
+
+        <div class="git-wt-info">
+          <div class="git-wt-title">
+            <strong>{{ displayBranch(worktree) }}</strong>
+            <UiTag v-if="worktree.kind === 'main'" tone="accent">
+              principal
+            </UiTag>
+            <UiTag v-else-if="worktree.prunable" tone="warning">órfão</UiTag>
+            <UiTag v-else-if="worktree.locked">bloqueado</UiTag>
+            <UiTag v-if="worktree.dirty" tone="warning">alterações</UiTag>
           </div>
+          <div class="git-wt-meta">
+            <span :title="worktree.path">{{
+              displayDirectory(worktree.path)
+            }}</span>
+            <code>{{ shortHead(worktree.head) }}</code>
+          </div>
+          <p v-if="worktree.prunable" class="git-wt-warning">
+            {{ worktree.pruneReason || 'A pasta do worktree não existe mais.' }}
+          </p>
+          <p v-if="worktree.lockReason" class="git-wt-note-line">
+            {{ worktree.lockReason }}
+          </p>
+          <p v-if="worktree.dirty" class="git-wt-note-line">
+            Possui alterações locais; resolva antes de remover.
+          </p>
         </div>
 
-        <div class="worktrees-create-grid">
-          <div class="worktrees-branch-picker">
-            <div
-              class="worktrees-branch-mode"
-              role="radiogroup"
-              aria-label="Origem da branch"
-            >
-              <label :class="{ 'is-active': branchMode === 'existing' }">
-                <input
-                  v-model="branchMode"
-                  type="radio"
-                  value="existing"
-                  :disabled="mutationRunning"
-                />
-                <span>Branch existente</span>
-              </label>
-              <label :class="{ 'is-active': branchMode === 'new' }">
-                <input
-                  v-model="branchMode"
-                  type="radio"
-                  value="new"
-                  :disabled="mutationRunning"
-                />
-                <span>Nova branch</span>
-              </label>
-            </div>
+        <UiButton
+          v-if="worktree.kind === 'linked' && worktree.prunable"
+          :disabled="mutationRunning || worktree.locked"
+          :title="
+            worktree.lockReason ||
+            'Limpar somente o registro órfão deste worktree'
+          "
+          @click="cleanupPrunable(worktree)"
+        >
+          <TrashIcon aria-hidden="true" />
+          Limpar registro
+        </UiButton>
+        <UiButton
+          v-else-if="worktree.kind === 'linked'"
+          variant="danger"
+          class="worktrees-danger-button"
+          :disabled="mutationRunning || worktree.locked || worktree.dirty"
+          :title="
+            worktree.dirty
+              ? 'Resolva as alterações locais antes de remover'
+              : worktree.lockReason || 'Remover worktree'
+          "
+          @click="prepareRemoval(worktree)"
+        >
+          <TrashIcon aria-hidden="true" />
+          Remover
+        </UiButton>
+      </article>
+    </section>
 
-            <label v-if="branchMode === 'existing'" class="worktrees-field">
-              <span>Branch local</span>
-              <select
-                v-model="branch"
-                name="branch"
-                :disabled="
-                  mutationRunning || availableLocalBranches.length === 0
-                "
-                required
-              >
-                <option
-                  v-if="availableLocalBranches.length === 0"
-                  value=""
-                  disabled
-                >
-                  Nenhuma branch local livre
-                </option>
-                <option
-                  v-for="candidate in availableLocalBranches"
-                  :key="candidate.name"
-                  :value="candidate.name"
-                >
-                  {{ candidate.name }}
-                </option>
-              </select>
-              <small
-                v-if="branchListError"
-                class="worktrees-field-help is-error"
-              >
-                {{ branchListError }}
-              </small>
-            </label>
+    <NModal
+      :show="showCreateForm"
+      :mask-closable="!mutationRunning"
+      :close-on-esc="false"
+      :auto-focus="false"
+      :trap-focus="false"
+      @update:show="
+        (show: boolean) => !show && !mutationRunning && resetCreateForm()
+      "
+    >
+      <form
+        ref="createForm"
+        class="git-wt-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Novo worktree"
+        @submit.prevent="submitCreate"
+        @keydown.esc="!mutationRunning && resetCreateForm()"
+      >
+        <h3>Novo worktree</h3>
+        <p>
+          Escolha uma branch local livre ou crie uma nova a partir do checkout
+          principal.
+        </p>
 
-            <label v-else class="worktrees-field">
-              <span>Nome da nova branch</span>
-              <input
-                v-model="branch"
-                name="branch"
-                type="text"
-                autocomplete="off"
-                placeholder="feature/minha-tarefa"
-                :disabled="mutationRunning"
-                required
-              />
-              <small class="worktrees-field-help">
-                Será criada a partir de <code>{{ baseBranch }}</code
-                >.
-              </small>
-            </label>
-          </div>
-
-          <label class="worktrees-field">
-            <span>Diretório <small>opcional</small></span>
+        <div
+          class="git-wt-chips"
+          role="radiogroup"
+          aria-label="Origem da branch"
+        >
+          <label :data-active="branchMode === 'existing' || undefined">
             <input
-              v-model="directoryName"
-              name="directoryName"
-              type="text"
-              autocomplete="off"
-              placeholder="gerado pela branch"
+              v-model="branchMode"
+              type="radio"
+              value="existing"
               :disabled="mutationRunning"
             />
+            Branch existente
+          </label>
+          <label :data-active="branchMode === 'new' || undefined">
+            <input
+              v-model="branchMode"
+              type="radio"
+              value="new"
+              :disabled="mutationRunning"
+            />
+            Nova branch
           </label>
         </div>
 
-        <div class="worktrees-create-footer">
-          <span class="worktrees-create-summary">
-            {{
-              branchMode === 'existing'
-                ? 'Usará uma branch local já existente.'
-                : 'A branch será criada junto com o worktree.'
-            }}
-          </span>
-          <button
-            class="worktrees-primary-button"
+        <label v-if="branchMode === 'existing'" class="git-wt-field">
+          <span>Branch local</span>
+          <select
+            v-model="branch"
+            name="branch"
+            :disabled="mutationRunning || availableLocalBranches.length === 0"
+            required
+          >
+            <option
+              v-if="availableLocalBranches.length === 0"
+              value=""
+              disabled
+            >
+              Nenhuma branch local livre
+            </option>
+            <option
+              v-for="candidate in availableLocalBranches"
+              :key="candidate.name"
+              :value="candidate.name"
+            >
+              {{ candidate.name }}
+            </option>
+          </select>
+          <small v-if="branchListError" class="is-error">
+            {{ branchListError }}
+          </small>
+        </label>
+
+        <label v-else class="git-wt-field">
+          <span>Nome da nova branch</span>
+          <input
+            v-model="branch"
+            name="branch"
+            type="text"
+            autocomplete="off"
+            placeholder="feature/minha-tarefa"
+            :disabled="mutationRunning"
+            required
+          />
+          <small>
+            Será criada a partir de <code>{{ baseBranch }}</code
+            >.
+          </small>
+        </label>
+
+        <label class="git-wt-field">
+          <span>Diretório <small>opcional</small></span>
+          <input
+            v-model="directoryName"
+            name="directoryName"
+            type="text"
+            autocomplete="off"
+            placeholder="gerado pela branch"
+            :disabled="mutationRunning"
+          />
+        </label>
+
+        <footer>
+          <UiButton :disabled="mutationRunning" @click="resetCreateForm">
+            Cancelar
+          </UiButton>
+          <UiButton
             type="submit"
+            variant="primary"
+            :busy="mutationRunning"
             :disabled="
               mutationRunning ||
               (branchMode === 'existing' && availableLocalBranches.length === 0)
             "
           >
             {{ mutationRunning ? 'Criando…' : 'Criar worktree' }}
-          </button>
-        </div>
+          </UiButton>
+        </footer>
       </form>
+    </NModal>
 
-      <p v-if="successMessage" class="worktrees-success" aria-live="polite">
-        {{ successMessage }}
-      </p>
-      <p v-if="errorMessage" class="worktrees-error" role="alert">
-        {{ errorMessage }}
-      </p>
-
-      <div v-if="loading && worktrees.length === 0" class="worktrees-empty">
-        Consultando worktrees…
-      </div>
-
-      <div v-else-if="worktrees.length === 0" class="worktrees-empty">
-        Nenhum worktree encontrado para este projeto.
-      </div>
-
-      <div v-else class="worktrees-list">
-        <article
-          v-for="worktree in worktrees"
-          :key="worktree.id"
-          class="worktree-row"
-        >
-          <div class="worktree-main">
-            <div class="worktree-title-row">
-              <strong>{{ displayBranch(worktree) }}</strong>
-              <span v-if="worktree.kind === 'main'" class="worktree-badge">
-                principal
-              </span>
-              <span
-                v-else-if="worktree.prunable"
-                class="worktree-badge worktree-badge-warning"
-              >
-                órfão
-              </span>
-              <span v-else-if="worktree.locked" class="worktree-badge">
-                bloqueado
-              </span>
-              <span
-                v-if="worktree.dirty"
-                class="worktree-badge worktree-badge-warning"
-              >
-                alterações
-              </span>
-            </div>
-            <div class="worktree-meta">
-              <span>{{ displayDirectory(worktree.path) }}</span>
-              <code>{{ shortHead(worktree.head) }}</code>
-            </div>
-            <p
-              v-if="worktree.prunable"
-              class="worktree-note worktree-note-warning"
-            >
-              {{
-                worktree.pruneReason || 'A pasta do worktree não existe mais.'
-              }}
-            </p>
-            <p v-if="worktree.lockReason" class="worktree-note">
-              {{ worktree.lockReason }}
-            </p>
-            <p v-if="worktree.dirty" class="worktree-note">
-              Possui alterações locais; resolva antes de remover.
-            </p>
-          </div>
-
-          <button
-            v-if="worktree.kind === 'linked' && worktree.prunable"
-            class="worktrees-secondary-button"
-            type="button"
-            :disabled="mutationRunning || worktree.locked"
-            :title="
-              worktree.lockReason ||
-              'Limpar somente o registro órfão deste worktree'
-            "
-            @click="cleanupPrunable(worktree)"
-          >
-            <TrashIcon aria-hidden="true" />
-            Limpar registro
-          </button>
-          <button
-            v-else-if="worktree.kind === 'linked'"
-            class="worktrees-danger-button"
-            type="button"
-            :disabled="mutationRunning || worktree.locked || worktree.dirty"
-            :title="
-              worktree.dirty
-                ? 'Resolva as alterações locais antes de remover'
-                : worktree.lockReason || 'Remover worktree'
-            "
-            @click="prepareRemoval(worktree)"
-          >
-            <TrashIcon aria-hidden="true" />
-            Remover
-          </button>
-        </article>
-      </div>
-
-      <div v-if="pendingRemoval" class="worktrees-confirmation" role="alert">
-        <div>
-          <strong>Confirmar remoção?</strong>
-          <p>
-            O worktree de
-            <code>{{ pendingRemoval.branch || 'HEAD destacado' }}</code>
-            será removido. A branch não será apagada.
-          </p>
-        </div>
-        <div class="worktrees-confirmation-actions">
-          <button
-            class="worktrees-secondary-button"
-            type="button"
-            :disabled="mutationRunning"
-            @click="pendingRemoval = null"
-          >
+    <NModal
+      :show="pendingRemoval !== null"
+      :mask-closable="!mutationRunning"
+      :close-on-esc="false"
+      :auto-focus="false"
+      :trap-focus="false"
+      @update:show="
+        (show: boolean) => !show && !mutationRunning && (pendingRemoval = null)
+      "
+    >
+      <div
+        class="git-wt-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-label="Confirmar remoção"
+        tabindex="-1"
+        @keydown.esc="!mutationRunning && (pendingRemoval = null)"
+      >
+        <h3>Remover worktree?</h3>
+        <p>
+          O worktree de
+          <code>{{ pendingRemoval?.branch || 'HEAD destacado' }}</code>
+          será removido. A branch não será apagada.
+        </p>
+        <footer>
+          <UiButton :disabled="mutationRunning" @click="pendingRemoval = null">
             Cancelar
-          </button>
-          <button
-            class="worktrees-danger-button worktrees-danger-button-solid"
-            type="button"
+          </UiButton>
+          <UiButton
+            variant="danger"
+            class="worktrees-confirm-remove"
+            :busy="mutationRunning"
             :disabled="mutationRunning"
             @click="confirmRemoval"
           >
-            {{ mutationRunning ? 'Removendo…' : 'Confirmar remoção' }}
-          </button>
-        </div>
+            {{ mutationRunning ? 'Removendo…' : 'Remover worktree' }}
+          </UiButton>
+        </footer>
       </div>
-    </div>
+    </NModal>
   </section>
 </template>
 
 <style scoped>
-.worktrees-tool {
+.git-wt-page {
   display: flex;
-  width: 100%;
-  min-width: 0;
-  min-height: calc(100vh - var(--app-topbar-height, 72px));
   flex-direction: column;
-  overflow: hidden;
-  background: var(--surface-1);
-}
-
-.worktrees-toolbar {
-  display: flex;
-  min-height: 54px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 9px 12px 9px 14px;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
-}
-
-.worktrees-toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.worktrees-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-muted);
-  font-size: 10px;
-}
-
-.worktrees-count strong {
-  display: inline-grid;
-  min-width: 24px;
-  height: 24px;
-  place-items: center;
-  padding: 0 7px;
-  border-radius: 999px;
-  color: var(--text);
-  background: var(--surface-2);
-  font-size: 10px;
-}
-
-.worktrees-primary-button,
-.worktrees-secondary-button,
-.worktrees-danger-button {
-  display: inline-flex;
-  min-height: 34px;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 0 11px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  font-size: 10px;
-  font-weight: var(--font-weight-strong);
-}
-
-.worktrees-primary-button {
-  border-color: var(--accent);
-  color: #fff;
-  background: var(--accent);
-}
-
-.worktrees-primary-button:hover:not(:disabled) {
-  background: var(--accent-strong);
-}
-
-.worktrees-secondary-button:hover:not(:disabled) {
-  border-color: var(--border-strong);
-  background: var(--surface-2);
-}
-
-.worktrees-primary-button svg,
-.worktrees-secondary-button svg,
-.worktrees-danger-button svg {
-  width: 15px;
-  height: 15px;
-}
-
-.worktrees-refresh-button {
-  width: 34px;
-  padding: 0;
-}
-
-.worktrees-refresh-button .is-spinning {
-  animation: worktrees-spin 0.8s linear infinite;
-}
-
-.worktrees-primary-button:disabled,
-.worktrees-secondary-button:disabled,
-.worktrees-danger-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.worktrees-content {
-  display: flex;
-  min-width: 0;
-  min-height: 0;
-  flex: 1 1 auto;
-  flex-direction: column;
-  overflow-y: auto;
-}
-
-.worktrees-create-card {
-  display: grid;
-  flex: 0 0 auto;
-  gap: 12px;
-  padding: 14px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-2);
-}
-
-.worktrees-create-heading h3,
-.worktrees-create-heading p {
-  margin: 0;
-}
-
-.worktrees-create-heading h3 {
-  color: var(--text);
-  font-size: 12px;
-}
-
-.worktrees-create-heading p {
-  margin-top: 3px;
-  color: var(--text-dim);
-  font-size: 10px;
-}
-
-.worktrees-create-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.worktrees-field {
-  display: grid;
-  gap: 5px;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: var(--font-weight-strong);
-}
-
-.worktrees-field small {
-  color: var(--text-dim);
-  font-weight: 500;
-}
-
-.worktrees-field input,
-.worktrees-field select {
-  width: 100%;
-  min-width: 0;
-  min-height: 34px;
-  box-sizing: border-box;
-  padding: 7px 9px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  background: var(--surface-1);
-  font: inherit;
-  font-size: 10px;
-}
-
-.worktrees-field input:focus,
-.worktrees-field select:focus {
-  border-color: var(--accent);
-  outline: 2px solid var(--accent-soft);
-}
-
-.worktrees-branch-picker {
-  display: grid;
-  gap: 8px;
-}
-
-.worktrees-branch-mode {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.worktrees-branch-mode label {
-  display: flex;
-  min-height: 34px;
-  align-items: center;
-  gap: 7px;
-  padding: 0 9px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  background: var(--surface-1);
-  cursor: pointer;
-  font-size: 10px;
-  font-weight: var(--font-weight-strong);
-}
-
-.worktrees-branch-mode label.is-active {
-  border-color: var(--accent);
-  color: var(--text);
-  background: var(--accent-soft);
-}
-
-.worktrees-branch-mode input {
-  width: auto;
-  min-height: auto;
-  margin: 0;
-  accent-color: var(--accent);
-}
-
-.worktrees-field-help {
-  color: var(--text-dim);
-  font-size: 9px;
-  font-weight: 500;
-}
-
-.worktrees-field-help.is-error {
-  color: var(--danger-text);
-}
-
-.worktrees-field-help code {
-  color: var(--text-muted);
-  font-size: inherit;
-}
-
-.worktrees-create-summary {
-  color: var(--text-dim);
-  font-size: 9px;
-}
-
-.worktrees-create-footer,
-.worktrees-confirmation-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.worktrees-checkbox {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-muted);
-  font-size: 10px;
-}
-
-.worktrees-success,
-.worktrees-error {
-  flex: 0 0 auto;
-  margin: 0;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  font-size: 10px;
-}
-
-.worktrees-success {
-  color: var(--success-text);
-  background: var(--success-surface);
-}
-
-.worktrees-error {
-  color: var(--danger-text);
-  background: var(--danger-surface);
-}
-
-.worktrees-empty {
-  display: grid;
-  min-height: 0;
-  flex: 1 1 auto;
-  place-content: center;
-  padding: 28px 18px;
-  color: var(--text-dim);
-  text-align: center;
-  font-size: 10px;
-}
-
-.worktrees-list {
-  display: grid;
-  flex: 0 0 auto;
-}
-
-.worktree-row {
-  display: flex;
-  min-width: 0;
-  min-height: 68px;
-  align-items: center;
-  justify-content: space-between;
   gap: 14px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  transition: background 120ms ease;
-}
-
-.worktree-row:hover {
-  background: var(--surface-2);
-}
-
-.worktree-main {
-  display: grid;
   min-width: 0;
-  gap: 4px;
 }
 
-.worktree-title-row,
-.worktree-meta {
+.git-wt-toolbar {
   display: flex;
-  min-width: 0;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
-.worktree-title-row strong {
-  overflow: hidden;
+.git-wt-count {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.git-wt-count strong {
   color: var(--text);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.worktree-badge {
-  flex: none;
-  padding: 2px 6px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--text-dim);
-  font-size: 8px;
-  font-weight: var(--font-weight-strong);
-  text-transform: uppercase;
+.git-wt-spacer {
+  flex: 1 1 0;
 }
 
-.worktree-meta {
-  color: var(--text-dim);
-  font-size: 10px;
+.spinning {
+  animation: git-wt-spin 1s linear infinite;
 }
 
-.worktree-meta code {
-  color: var(--text-muted);
-  font-size: 9px;
-}
-
-.worktree-badge-warning {
-  border-color: color-mix(in srgb, var(--danger-text) 32%, var(--border));
-  color: var(--danger-text);
-  background: var(--danger-surface);
-}
-
-.worktree-note {
-  margin: 0;
-  color: var(--text-dim);
-  font-size: 9px;
-}
-
-.worktree-note-warning {
-  color: var(--danger-text);
-}
-
-.worktrees-danger-button {
-  flex: none;
-  border-color: color-mix(in srgb, var(--danger-text) 42%, var(--border));
-  color: var(--danger-text);
-}
-
-.worktrees-danger-button:hover:not(:disabled) {
-  border-color: var(--danger-text);
-  background: var(--danger-surface);
-}
-
-.worktrees-danger-button-solid {
-  color: #fff;
-  background: var(--danger-text);
-}
-
-.worktrees-confirmation {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 10px 14px;
-  border-top: 1px solid
-    color-mix(in srgb, var(--danger-text) 30%, var(--border));
-  color: var(--danger-text);
-  background: var(--danger-surface);
-}
-
-.worktrees-confirmation p {
-  margin: 3px 0 0;
-  color: var(--text-muted);
-  font-size: 10px;
-}
-
-@keyframes worktrees-spin {
+@keyframes git-wt-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .worktrees-refresh-button .is-spinning {
-    animation: none;
-  }
+.git-wt-banner {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
 }
 
-@media (max-width: 720px) {
-  .worktrees-create-grid,
-  .worktrees-branch-mode {
-    grid-template-columns: 1fr;
-  }
+.git-wt-banner.is-success {
+  color: var(--success-text);
+  background: color-mix(in srgb, var(--success-text) 12%, transparent);
+}
 
-  .worktrees-create-footer,
-  .worktrees-confirmation,
-  .worktrees-confirmation-actions,
-  .worktree-row {
-    align-items: stretch;
-    flex-direction: column;
-  }
+.git-wt-banner.is-error {
+  color: var(--danger-text, #f85149);
+  background: color-mix(in srgb, var(--danger-text, #f85149) 12%, transparent);
+}
 
-  .worktrees-danger-button {
-    align-self: flex-start;
-  }
+.git-wt-note {
+  padding: 28px 24px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--text-muted);
+  background: var(--surface-1);
+  text-align: center;
+}
+
+.git-wt-list {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-1);
+}
+
+.git-wt-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.git-wt-row:first-child {
+  border-top: 0;
+}
+
+.git-wt-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: var(--text-dim);
+}
+
+.git-wt-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.git-wt-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.git-wt-title strong {
+  font-weight: 650;
+}
+
+.git-wt-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 2px;
+  color: var(--text-dim);
+  font-family: var(--font-family-mono);
+  font-size: 12.5px;
+}
+
+.git-wt-meta code {
+  color: var(--accent);
+}
+
+.git-wt-warning,
+.git-wt-note-line {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+}
+
+.git-wt-warning {
+  color: var(--warning-text);
+}
+
+.git-wt-note-line {
+  color: var(--text-muted);
+}
+
+.git-wt-dialog {
+  display: flex;
+  width: 480px;
+  max-width: 92vw;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  color: var(--text);
+  background: var(--surface-1);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 45%);
+}
+
+.git-wt-dialog h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.git-wt-dialog p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.git-wt-dialog code {
+  font-family: var(--font-family-mono);
+}
+
+.git-wt-chips {
+  display: flex;
+  gap: 6px;
+}
+
+.git-wt-chips label {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.git-wt-chips label[data-active] {
+  border-color: transparent;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.git-wt-chips input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.git-wt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.git-wt-field > span {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.git-wt-field small {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.git-wt-field small.is-error {
+  color: var(--danger-text, #f85149);
+}
+
+.git-wt-field input,
+.git-wt-field select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  color: var(--text);
+  background: var(--surface-0);
+  font: inherit;
+  font-size: 13.5px;
+  outline: none;
+}
+
+.git-wt-field input:focus,
+.git-wt-field select:focus {
+  border-color: var(--accent);
+}
+
+.git-wt-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 </style>
