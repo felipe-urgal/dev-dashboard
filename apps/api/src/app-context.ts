@@ -38,7 +38,6 @@ import type { ProjectTerminalService } from './services/project-terminal-service
 import type { DetachableExecutionService } from './services/detachable-execution-service.js';
 import type { ProjectTestPtyService } from './services/project-test-pty-service.js';
 import type { RailsMigrationPtyService } from './services/rails-migration-pty-service.js';
-import type { ProjectDependenciesPtyService } from './services/project-dependencies-pty-service.js';
 import type { ProjectCoverageService } from './services/project-coverage-service.js';
 import type { ProjectCoverageHistoryService } from './services/project-coverage-history-service.js';
 import type { SelfUpdateHandoffService } from './services/self-update-handoff-service.js';
@@ -83,7 +82,6 @@ export interface AppContext {
   projectEnvironmentService: ProjectEnvironmentService;
   scriptDetectionService: ScriptDetectionService;
   scriptExecutionService: ScriptExecutionService;
-  projectDependenciesPtyService: ProjectDependenciesPtyService;
   projectBrowserService: ProjectBrowserService;
   projectFileService: ProjectFileService;
   projectWorkspaceEditService: ProjectWorkspaceEditService;
@@ -109,10 +107,7 @@ export function createAppContext(
       developmentEnvironmentInstanceStore:
         foundation.developmentEnvironmentInstanceStore,
     }),
-    ...createExecutionContextDomain(
-      foundation.processManager,
-      foundation.activityEventRepository,
-    ),
+    ...createExecutionContextDomain(foundation.processManager),
     ...createDatabaseContextDomain(foundation.processManager),
     ...createSelfUpdateContextDomain(options),
   };
