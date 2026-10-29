@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   fetchProjectTestIntelligence: vi.fn(),
   fetchProjectTestHistory: vi.fn(),
   fetchProjectTestPtyStatus: vi.fn(),
+  fetchProjectTestPtyResult: vi.fn(),
   startProjectTestPty: vi.fn(),
   cancelProjectTestPty: vi.fn(),
   projectTestPtyWebSocketUrl: vi.fn(
@@ -29,6 +30,7 @@ vi.mock('../src/api', () => ({
   fetchProjectTestIntelligence: mocks.fetchProjectTestIntelligence,
   fetchProjectTestHistory: mocks.fetchProjectTestHistory,
   fetchProjectTestPtyStatus: mocks.fetchProjectTestPtyStatus,
+  fetchProjectTestPtyResult: mocks.fetchProjectTestPtyResult,
   startProjectTestPty: mocks.startProjectTestPty,
   cancelProjectTestPty: mocks.cancelProjectTestPty,
   projectTestPtyWebSocketUrl: mocks.projectTestPtyWebSocketUrl,
@@ -117,6 +119,7 @@ beforeEach(async () => {
     { path: 'src/util/c.test.ts' },
   ]);
   mocks.fetchProjectTestPtyStatus.mockResolvedValue(null);
+  mocks.fetchProjectTestPtyResult.mockResolvedValue(null);
   mocks.fetchProjectTestHistory.mockResolvedValue({
     items: [],
     page: 1,
@@ -366,5 +369,59 @@ test('reconecta preservando a suíte identificada pelo snapshot PTY', async () =
     ).value,
     'secondary-suite',
   );
+  wrapper.unmount();
+});
+
+test('depois de uma execução com falhas, "Rodar só as que falharam" executa apenas esses arquivos', async () => {
+  mocks.startProjectTestPty.mockResolvedValue(runningSnapshot());
+  mocks.fetchProjectTestPtyResult.mockResolvedValue({
+    runner: 'vitest',
+    summary: { total: 3, passed: 2, failed: 1, pending: 0 },
+    failures: [
+      {
+        id: 'src/b.test.ts:soma',
+        runner: 'vitest',
+        name: 'soma falha',
+        message: 'expected 1 to be 2',
+        location: { path: 'src/b.test.ts', line: 7 },
+        stack: [],
+      },
+    ],
+    failedFiles: ['src/b.test.ts'],
+  });
+
+  const wrapper = mount(ProjectTestsPtyPanel, {
+    props: { project: project() },
+  });
+  await flushPromises();
+
+  await buttonByText(wrapper, 'Executar todos')!.trigger('click');
+  await flushPromises();
+
+  const socket = FakeWebSocket.instances[0]!;
+  socket.readyState = 1;
+  socket.emit('open', {});
+  socket.emitMessage({
+    type: 'ready',
+    snapshot: { ...runningSnapshot(), buffer: '' },
+  });
+  socket.emitMessage({ type: 'exit', exitCode: 1, exitSignal: null });
+  await flushPromises();
+
+  assert.match(wrapper.text(), /soma falha/);
+  mocks.startProjectTestPty.mockClear();
+  mocks.startProjectTestPty.mockResolvedValue(
+    runningSnapshot({ scope: 'targeted', targetFiles: ['src/b.test.ts'] }),
+  );
+
+  const rerun = buttonByText(wrapper, 'Rodar só as que falharam');
+  assert.ok(rerun);
+  await rerun.trigger('click');
+  await flushPromises();
+
+  assert.deepEqual(mocks.startProjectTestPty.mock.calls[0]?.[3], {
+    mode: 'files',
+    paths: ['src/b.test.ts'],
+  });
   wrapper.unmount();
 });

@@ -148,6 +148,45 @@ export function registerTestPtyRoutes(
   } = options;
 
   app.get<{ Params: ProjectParams; Querystring: EnvironmentQuery }>(
+    '/projects/:projectId/tests/pty/result',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: environmentQuerySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: {
+              result: {
+                anyOf: [
+                  { type: 'null' },
+                  { type: 'object', additionalProperties: true },
+                ],
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = resolveExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
+      return {
+        result:
+          (await projectTestPtyService.result(project, executionContext)) ??
+          null,
+      };
+    },
+  );
+
+  app.get<{ Params: ProjectParams; Querystring: EnvironmentQuery }>(
     '/projects/:projectId/tests/pty/status',
     {
       schema: {

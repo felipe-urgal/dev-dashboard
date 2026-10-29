@@ -7,6 +7,8 @@ import UiSearchField from '../ui/UiSearchField.vue';
 
 const props = defineProps<{
   files: readonly string[];
+  /** Arquivos com falha na última execução (marcados em vermelho). */
+  failedFiles?: readonly string[];
   loading: boolean;
   error: string;
   disabled: boolean;
@@ -50,6 +52,7 @@ const groups = computed<Group[]>(() => {
 });
 
 const selectedSet = computed(() => new Set(selected.value));
+const failedSet = computed(() => new Set(props.failedFiles ?? []));
 
 function isOpen(dir: string): boolean {
   return needle.value !== '' || expanded.value.has(dir);
@@ -193,7 +196,7 @@ function dirOf(file: string): string {
 
         <ul v-if="isOpen(group.dir)">
           <li v-for="file in group.files" :key="file">
-            <label :title="file">
+            <label :title="file" :data-failed="failedSet.has(file) || undefined">
               <input
                 type="checkbox"
                 :checked="selectedSet.has(file)"
@@ -345,6 +348,14 @@ function dirOf(file: string): string {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.test-group li label[data-failed] span {
+  color: var(--danger-text, #f85149);
+}
+
+.test-group li label[data-failed] span::before {
+  content: '✗ ';
 }
 
 .test-picker input[type='checkbox'] {

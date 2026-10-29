@@ -8,6 +8,7 @@ import type {
   TestExecutionHistory,
   TestExecutionRecord,
   TestIntelligenceSuggestion,
+  TestRunResult,
 } from '@dev-dashboard/contracts';
 
 import {
@@ -15,6 +16,7 @@ import {
   fetchProjectTestFiles,
   fetchProjectTestHistory,
   fetchProjectTestIntelligence,
+  fetchProjectTestPtyResult,
   fetchProjectTestPtyStatus,
   fetchProjectTests,
   projectTestPtyWebSocketUrl,
@@ -23,6 +25,7 @@ import {
 } from '../api';
 import { usePtyTerminalSocket } from '../composables/usePtyTerminalSocket';
 import TestFilePicker from './project-tests/TestFilePicker.vue';
+import TestResults from './project-tests/TestResults.vue';
 import UiButton from './ui/UiButton.vue';
 import UiTag from './ui/UiTag.vue';
 
@@ -39,7 +42,8 @@ const starting = ref(false);
 const cancelling = ref(false);
 const errorMessage = ref('');
 const connectionLost = ref(false);
-const tab = ref<'output' | 'history'>('output');
+const tab = ref<'results' | 'output' | 'history'>('output');
+const result = ref<TestRunResult | null>(null);
 const history = ref<TestExecutionHistory | null>(null);
 const loadingHistory = ref(false);
 const historyErrorMessage = ref('');
@@ -78,6 +82,7 @@ const {
         : null);
     connectionLost.value = false;
     void loadHistory();
+    void loadResult(true);
   },
   onError: (message) => {
     errorMessage.value = message;
@@ -181,6 +186,20 @@ async function loadFiles(): Promise<void> {
   }
 }
 
+async function loadResult(showTab = false): Promise<void> {
+  try {
+    const next = await fetchProjectTestPtyResult(
+      props.project.id,
+      props.environmentInstanceId,
+    );
+    result.value = next;
+    if (next && showTab) tab.value = 'results';
+  } catch {
+    // Sem o resultado estruturado, a saída do terminal continua disponível.
+    result.value = null;
+  }
+}
+
 async function loadHistory(): Promise<void> {
   loadingHistory.value = true;
   historyErrorMessage.value = '';
@@ -228,6 +247,7 @@ async function loadStatusAndReconnect(): Promise<void> {
       : await fetchProjectTestPtyStatus(props.project.id);
     if (snapshot.value) {
       selectedCommandId.value = snapshot.value.commandId;
+      if (snapshot.value.status === 'exited') void loadResult();
       connect(
         projectTestPtyWebSocketUrl(
           props.project.id,
@@ -240,13 +260,14 @@ async function loadStatusAndReconnect(): Promise<void> {
   }
 }
 
-async function start(): Promise<void> {
+async function start(only?: string[]): Promise<void> {
   if (!selectedCommandId.value || isRunning.value || starting.value) return;
   errorMessage.value = '';
   starting.value = true;
   disposeTerminal();
   tab.value = 'output';
-  const paths = [...selectedFiles.value];
+  result.value = null;
+  const paths = only ? [...only] : [...selectedFiles.value];
   try {
     snapshot.value = await startProjectTestPty(
       props.project.id,
@@ -267,6 +288,13 @@ async function start(): Promise<void> {
   } finally {
     starting.value = false;
   }
+}
+
+function rerunFailed(): void {
+  const failed = result.value?.failedFiles ?? [];
+  if (failed.length === 0) return;
+  selectedFiles.value = [...failed];
+  void start(failed);
 }
 
 function selectRelated(): void {
@@ -409,6 +437,7 @@ watch(
     snapshot.value = null;
     connectionLost.value = false;
     history.value = null;
+    result.value = null;
     intelligence.value = null;
     files.value = [];
     selectedFiles.value = [];
@@ -476,7 +505,7 @@ watch(selectedCommandId, () => {
         class="tests-run-button"
         :disabled="loadingOverview || !selectedCommand || isRunning || starting"
         :busy="starting"
-        @click="start"
+        @click="start()"
       >
         <PlayIcon aria-hidden="true" />
         {{ runLabel }}
@@ -511,6 +540,7 @@ watch(selectedCommandId, () => {
         v-if="canPickFiles"
         v-model:selected="selectedFiles"
         :files="files"
+        :failed-files="result?.failedFiles ?? []"
         :loading="loadingFiles"
         :error="filesErrorMessage"
         :disabled="isRunning || starting"
@@ -519,6 +549,18 @@ watch(selectedCommandId, () => {
 
       <section class="tests-results">
         <div class="tests-results-tabs" role="tablist">
+          <button
+            v-if="result"
+            type="button"
+            role="tab"
+            :aria-selected="tab === 'results'"
+            @click="tab = 'results'"
+          >
+            Resultados
+            <span v-if="result.summary.failed > 0">{{
+              result.summary.failed
+            }}</span>
+          </button>
           <button
             type="button"
             role="tab"
@@ -557,6 +599,13 @@ watch(selectedCommandId, () => {
             Fechar saída
           </UiButton>
         </div>
+
+        <TestResults
+          v-if="tab === 'results' && result"
+          :result="result"
+          :disabled="isRunning || starting"
+          @rerun-failed="rerunFailed"
+        />
 
         <div v-show="tab === 'output'" class="tests-output">
           <div v-if="snapshot" class="tests-output-meta">

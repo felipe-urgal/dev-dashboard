@@ -1,3 +1,5 @@
+import type { TestRunResult } from '@dev-dashboard/contracts';
+
 import { requestJson } from './core';
 
 export interface ProjectTestPtyStatusSnapshot {
@@ -41,6 +43,17 @@ export async function fetchProjectTestPtyStatus(
     `/api/projects/${encodeURIComponent(projectId)}/tests/pty/status${environmentQuery(environmentInstanceId)}`,
   );
   return response.snapshot;
+}
+
+/** Resultado estruturado da última execução encerrada (`null` se não houver). */
+export async function fetchProjectTestPtyResult(
+  projectId: string,
+  environmentInstanceId?: string,
+): Promise<TestRunResult | null> {
+  const response = await requestJson<{ result: TestRunResult | null }>(
+    `/api/projects/${encodeURIComponent(projectId)}/tests/pty/result${environmentQuery(environmentInstanceId)}`,
+  );
+  return response.result;
 }
 
 export async function startProjectTestPty(

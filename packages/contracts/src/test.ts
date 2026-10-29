@@ -56,6 +56,23 @@ export interface TestFailure {
   stack: string[];
 }
 
+export interface TestRunSummary {
+  total: number;
+  passed: number;
+  failed: number;
+  pending: number;
+  durationMs?: number;
+}
+
+/** Resultado estruturado de uma execução, lido do reporter do runner. */
+export interface TestRunResult {
+  runner: ProjectTestRunner;
+  summary: TestRunSummary;
+  failures: TestFailure[];
+  /** Arquivos (relativos ao projeto) com ao menos uma falha. */
+  failedFiles: string[];
+}
+
 export type TestExecutionStatus =
   'starting' | 'running' | 'stopping' | 'stopped' | 'failed';
 
