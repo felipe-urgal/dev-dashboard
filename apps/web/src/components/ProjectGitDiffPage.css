@@ -65,9 +65,6 @@
 }
 
 .git-diff-file-head {
-  position: sticky;
-  z-index: 5;
-  top: var(--diff-sticky-top);
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) 26px auto;
   align-items: center;
