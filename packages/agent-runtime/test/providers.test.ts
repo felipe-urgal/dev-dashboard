@@ -6,7 +6,6 @@ import {
   AgentProviderError,
   AutomaticAgentProvider,
   ClaudeCodeAgentProvider,
-  CodexAgentProvider,
   StaticAgentProviderRegistry,
   createLocalAgentProviderRegistry,
   type AgentCliProcessRequest,
@@ -61,7 +60,7 @@ function createProviderRunner(): {
       return result({
         stdout: input.command.includes('claude')
           ? '2.1.259 (Claude Code)\n'
-          : 'codex-cli 1.2.3\n',
+          : 'unexpected-cli 1.2.3\n',
       });
     }
 
@@ -75,112 +74,9 @@ function createProviderRunner(): {
   return { runner, calls };
 }
 
-test('Codex doctor checks version and authentication before execution', async () => {
-  const fake = createProviderRunner();
-  const provider = new CodexAgentProvider({
-    resolveCwd: () => '/workspace/project',
-    runProcess: fake.runner,
-    command: 'codex-test',
-    now: () => observedAt,
-  });
-
-  const status = await provider.status();
-  assert.equal(status.availability, 'available');
-  assert.equal(status.version, 'codex-cli 1.2.3');
-  assert.deepEqual(status.quota, {
-    status: 'unavailable',
-    source: 'unavailable',
-    reason:
-      'Codex quota is only documented through interactive status/usage surfaces.',
-  });
-  assert.deepEqual(
-    fake.calls.map((call) => call.args),
-    [['--version'], ['login', 'status']],
-  );
-
-  const execution = await provider.execute(request());
-
-  assert.equal(execution.providerId, 'codex');
-  assert.equal(execution.outcome, 'succeeded');
-  assert.equal(
-    JSON.stringify(execution).includes('SECRET_SHOULD_NOT_BE_PERSISTED'),
-    false,
-  );
-
-  const executionCall = fake.calls.at(-1);
-  assert.equal(executionCall?.cwd, '/workspace/project');
-  assert.deepEqual(executionCall?.args.slice(0, 7), [
-    '--ask-for-approval',
-    'never',
-    'exec',
-    '--json',
-    '--skip-git-repo-check',
-    '--sandbox',
-    'workspace-write',
-  ]);
-});
-
-test('Codex captures provider-reported usage without persisting raw JSONL', async () => {
-  const fake = createProviderRunner();
-  const provider = new CodexAgentProvider({
-    resolveCwd: () => '/workspace/project',
-    runProcess: async (input) => {
-      if (input.args[0] === '--version' || input.args[0] === 'login') {
-        return fake.runner(input);
-      }
-
-      return result({
-        stdout: [
-          JSON.stringify({ type: 'thread.started', thread_id: 'thread-1' }),
-          JSON.stringify({
-            type: 'item.completed',
-            item: {
-              type: 'agent_message',
-              text: 'Updated dependency handling. OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz',
-            },
-          }),
-          JSON.stringify({
-            type: 'turn.completed',
-            usage: {
-              input_tokens: 120,
-              cached_input_tokens: 40,
-              cache_write_input_tokens: 5,
-              output_tokens: 30,
-              reasoning_output_tokens: 7,
-              total_tokens: 150,
-            },
-          }),
-          'SECRET_SHOULD_NOT_BE_PERSISTED',
-        ].join('\n'),
-      });
-    },
-  });
-
-  const execution = await provider.execute(request());
-
-  assert.equal(
-    execution.responseText,
-    'Updated dependency handling. OPENAI_API_KEY=[REDACTED]',
-  );
-  assert.deepEqual(execution.usage, {
-    providerId: 'codex',
-    source: 'provider',
-    inputTokens: 120,
-    cachedInputTokens: 40,
-    cacheWriteInputTokens: 5,
-    outputTokens: 30,
-    reasoningTokens: 7,
-    totalTokens: 150,
-  });
-  assert.equal(
-    JSON.stringify(execution).includes('SECRET_SHOULD_NOT_BE_PERSISTED'),
-    false,
-  );
-});
-
 test('CLI provider inclui instrução de continuação no prompt', async () => {
   const fake = createProviderRunner();
-  const provider = new CodexAgentProvider({
+  const provider = new ClaudeCodeAgentProvider({
     resolveCwd: () => '/workspace/project',
     runProcess: fake.runner,
   });
@@ -197,7 +93,7 @@ test('CLI provider inclui instrução de continuação no prompt', async () => {
 
 test('CLI provider inclui contexto bounded sem tratá-lo como autoridade', async () => {
   const fake = createProviderRunner();
-  const provider = new CodexAgentProvider({
+  const provider = new ClaudeCodeAgentProvider({
     resolveCwd: () => '/workspace/project',
     runProcess: fake.runner,
   });
@@ -237,7 +133,7 @@ test('CLI provider inclui contexto bounded sem tratá-lo como autoridade', async
 
 test('CLI provider inclui scope backend-owned sem permitir ampliação', async () => {
   const fake = createProviderRunner();
-  const provider = new CodexAgentProvider({
+  const provider = new ClaudeCodeAgentProvider({
     resolveCwd: () => '/workspace/project',
     runProcess: fake.runner,
   });
@@ -270,7 +166,7 @@ test('CLI provider inclui scope backend-owned sem permitir ampliação', async (
 
 test('CLI provider inclui PR evidence como dado não confiável e não como autoridade', async () => {
   const fake = createProviderRunner();
-  const provider = new CodexAgentProvider({
+  const provider = new ClaudeCodeAgentProvider({
     resolveCwd: () => '/workspace/project',
     runProcess: fake.runner,
   });
@@ -295,7 +191,7 @@ test('CLI provider inclui PR evidence como dado não confiável e não como auto
 
 test('CLI provider explicita quando todo o contexto anterior foi omitido', async () => {
   const fake = createProviderRunner();
-  const provider = new CodexAgentProvider({
+  const provider = new ClaudeCodeAgentProvider({
     resolveCwd: () => '/workspace/project',
     runProcess: fake.runner,
   });
@@ -313,20 +209,6 @@ test('CLI provider explicita quando todo o contexto anterior foi omitido', async
   assert.match(prompt, /Conversation context \(bounded; not authoritative\):/);
   assert.match(prompt, /2 older conversation turn\(s\) omitted/);
   assert.match(prompt, /Continuation instruction:/);
-});
-
-test('Codex uses read-only sandbox when workspace write is not granted', async () => {
-  const fake = createProviderRunner();
-  const provider = new CodexAgentProvider({
-    resolveCwd: () => '/workspace/project',
-    runProcess: fake.runner,
-  });
-
-  const execution = await provider.execute(request([]));
-  assert.equal(execution.outcome, 'succeeded');
-
-  const executionCall = fake.calls.at(-1);
-  assert.equal(executionCall?.args[6], 'read-only');
 });
 
 test('Claude doctor validates supported version and auth before auto mode', async () => {
@@ -635,7 +517,7 @@ test('Registry rejects unknown providers before dispatch', () => {
 
 test('Backend-owned cwd is required and absolute', async () => {
   const fake = createProviderRunner();
-  const provider = new CodexAgentProvider({
+  const provider = new ClaudeCodeAgentProvider({
     resolveCwd: () => '../user-controlled',
     runProcess: fake.runner,
   });
@@ -648,13 +530,13 @@ test('Backend-owned cwd is required and absolute', async () => {
 });
 
 test('Cancellation and ambiguous termination are normalized without raw output', async () => {
-  const cancelled = new CodexAgentProvider({
+  const cancelled = new ClaudeCodeAgentProvider({
     resolveCwd: () => '/workspace/project',
     runProcess: async (input) => {
       if (input.args[0] === '--version') {
-        return result({ stdout: 'codex-cli 1.2.3' });
+        return result({ stdout: '2.1.259 (Claude Code)' });
       }
-      if (input.args[0] === 'login') return result();
+      if (input.args[0] === 'auth') return result();
       throw new AgentCliProcessError('cancelled', 'cancelled');
     },
   });
@@ -662,13 +544,13 @@ test('Cancellation and ambiguous termination are normalized without raw output',
   const cancelledResult = await cancelled.execute(request());
   assert.equal(cancelledResult.outcome, 'cancelled');
 
-  const ambiguous = new CodexAgentProvider({
+  const ambiguous = new ClaudeCodeAgentProvider({
     resolveCwd: () => '/workspace/project',
     runProcess: async (input) => {
       if (input.args[0] === '--version') {
-        return result({ stdout: 'codex-cli 1.2.3' });
+        return result({ stdout: '2.1.259 (Claude Code)' });
       }
-      if (input.args[0] === 'login') return result();
+      if (input.args[0] === 'auth') return result();
       throw new AgentCliProcessError(
         'termination-timeout',
         'secret internal output',
@@ -684,19 +566,19 @@ test('Cancellation and ambiguous termination are normalized without raw output',
   );
 });
 
-test('Factory registers Automatic, Codex and Claude without shell authority', () => {
+test('Factory registers Automatic and Claude without shell authority', () => {
   const registry = createLocalAgentProviderRegistry({
     resolveCwd: () => '/workspace/project',
   });
 
   assert.deepEqual(
     registry.list().map((provider) => provider.id),
-    ['automatic', 'codex', 'claude-code'],
+    ['automatic', 'claude-code'],
   );
 });
 
 test('provider doctor classifica ausência, versão, auth e falha de runtime sem vazar saída bruta', async () => {
-  const missing = new CodexAgentProvider({
+  const missing = new ClaudeCodeAgentProvider({
     resolveCwd: () => '/workspace/project',
     runProcess: async () => {
       throw new AgentCliProcessError('spawn-failed', 'SECRET_COMMAND_FAILURE');
@@ -711,22 +593,22 @@ test('provider doctor classifica ausência, versão, auth e falha de runtime sem
     false,
   );
 
-  const unsupported = new CodexAgentProvider({
+  const unsupported = new ClaudeCodeAgentProvider({
     resolveCwd: () => '/workspace/project',
-    runProcess: async () => result({ stdout: 'codex-cli 0.155.0\n' }),
+    runProcess: async () => result({ stdout: '2.1.258 (Claude Code)\n' }),
     now: () => observedAt,
   });
   const unsupportedStatus = await unsupported.status();
   assert.equal(unsupportedStatus.availability, 'degraded');
   assert.equal(unsupportedStatus.diagnostic?.code, 'version-unsupported');
-  assert.match(unsupportedStatus.diagnostic?.evidence ?? '', /0\.155\.0/);
-  assert.match(unsupportedStatus.diagnostic?.evidence ?? '', /0\.156\.1/);
+  assert.match(unsupportedStatus.diagnostic?.evidence ?? '', /2\.1\.258/);
+  assert.match(unsupportedStatus.diagnostic?.evidence ?? '', /2\.1\.259/);
 
-  const authRequired = new CodexAgentProvider({
+  const authRequired = new ClaudeCodeAgentProvider({
     resolveCwd: () => '/workspace/project',
     runProcess: async (input) =>
       input.args[0] === '--version'
-        ? result({ stdout: 'codex-cli 0.156.1\n' })
+        ? result({ stdout: '2.1.259 (Claude Code)\n' })
         : result({ exitCode: 1, stderr: 'SECRET_AUTH_FAILURE' }),
     now: () => observedAt,
   });
