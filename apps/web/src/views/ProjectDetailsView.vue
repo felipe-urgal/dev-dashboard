@@ -32,9 +32,6 @@ function lazyTool(loader: () => Promise<{ default: Component }>): Component {
   });
 }
 
-const ProjectDoctorPanel = lazyTool(
-  () => import('../components/ProjectDoctorPanel.vue'),
-);
 const ProjectGitPanel = lazyTool(
   () => import('../components/ProjectGitPanel.vue'),
 );
@@ -43,15 +40,6 @@ const ProjectWorktreesPanel = lazyTool(
 );
 const ProjectProductionPanel = lazyTool(
   () => import('../components/ProjectProductionPanel.vue'),
-);
-const ProjectReadinessPanel = lazyTool(
-  () => import('../components/ProjectReleaseReadinessPanel.vue'),
-);
-const ProjectSecurityCenterPanel = lazyTool(
-  () => import('../components/ProjectSecurityCenterPanel.vue'),
-);
-const ProjectLocalCiPanel = lazyTool(
-  () => import('../components/ProjectLocalCiPanel.vue'),
 );
 const ProjectSelfUpdateProductionPanel = lazyTool(
   () => import('../components/ProjectSelfUpdateProductionPanel.vue'),
@@ -108,12 +96,6 @@ const environmentInstanceId = computed(() => {
 });
 
 const isReadmeRoute = computed(() => route.name === 'project-readme');
-const isDoctorRoute = computed(() => route.name === 'project-doctor');
-const isReadinessRoute = computed(() => route.name === 'project-readiness');
-const isSecurityRoute = computed(
-  () => route.name === 'project-security-center',
-);
-const isLocalCiRoute = computed(() => route.name === 'project-local-ci');
 const isServerRoute = computed(
   () => route.name === 'project-server' || route.name === 'project-details',
 );
@@ -333,31 +315,6 @@ onBeforeUnmount(stopGitOverviewRefresh);
       <ProjectReadmePanel
         v-if="isReadmeRoute"
         :key="`readme-${project.id}`"
-        :project="project"
-      />
-
-      <ProjectDoctorPanel
-        v-else-if="isDoctorRoute"
-        :key="`doctor-${project.id}-${environmentInstanceId ?? 'primary'}`"
-        :project="project"
-        :environment-instance-id="environmentInstanceId"
-      />
-
-      <ProjectReadinessPanel
-        v-else-if="isReadinessRoute"
-        :key="`readiness-${project.id}`"
-        :project="project"
-      />
-
-      <ProjectSecurityCenterPanel
-        v-else-if="isSecurityRoute"
-        :key="`security-${project.id}`"
-        :project="project"
-      />
-
-      <ProjectLocalCiPanel
-        v-else-if="isLocalCiRoute"
-        :key="`local-ci-${project.id}`"
         :project="project"
       />
 

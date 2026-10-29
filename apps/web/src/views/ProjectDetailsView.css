@@ -35,8 +35,6 @@
 .project-details-page > :last-child {
   overflow: visible;
 }
-
-:deep(.project-doctor-panel),
 :deep(.server-dashboard),
 :deep(.git-modern-panel),
 :deep(.project-environment-panel),
@@ -46,17 +44,9 @@
   min-height: 0;
   overflow: visible;
 }
-
 :deep(.project-environment-panel) {
   max-height: none;
 }
-
-:deep(.project-doctor-card) {
-  height: auto;
-  min-height: 100%;
-  overflow: visible;
-}
-
 :deep(.terminal-panel) {
   height: auto;
   overflow: visible;
@@ -69,7 +59,6 @@
   min-height: calc(100vh - var(--app-topbar-height, 72px));
   overflow: hidden;
 }
-
 .project-details-page-pty > :last-child {
   display: flex;
   flex: 1 1 0;
@@ -77,7 +66,6 @@
   min-height: 0;
   overflow: hidden;
 }
-
 .project-details-page-pty :deep(.server-dashboard),
 .project-details-page-pty :deep(.terminal-panel),
 .project-details-page-pty :deep(.tests-pty-panel),
@@ -88,7 +76,6 @@
   max-height: 100%;
   overflow: hidden;
 }
-
 .project-details-page-pty :deep(.terminal-window),
 .project-details-page-pty :deep(.tests-pty-terminal) {
   flex: 1 1 0;
@@ -98,8 +85,6 @@
 }
 
 /* Os painéis com layout próprio também precisam esticar seus containers internos. */
-:deep(.project-doctor-panel),
-:deep(.project-doctor-card),
 :deep(.server-dashboard),
 :deep(.server-dashboard-grid),
 :deep(.git-modern-panel),
@@ -109,26 +94,17 @@
   min-height: 0;
   height: auto;
 }
-
-:deep(.project-doctor-panel),
-:deep(.project-doctor-card) {
-  height: auto;
-  min-height: 0;
-}
-
 :deep(.readme-panel) {
   height: 100%;
   width: 100%;
   min-width: 0;
 }
-
 :deep(.readme-document) {
   width: 100%;
   max-width: 1180px;
   box-sizing: border-box;
   margin: 0 auto;
 }
-
 :deep(.readme-code-block) {
   width: 100%;
   max-width: 100%;
@@ -146,24 +122,18 @@
 :deep(.project-details-page .server-dashboard-grid) {
   border: 1px solid var(--border);
 }
-
 :deep(.project-details-page .server-card) {
   border: 0;
 }
-
 :deep(.project-details-page .server-card + .server-card) {
   border-left: 1px solid var(--border);
 }
-
-:deep(.project-details-page .project-doctor-card),
 :deep(.project-details-page .readme-panel) {
   box-shadow: none;
 }
-
 .database-explorer {
   background: var(--surface-0);
 }
-
 .database-detail-title {
   gap: 16px;
   padding: 18px 20px;

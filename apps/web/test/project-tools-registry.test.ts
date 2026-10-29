@@ -86,7 +86,7 @@ describe('registry de Project Tools', () => {
   });
 
   it('troca entre ferramentas environment-aware mantém o mesmo ambiente', () => {
-    const ids = ['server', 'terminal', 'environment', 'doctor'];
+    const ids = ['server', 'terminal', 'environment'];
     for (const id of ids) {
       const to = projectToolRoute(id, 'p1', { environmentInstanceId: 'env-9' });
       expect(to.query, id).toEqual({ environmentInstanceId: 'env-9' });
