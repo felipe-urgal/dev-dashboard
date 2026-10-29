@@ -54,6 +54,7 @@ import ProductionHistory, {
   type ProductionHistoryItem,
 } from './production/ProductionHistory.vue';
 import ProductionReadiness from './production/ProductionReadiness.vue';
+import ProductionRecovery from './production/ProductionRecovery.vue';
 import ProductionPlanPanel, {
   type ProductionPlanStepView,
 } from './production/ProductionPlanPanel.vue';
@@ -668,6 +669,40 @@ const readinessItems = computed(() =>
     hasBackupCommand: Boolean(production.value?.commands.backup),
   }),
 );
+
+/** Última versão estável anterior à que está no ar (ou à tentativa que falhou). */
+const previousStable = computed(() => {
+  const succeeded = history.value.filter((item) => item.status === 'succeeded');
+  const latest = latestDeployment.value;
+  const candidate =
+    latest?.status === 'succeeded' ? succeeded[1] : succeeded[0];
+  if (!candidate) return null;
+  return {
+    revision: candidate.revision,
+    subject: commitSubjects.value[candidate.revision],
+    when: formatDate(candidate.startedAt ?? candidate.createdAt),
+  };
+});
+
+const recoveryOpen = computed(() => {
+  const status = latestDeployment.value?.status;
+  return status === 'failed' || status === 'recovery_required';
+});
+
+async function copyRevision(revision: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(revision);
+  } catch {
+    // Sem permissão de área de transferência: o hash continua visível na tela.
+  }
+}
+
+function openTerminal(): void {
+  void router?.push({
+    name: 'project-terminal',
+    params: { projectId: props.project.id },
+  });
+}
 
 function handleReadinessAction(id: 'run-tests'): void {
   if (id === 'run-tests') {
@@ -1396,6 +1431,18 @@ onBeforeUnmount(() => {
             "
             @cancel="closePlan"
             @confirm="confirmAndStart"
+          />
+
+          <ProductionRecovery
+            v-if="!hasActiveDeployment && history.length > 0"
+            :policy="production.policies.rollback"
+            :has-backup-command="Boolean(production.commands.backup)"
+            :has-restore-check="Boolean(production.commands.restoreCheck)"
+            :previous="previousStable"
+            :current="productionRevision"
+            :open="recoveryOpen"
+            @copy-revision="copyRevision"
+            @open-terminal="openTerminal"
           />
 
           <details
