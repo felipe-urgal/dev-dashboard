@@ -27,8 +27,13 @@ interface DeploymentParams extends ProjectParams {
   deploymentId: string;
 }
 
+type DeploymentKindParam = 'deploy' | 'rollback';
+
+const kindSchema = { type: 'string', enum: ['deploy', 'rollback'] } as const;
+
 interface PlanBody {
   planHash: string;
+  kind?: DeploymentKindParam;
 }
 
 interface StartBody extends PlanBody {
@@ -196,11 +201,19 @@ export const deploymentRoutes: FastifyPluginAsync<Options> = async (
     },
   );
 
-  app.post<{ Params: ProjectParams }>(
+  app.post<{
+    Params: ProjectParams;
+    Querystring: { kind?: DeploymentKindParam };
+  }>(
     '/projects/:projectId/deployments/plan',
     {
       schema: {
         params: projectParamsSchema,
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          properties: { kind: kindSchema },
+        },
         response: {
           200: {
             type: 'object',
@@ -215,7 +228,12 @@ export const deploymentRoutes: FastifyPluginAsync<Options> = async (
     async (request) => {
       const project = findProject(options, request.params.projectId);
       try {
-        return { plan: await options.deploymentService.plan(project) };
+        return {
+          plan: await options.deploymentService.plan(
+            project,
+            request.query.kind ?? 'deploy',
+          ),
+        };
       } catch (error) {
         translate(error);
       }
@@ -231,7 +249,7 @@ export const deploymentRoutes: FastifyPluginAsync<Options> = async (
           type: 'object',
           additionalProperties: false,
           required: ['planHash'],
-          properties: { planHash: planHashSchema },
+          properties: { planHash: planHashSchema, kind: kindSchema },
         },
         response: {
           201: {
@@ -253,6 +271,7 @@ export const deploymentRoutes: FastifyPluginAsync<Options> = async (
           confirmation: await options.deploymentService.prepareConfirmation(
             project,
             request.body.planHash,
+            request.body.kind ?? 'deploy',
           ),
         });
       } catch (error) {
@@ -273,6 +292,7 @@ export const deploymentRoutes: FastifyPluginAsync<Options> = async (
           properties: {
             planHash: planHashSchema,
             confirmationToken: confirmationTokenSchema,
+            kind: kindSchema,
           },
         },
         response: {
@@ -294,6 +314,7 @@ export const deploymentRoutes: FastifyPluginAsync<Options> = async (
             project,
             request.body.planHash,
             request.body.confirmationToken,
+            request.body.kind ?? 'deploy',
           ),
         });
       } catch (error) {

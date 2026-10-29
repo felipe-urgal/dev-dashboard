@@ -29,6 +29,9 @@ export type DeploymentScriptId = NonNullable<
   ProductionCommands[ProductionCommandId]
 >;
 
+/** `rollback`: volta para a versão anterior bem-sucedida via `prod:rollback`. */
+export type DeploymentKind = 'deploy' | 'rollback';
+
 export type DeploymentStepId = ProductionCommandId | 'provider-deploy';
 export type DeploymentPlanStepId = DeploymentStepId | 'self-update';
 
@@ -76,6 +79,9 @@ export interface DeploymentPlan {
   revision: string;
   planHash: string;
   createdAt: string;
+  /** Ausente = deploy. No rollback, `revision` é o alvo e `fromRevision` a ativa hoje. */
+  kind?: DeploymentKind;
+  fromRevision?: string;
   steps: DeploymentPlanStep[];
 }
 
@@ -111,6 +117,8 @@ export interface Deployment {
   finishedAt?: string;
   currentStepId?: DeploymentPlanStepId;
   providerDeploymentId?: string;
+  kind?: DeploymentKind;
+  fromRevision?: string;
   failurePoint?: DeploymentFailurePoint;
   errorCode?: string;
   errorMessage?: string;

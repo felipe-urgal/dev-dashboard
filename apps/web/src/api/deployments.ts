@@ -1,6 +1,7 @@
 import type {
   Deployment,
   DeploymentChangeCommit,
+  DeploymentKind,
   DeploymentConfirmation,
   DeploymentHistory,
   DeploymentLog,
@@ -86,9 +87,10 @@ export async function authorizeDeploymentSudo(
 export async function fetchDeploymentPlan(
   projectId: string,
   signal?: AbortSignal,
+  kind?: DeploymentKind,
 ): Promise<DeploymentPlan> {
   const response = await requestJson<{ plan: DeploymentPlan }>(
-    `${projectDeploymentsUrl(projectId)}/plan`,
+    `${projectDeploymentsUrl(projectId)}/plan${kind ? `?kind=${kind}` : ''}`,
     requestInit('POST', signal),
   );
   return response.plan;
@@ -98,10 +100,11 @@ export async function createDeploymentConfirmation(
   projectId: string,
   planHash: string,
   signal?: AbortSignal,
+  kind?: DeploymentKind,
 ): Promise<DeploymentConfirmation> {
   const response = await requestJson<{ confirmation: DeploymentConfirmation }>(
     `${projectDeploymentsUrl(projectId)}/confirmations`,
-    requestInit('POST', signal, { planHash }),
+    requestInit('POST', signal, kind ? { planHash, kind } : { planHash }),
   );
   return response.confirmation;
 }
@@ -111,10 +114,17 @@ export async function startDeployment(
   planHash: string,
   confirmationToken: string,
   signal?: AbortSignal,
+  kind?: DeploymentKind,
 ): Promise<Deployment> {
   const response = await requestJson<{ deployment: Deployment }>(
     projectDeploymentsUrl(projectId),
-    requestInit('POST', signal, { planHash, confirmationToken }),
+    requestInit(
+      'POST',
+      signal,
+      kind
+        ? { planHash, confirmationToken, kind }
+        : { planHash, confirmationToken },
+    ),
   );
   return response.deployment;
 }
