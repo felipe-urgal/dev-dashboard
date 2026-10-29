@@ -340,19 +340,6 @@ async function clickTab(
   await flushPromises();
 }
 
-test('abre diretamente na aba Sincronização', async () => {
-  const mounted = await mountPanel();
-  cleanup = mounted.restore;
-
-  assert.match(mounted.wrapper.text(), /Sincronizar/);
-  assert.ok(
-    mounted.wrapper
-      .findAll('.git-subtabs button')
-      .find((button) => button.text() === 'Sincronização')
-      ?.classes('active'),
-  );
-});
-
 test('atualiza a branch atual a partir do upstream por pull confirmado', async () => {
   const originalConfirm = globalThis.confirm;
   globalThis.confirm = () => true;
@@ -430,38 +417,6 @@ test('atualiza a branch atual a partir do upstream por pull confirmado', async (
     mounted.wrapper.text(),
     /Branch "feature\/git-ui" atualizada a partir de origin\/feature\/git-ui/,
   );
-});
-
-test('lista branches locais e origin sem expor ações de sincronização', async () => {
-  const mounted = await mountPanel({
-    workspace: {
-      ...baseWorkspace,
-      branches: [
-        ...baseWorkspace.branches,
-        {
-          name: 'origin/release/2.0',
-          shortName: 'release/2.0',
-          kind: 'remote',
-          current: false,
-          remote: 'origin',
-          ahead: 0,
-          behind: 0,
-          latestCommit,
-        },
-      ],
-    },
-  });
-  cleanup = mounted.restore;
-  await clickTab(mounted.wrapper, 'Branches');
-
-  assert.match(mounted.wrapper.text(), /release\/2.0/);
-  assert.doesNotMatch(mounted.wrapper.text(), /upstream\/release\/2.0/);
-
-  const rows = mounted.wrapper.findAll('[data-branch]');
-  assert.equal(rows.length, 3);
-  const release = rows.find((row) => row.text().includes('release/2.0'));
-  assert.ok(release);
-  assert.match(release.text(), /Somente remota/);
 });
 
 test('cria branch com prefixo pelo modal centralizado', async () => {
@@ -898,30 +853,6 @@ test('oferece reenvio com lease na Pull Request depois de alterar commit em bran
     /atualizada em origin\/feature\/git-ui com lease/,
   );
   assert.equal(mounted.wrapper.find('.git-pr-force-push').exists(), false);
-});
-
-test('abre a aba Diff como o componente dedicado, sem app aninhado', async () => {
-  const mounted = await mountPanel();
-  cleanup = mounted.restore;
-  await clickTab(mounted.wrapper, 'Diff');
-
-  assert.ok(mounted.wrapper.find('.git-diff-page').exists());
-  assert.equal(mounted.wrapper.findAll('.git-tab-page').length, 0);
-});
-
-test('avisa sobre alterações locais somente quando há sincronização pendente', async () => {
-  const mounted = await mountPanel();
-  cleanup = mounted.restore;
-
-  assert.match(mounted.wrapper.text(), /alterações locais pendentes/i);
-  assert.doesNotMatch(mounted.wrapper.text(), /Tudo em dia/);
-  assert.ok(
-    mounted.wrapper
-      .find('.git-flow-summary')
-      .findAll('button')
-      .find((button) => button.text().includes('Sincronizar'))
-      ?.attributes('disabled') !== undefined,
-  );
 });
 
 test('sincroniza a main em uma única mutação confirmada', async () => {

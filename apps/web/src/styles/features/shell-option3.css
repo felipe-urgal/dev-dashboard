@@ -176,15 +176,13 @@
 }
 
 .git-diff-page,
-.git-history-page,
-.git-pr-card {
+.git-history-page {
   background: var(--surface-1);
 }
 
 .git-command-card,
 .git-table-card,
-.git-history-table-wrapper,
-.git-pr-card {
+.git-history-table-wrapper {
   border-color: var(--border);
   border-radius: 10px;
   background: var(--surface-1);

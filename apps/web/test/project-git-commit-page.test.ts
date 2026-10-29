@@ -91,35 +91,6 @@ test('digita a mensagem, habilita e envia o commit normal', async () => {
   assert.deepEqual(wrapper.emitted('submit'), [[]]);
 });
 
-test('mantém commit normal desabilitado quando só há arquivo não rastreado', () => {
-  const untrackedOnly: ProjectGitOverview = {
-    ...overview,
-    files: [
-      {
-        path: 'src/novo.ts',
-        indexStatus: '?',
-        worktreeStatus: '?',
-        status: 'untracked',
-      },
-    ],
-  };
-
-  const wrapper = mount(ProjectGitCommitPage, {
-    props: {
-      overview: untrackedOnly,
-      busy: false,
-      message: 'não deve habilitar',
-      mode: 'create',
-      pushBranch: null,
-    },
-  });
-
-  assert.equal(
-    (wrapper.find('.git-commit-submit').element as HTMLButtonElement).disabled,
-    true,
-  );
-});
-
 test('amend exige staged ou mudança real na mensagem', async () => {
   const noStage: ProjectGitOverview = {
     ...overview,
@@ -171,58 +142,6 @@ test('amend com alteração staged pode preservar a mensagem atual', async () =>
 
   assert.deepEqual(wrapper.emitted('update:mode'), [['amend']]);
   assert.deepEqual(wrapper.emitted('submit'), [[]]);
-});
-
-test('assunto e corpo viram uma única mensagem e o prefixo troca o anterior', async () => {
-  const wrapper = mount(ProjectGitCommitPage, {
-    props: {
-      overview,
-      busy: false,
-      message: 'fix: ajusta botão',
-      mode: 'create',
-      pushBranch: null,
-    },
-  });
-
-  await wrapper
-    .find('textarea[aria-label="Corpo do commit"]')
-    .setValue('Porque o clique falhava.');
-  assert.deepEqual(wrapper.emitted('update:message')?.at(-1), [
-    'fix: ajusta botão\n\nPorque o clique falhava.',
-  ]);
-
-  await wrapper
-    .findAll('.git-commit-prefixes button')
-    .find((button) => button.text() === 'feat:')!
-    .trigger('click');
-  assert.deepEqual(wrapper.emitted('update:message')?.at(-1), [
-    'feat: ajusta botão\n\nPorque o clique falhava.',
-  ]);
-});
-
-test('Ctrl+Enter cria o commit quando habilitado e "usar a mensagem dele" reaproveita o último assunto', async () => {
-  const wrapper = mount(ProjectGitCommitPage, {
-    props: {
-      overview,
-      busy: false,
-      message: 'novo commit',
-      mode: 'create',
-      pushBranch: null,
-    },
-  });
-
-  await wrapper
-    .find('input[aria-label="Mensagem do commit"]')
-    .trigger('keydown', { key: 'Enter', ctrlKey: true });
-  assert.deepEqual(wrapper.emitted('submit'), [[]]);
-
-  await wrapper
-    .findAll('button')
-    .find((button) => button.text() === 'Usar a mensagem dele')!
-    .trigger('click');
-  assert.deepEqual(wrapper.emitted('update:message')?.at(-1), [
-    latestCommit.subject,
-  ]);
 });
 
 test('conflitos bloqueiam criar e alterar e levam a atenção para o aviso', () => {

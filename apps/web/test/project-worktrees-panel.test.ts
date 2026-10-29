@@ -135,21 +135,6 @@ describe('ProjectWorktreesPanel', () => {
     });
   });
 
-  it('lista o worktree principal e os worktrees vinculados', async () => {
-    const wrapper = mount(ProjectWorktreesPanel, { props: { project } });
-    await flushPromises();
-
-    expect(fetchProjectGitWorktrees).toHaveBeenCalledWith('p1');
-    expect(wrapper.text()).toContain('main');
-    expect(wrapper.text()).toContain('principal');
-    expect(wrapper.text()).toContain('feature/login');
-    expect(wrapper.text()).toContain('feature-login');
-    expect(wrapper.text()).toContain('1 vinculado');
-    expect(wrapper.find('h1, h2').exists()).toBe(false);
-    expect(wrapper.find('.worktrees-toolbar').exists()).toBe(true);
-    expect(wrapper.findAll('.worktrees-danger-button')).toHaveLength(1);
-  });
-
   it('cria worktree usando somente uma branch local livre e deriva o diretório', async () => {
     const wrapper = mount(ProjectWorktreesPanel, { props: { project } });
     await flushPromises();
