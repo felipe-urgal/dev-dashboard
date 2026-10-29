@@ -99,22 +99,13 @@
   }
 }
 
-/* Identidade do projeto, projetada pela tela de projeto e centralizada. */
+/* Navegação do projeto, projetada pela tela de projeto ao lado do seletor. */
 .topbar-project {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
   display: flex;
-  max-width: 34%;
+  min-width: 0;
+  flex: 1 1 auto;
   align-items: center;
-  transform: translateX(-50%);
-}
-
-@media (max-width: 900px) {
-  .topbar-project {
-    display: none;
-  }
+  align-self: stretch;
 }
 
 .topbar-project-actions {

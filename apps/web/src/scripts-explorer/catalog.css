@@ -180,7 +180,10 @@
 
 @media (min-width: 1081px) {
   .scripts-explorer .script-card {
-    grid-template-columns: minmax(150px, 0.7fr) minmax(0, 1.1fr) minmax(150px, 0.75fr) auto;
+    grid-template-columns: minmax(150px, 0.7fr) minmax(0, 1.1fr) minmax(
+        150px,
+        0.75fr
+      ) auto;
     align-items: center;
     gap: 12px;
     padding-block: 10px;
@@ -207,7 +210,6 @@
 .scripts-catalog-toolbar select:focus {
   border-color: var(--accent);
   outline: 0;
-  
 }
 
 .scripts-pagination {

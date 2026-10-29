@@ -44,20 +44,49 @@
   font-weight: 600;
 }
 
-.git-syntax-keyword { color: var(--git-syntax-keyword); }
-.git-syntax-function { color: var(--git-syntax-function); }
-.git-syntax-type { color: var(--git-syntax-type); }
-.git-syntax-string { color: var(--git-syntax-string); }
-.git-syntax-number { color: var(--git-syntax-number); }
-.git-syntax-comment { color: var(--git-syntax-comment); font-style: italic; }
-.git-syntax-literal { color: var(--git-syntax-literal); }
-.git-syntax-variable { color: var(--git-syntax-variable); }
-.git-syntax-property { color: var(--git-syntax-property); }
-.git-syntax-symbol { color: var(--git-syntax-symbol); }
-.git-syntax-operator { color: var(--git-syntax-operator); }
-.git-syntax-tag { color: var(--git-syntax-tag); }
-.git-syntax-attribute { color: var(--git-syntax-attribute); }
-.git-syntax-selector { color: var(--git-syntax-selector); }
+.git-syntax-keyword {
+  color: var(--git-syntax-keyword);
+}
+.git-syntax-function {
+  color: var(--git-syntax-function);
+}
+.git-syntax-type {
+  color: var(--git-syntax-type);
+}
+.git-syntax-string {
+  color: var(--git-syntax-string);
+}
+.git-syntax-number {
+  color: var(--git-syntax-number);
+}
+.git-syntax-comment {
+  color: var(--git-syntax-comment);
+  font-style: italic;
+}
+.git-syntax-literal {
+  color: var(--git-syntax-literal);
+}
+.git-syntax-variable {
+  color: var(--git-syntax-variable);
+}
+.git-syntax-property {
+  color: var(--git-syntax-property);
+}
+.git-syntax-symbol {
+  color: var(--git-syntax-symbol);
+}
+.git-syntax-operator {
+  color: var(--git-syntax-operator);
+}
+.git-syntax-tag {
+  color: var(--git-syntax-tag);
+}
+.git-syntax-attribute {
+  color: var(--git-syntax-attribute);
+}
+.git-syntax-selector {
+  color: var(--git-syntax-selector);
+}
 
 .git-diff-unified-row code,
 .git-diff-side-cell code,
@@ -110,12 +139,10 @@
 }
 
 .git-syntax-patch-line.is-addition {
-  
   background: color-mix(in srgb, var(--success-surface) 78%, var(--surface-1));
 }
 
 .git-syntax-patch-line.is-deletion {
-  
   background: color-mix(in srgb, var(--danger-surface) 78%, var(--surface-1));
 }
 

@@ -595,7 +595,7 @@ test('renomeia uma branch local pelo menu de ações', async () => {
   );
 });
 
-test('remove uma branch local após confirmação digitada', async () => {
+test('remove uma branch local após confirmação simples', async () => {
   const removableBranch: ProjectGitWorkspace['branches'][number] = {
     name: 'bugfix/old',
     shortName: 'bugfix/old',
@@ -641,17 +641,7 @@ test('remove uma branch local após confirmação digitada', async () => {
   await flushPromises();
 
   const deleteForm = mounted.wrapper.find('.git-branch-dialog');
-  const submit = deleteForm.find('button[type="submit"]');
-  assert.ok(submit.attributes('disabled') !== undefined);
-  await deleteForm.find('input').setValue('bugfix/old');
-  await flushPromises();
-  assert.equal(
-    (
-      mounted.wrapper.find('.git-branch-dialog button[type="submit"]')
-        .element as HTMLButtonElement
-    ).disabled,
-    false,
-  );
+  assert.equal(deleteForm.find('input').exists(), false);
   await mounted.wrapper.find('.git-branch-dialog').trigger('submit');
   await flushPromises();
   await flushPromises();

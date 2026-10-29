@@ -118,7 +118,6 @@
   border-color: var(--accent);
   color: #fff;
   background: var(--accent);
-  
 }
 
 .tests-execution-steps li.complete {

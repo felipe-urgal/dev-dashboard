@@ -44,7 +44,6 @@
   padding: 15px;
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--surface-1) 94%, var(--surface-2));
-  
 }
 
 .database-metric-icon {
@@ -114,4 +113,3 @@
   color: var(--success-text);
   background: var(--success-surface);
 }
-

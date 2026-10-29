@@ -25,8 +25,7 @@
 /* Painel da ferramenta alinhado ao gutter da barra global. O cabeçalho e o
    estado de carregamento ficam de fora para não saltarem enquanto o painel
    ainda não foi montado. */
-.project-details-page
-  > :last-child:not(.project-header):not(.page-empty-state) {
+.project-details-page > :last-child:not(.page-empty-state) {
   width: calc(100% - 2 * var(--page-gutter));
   margin: 16px var(--page-gutter) 24px;
 }
@@ -181,32 +180,9 @@
   }
 }
 
-/* Cabeçalho do projeto: título, branch e processos, seguido da navegação
-   (áreas e ferramentas). Fixo abaixo da barra global. */
-.project-header {
-  position: sticky;
-  z-index: 40;
-  top: var(--app-topbar-height, 72px);
-  background: var(--surface-1);
-  border-bottom: 1px solid var(--border);
-}
-
-.project-header-bar {
-  display: flex;
-  min-height: 56px;
-  align-items: center;
-  gap: 16px;
-  padding: 0 var(--page-gutter);
-}
-
 /* As ferramentas do Git já aparecem na navegação do projeto. */
 :deep(.git-modern-panel > .git-navigation-bar) {
   display: none;
-}
-
-/* Páginas com terminal rolam por dentro; o cabeçalho não precisa grudar. */
-.project-details-page-pty .project-header {
-  position: static;
 }
 
 @media (max-width: 900px) {
@@ -214,23 +190,4 @@
     height: calc(100vh - var(--app-topbar-height, 116px));
     min-height: calc(100vh - var(--app-topbar-height, 116px));
   }
-
-  .project-header {
-    position: static;
-  }
-
-  .project-header-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 12px;
-    padding-block: 8px;
-  }
-
-  .project-header-identity {
-    display: flex;
-  }
-}
-
-.project-header-identity {
-  display: none;
 }

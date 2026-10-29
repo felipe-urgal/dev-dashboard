@@ -14,7 +14,6 @@ import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
 import { fetchProjectGit } from '../api';
 import EmptyState from '../components/EmptyState.vue';
-import ProjectIdentity from '../components/ProjectIdentity.vue';
 import ProjectProcessesMenu from '../components/ProjectProcessesMenu.vue';
 import ProjectToolError from '../components/ProjectToolError.vue';
 import ProjectTopNavigation from '../components/ProjectTopNavigation.vue';
@@ -329,11 +328,11 @@ onBeforeUnmount(stopGitOverviewRefresh);
 
     <template v-else>
       <Teleport to="#topbar-project">
-        <ProjectIdentity
-          :show-name="false"
-          :name="project.name"
-          :branch="gitBranch"
-          :clean="gitOverview?.clean"
+        <ProjectTopNavigation
+          :project="project"
+          :sidekiq-detected="sidekiqDetected"
+          :webpack-detected="webpackDetected"
+          :environment-instance-id="environmentInstanceId"
         />
       </Teleport>
 
@@ -350,24 +349,6 @@ onBeforeUnmount(stopGitOverviewRefresh);
           "
         />
       </Teleport>
-
-      <div class="project-header">
-        <header class="project-header-bar">
-          <ProjectIdentity
-            class="project-header-identity"
-            :name="project.name"
-            :branch="gitBranch"
-            :clean="gitOverview?.clean"
-          />
-
-          <ProjectTopNavigation
-            :project="project"
-            :sidekiq-detected="sidekiqDetected"
-            :webpack-detected="webpackDetected"
-            :environment-instance-id="environmentInstanceId"
-          />
-        </header>
-      </div>
 
       <ProjectReadmePanel
         v-if="isReadmeRoute"

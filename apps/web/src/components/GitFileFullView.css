@@ -13,7 +13,6 @@
 
 .git-full-file-row.is-changed {
   background: var(--git-diff-addition-bg);
-  
 }
 
 .git-full-file-line-number {

@@ -9,10 +9,22 @@
   --git-diff-hunk-gutter: color-mix(in srgb, #1f6feb 32%, var(--surface-2));
   --git-diff-hunk-text: #a5d6ff;
   --git-diff-context-bg: var(--surface-1);
-  --git-diff-context-gutter: color-mix(in srgb, var(--surface-2) 88%, var(--surface-1));
+  --git-diff-context-gutter: color-mix(
+    in srgb,
+    var(--surface-2) 88%,
+    var(--surface-1)
+  );
   --git-diff-row-border: color-mix(in srgb, var(--border) 66%, transparent);
-  --git-diff-meta-bg: color-mix(in srgb, var(--surface-2) 92%, var(--surface-1));
-  --git-diff-empty-stripe: color-mix(in srgb, var(--surface-2) 72%, var(--surface-1));
+  --git-diff-meta-bg: color-mix(
+    in srgb,
+    var(--surface-2) 92%,
+    var(--surface-1)
+  );
+  --git-diff-empty-stripe: color-mix(
+    in srgb,
+    var(--surface-2) 72%,
+    var(--surface-1)
+  );
 
   --git-diff-word-addition: rgb(63 185 80 / 40%);
   --git-diff-word-deletion: rgb(248 81 73 / 40%);
@@ -70,14 +82,12 @@
   min-height: 24px;
   border-bottom-color: var(--git-diff-row-border);
   background: var(--git-diff-context-bg);
-  
 }
 
 .git-diff-page .git-diff-side-cell {
   grid-template-columns: 48px 24px minmax(0, 1fr);
   min-height: 24px;
   background: var(--git-diff-context-bg);
-  
 }
 
 .git-diff-page .git-diff-unified-row code,
@@ -101,7 +111,6 @@
 .git-diff-page .git-diff-unified-row.is-addition,
 .git-diff-page .git-diff-side-cell.is-addition {
   background: var(--git-diff-addition-bg);
-  
 }
 
 .git-diff-page .git-diff-unified-row.is-addition .git-diff-line-number,
@@ -119,7 +128,6 @@
 .git-diff-page .git-diff-unified-row.is-deletion,
 .git-diff-page .git-diff-side-cell.is-deletion {
   background: var(--git-diff-deletion-bg);
-  
 }
 
 .git-diff-page .git-diff-unified-row.is-deletion .git-diff-line-number,
@@ -154,14 +162,13 @@
 }
 
 .git-diff-page .git-diff-side-cell.is-empty {
-  background:
-    repeating-linear-gradient(
-      -45deg,
-      var(--surface-2),
-      var(--surface-2) 7px,
-      var(--git-diff-empty-stripe) 7px,
-      var(--git-diff-empty-stripe) 14px
-    );
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--surface-2),
+    var(--surface-2) 7px,
+    var(--git-diff-empty-stripe) 7px,
+    var(--git-diff-empty-stripe) 14px
+  );
 }
 
 .git-diff-page .git-diff-unified-row:hover,
@@ -180,7 +187,6 @@
 .git-inline-file-diff .git-inline-diff-line,
 .git-inline-file-diff .git-inline-diff-side {
   background: var(--git-diff-context-bg);
-  
 }
 
 .git-inline-file-diff .git-inline-diff-line-number {
@@ -190,34 +196,44 @@
 .git-inline-file-diff .git-inline-diff-line.is-addition,
 .git-inline-file-diff .git-inline-diff-side.is-addition {
   background: var(--git-diff-addition-bg);
-  
 }
 
-.git-inline-file-diff .git-inline-diff-line.is-addition .git-inline-diff-line-number,
-.git-inline-file-diff .git-inline-diff-side.is-addition .git-inline-diff-line-number {
+.git-inline-file-diff
+  .git-inline-diff-line.is-addition
+  .git-inline-diff-line-number,
+.git-inline-file-diff
+  .git-inline-diff-side.is-addition
+  .git-inline-diff-line-number {
   background: var(--git-diff-addition-gutter);
   color: var(--git-diff-addition-accent);
 }
 
 .git-inline-file-diff .git-inline-diff-line.is-addition .git-inline-diff-prefix,
-.git-inline-file-diff .git-inline-diff-side.is-addition .git-inline-diff-prefix {
+.git-inline-file-diff
+  .git-inline-diff-side.is-addition
+  .git-inline-diff-prefix {
   color: var(--git-diff-addition-accent);
 }
 
 .git-inline-file-diff .git-inline-diff-line.is-deletion,
 .git-inline-file-diff .git-inline-diff-side.is-deletion {
   background: var(--git-diff-deletion-bg);
-  
 }
 
-.git-inline-file-diff .git-inline-diff-line.is-deletion .git-inline-diff-line-number,
-.git-inline-file-diff .git-inline-diff-side.is-deletion .git-inline-diff-line-number {
+.git-inline-file-diff
+  .git-inline-diff-line.is-deletion
+  .git-inline-diff-line-number,
+.git-inline-file-diff
+  .git-inline-diff-side.is-deletion
+  .git-inline-diff-line-number {
   background: var(--git-diff-deletion-gutter);
   color: var(--git-diff-deletion-accent);
 }
 
 .git-inline-file-diff .git-inline-diff-line.is-deletion .git-inline-diff-prefix,
-.git-inline-file-diff .git-inline-diff-side.is-deletion .git-inline-diff-prefix {
+.git-inline-file-diff
+  .git-inline-diff-side.is-deletion
+  .git-inline-diff-prefix {
   color: var(--git-diff-deletion-accent);
 }
 
@@ -227,7 +243,9 @@
   color: var(--git-diff-hunk-text);
 }
 
-.git-inline-file-diff .git-inline-diff-line.is-hunk .git-inline-diff-line-number {
+.git-inline-file-diff
+  .git-inline-diff-line.is-hunk
+  .git-inline-diff-line-number {
   background: var(--git-diff-hunk-gutter);
   color: var(--git-diff-hunk-text);
 }
@@ -260,11 +278,12 @@
 }
 
 :is(
-  .git-commit-detail-patch,
-  .git-history-page-patch,
-  .git-summary-detail-diff pre,
-  .git-history-page-diff pre
-) > span {
+    .git-commit-detail-patch,
+    .git-history-page-patch,
+    .git-summary-detail-diff pre,
+    .git-history-page-diff pre
+  )
+  > span {
   display: block;
   min-width: 0;
   border-bottom: 1px solid var(--git-diff-row-border);
@@ -274,62 +293,64 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
-  
 }
 
 :is(
-  .git-commit-detail-patch,
-  .git-history-page-patch,
-  .git-summary-detail-diff pre,
-  .git-history-page-diff pre
-) > span.is-addition {
+    .git-commit-detail-patch,
+    .git-history-page-patch,
+    .git-summary-detail-diff pre,
+    .git-history-page-diff pre
+  )
+  > span.is-addition {
   background: var(--git-diff-addition-bg);
-  
 }
 
 :is(
-  .git-commit-detail-patch,
-  .git-history-page-patch,
-  .git-summary-detail-diff pre,
-  .git-history-page-diff pre
-) > span.is-deletion {
+    .git-commit-detail-patch,
+    .git-history-page-patch,
+    .git-summary-detail-diff pre,
+    .git-history-page-diff pre
+  )
+  > span.is-deletion {
   background: var(--git-diff-deletion-bg);
-  
 }
 
 :is(
-  .git-commit-detail-patch,
-  .git-history-page-patch,
-  .git-summary-detail-diff pre,
-  .git-history-page-diff pre
-) > span.is-hunk {
+    .git-commit-detail-patch,
+    .git-history-page-patch,
+    .git-summary-detail-diff pre,
+    .git-history-page-diff pre
+  )
+  > span.is-hunk {
   background: var(--git-diff-hunk-bg);
   color: var(--git-diff-hunk-text);
-  
 }
 
 :is(
-  .git-commit-detail-patch,
-  .git-history-page-patch,
-  .git-summary-detail-diff pre,
-  .git-history-page-diff pre
-) > span.is-meta,
+    .git-commit-detail-patch,
+    .git-history-page-patch,
+    .git-summary-detail-diff pre,
+    .git-history-page-diff pre
+  )
+  > span.is-meta,
 :is(
-  .git-commit-detail-patch,
-  .git-history-page-patch,
-  .git-summary-detail-diff pre,
-  .git-history-page-diff pre
-) > span.is-file {
+    .git-commit-detail-patch,
+    .git-history-page-patch,
+    .git-summary-detail-diff pre,
+    .git-history-page-diff pre
+  )
+  > span.is-file {
   background: var(--git-diff-meta-bg);
   color: var(--text-muted);
 }
 
 :is(
-  .git-commit-detail-patch,
-  .git-history-page-patch,
-  .git-summary-detail-diff pre,
-  .git-history-page-diff pre
-) > span:hover {
+    .git-commit-detail-patch,
+    .git-history-page-patch,
+    .git-summary-detail-diff pre,
+    .git-history-page-diff pre
+  )
+  > span:hover {
   filter: brightness(1.035);
 }
 

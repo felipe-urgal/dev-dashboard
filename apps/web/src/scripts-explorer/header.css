@@ -37,7 +37,11 @@
   padding: 22px 24px 18px;
   border-bottom: 1px solid var(--border);
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 34%, transparent), transparent 48%),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent-soft) 34%, transparent),
+      transparent 48%
+    ),
     var(--surface-1);
 }
 
@@ -106,7 +110,6 @@
 .scripts-catalog-toolbar label:focus-within {
   border-color: var(--accent);
   background: var(--surface-1);
-  
 }
 
 .scripts-explorer-global-search > svg,
@@ -141,7 +144,6 @@
   color: var(--text-dim);
   background: var(--surface-2);
   font-size: 8px;
-  
 }
 
 .scripts-explorer-refresh {
@@ -187,7 +189,9 @@
 }
 
 @keyframes scripts-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .scripts-explorer-tabs {
@@ -220,7 +224,9 @@
   font-size: var(--font-sm);
   font-weight: 650;
   white-space: nowrap;
-  transition: color 150ms ease, background 150ms ease;
+  transition:
+    color 150ms ease,
+    background 150ms ease;
 }
 
 .scripts-explorer-tabs button::after {
@@ -234,7 +240,9 @@
   content: '';
   opacity: 0;
   transform: scaleX(0.55);
-  transition: opacity 150ms ease, transform 150ms ease;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
 }
 
 .scripts-explorer-tabs button:hover,
@@ -347,4 +355,3 @@
   font-size: var(--font-xs);
   font-weight: 700;
 }
-

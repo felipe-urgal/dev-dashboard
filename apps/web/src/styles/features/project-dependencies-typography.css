@@ -7,7 +7,10 @@
 
 .project-details-page > .dependencies-panel .dependencies-group-header strong,
 .project-details-page > .dependencies-panel .dependencies-action-copy strong,
-.project-details-page > .dependencies-panel .dependencies-console-title-copy strong,
+.project-details-page
+  > .dependencies-panel
+  .dependencies-console-title-copy
+  strong,
 .project-details-page > .dependencies-panel .dependencies-empty strong {
   font-size: var(--font-md);
   font-weight: var(--font-weight-strong);
@@ -16,7 +19,10 @@
 
 .project-details-page > .dependencies-panel .dependencies-group-header small,
 .project-details-page > .dependencies-panel .dependencies-action-copy small,
-.project-details-page > .dependencies-panel .dependencies-console-title-copy small,
+.project-details-page
+  > .dependencies-panel
+  .dependencies-console-title-copy
+  small,
 .project-details-page > .dependencies-panel .dependencies-empty span,
 .project-details-page > .dependencies-panel .dependencies-status {
   font-size: var(--font-sm);
@@ -24,7 +30,10 @@
 }
 
 .project-details-page > .dependencies-panel .dependencies-action-row button,
-.project-details-page > .dependencies-panel .dependencies-console-actions button {
+.project-details-page
+  > .dependencies-panel
+  .dependencies-console-actions
+  button {
   font-size: var(--font-sm);
   font-weight: var(--font-weight-strong);
   line-height: 1.2;

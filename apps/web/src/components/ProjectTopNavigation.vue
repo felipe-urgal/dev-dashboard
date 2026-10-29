@@ -217,7 +217,6 @@ function activeLabel(hub: NavHub): string {
   display: flex;
   min-width: 0;
   gap: 2px;
-  margin-left: -12px; /* alinha o texto do primeiro item ao gutter da barra global */
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -229,7 +228,7 @@ function activeLabel(hub: NavHub): string {
 .project-nav-hub {
   position: relative;
   display: inline-flex;
-  height: 56px;
+  height: 100%;
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;

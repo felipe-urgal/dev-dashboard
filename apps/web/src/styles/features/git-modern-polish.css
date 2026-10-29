@@ -21,8 +21,9 @@
 }
 
 .git-modern-panel :where(code, pre) {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    'Liberation Mono', monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    monospace;
 }
 
 .git-modern-panel :where(label, dt, th, .git-table-header) {

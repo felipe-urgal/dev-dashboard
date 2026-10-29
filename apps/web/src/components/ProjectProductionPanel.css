@@ -337,7 +337,10 @@
 }
 
 .production-plan-target {
-  grid-template-columns: minmax(0, 1fr) minmax(140px, 0.55fr) minmax(160px, 0.65fr);
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 0.55fr) minmax(
+      160px,
+      0.65fr
+    );
   margin-bottom: 12px;
 }
 
@@ -553,7 +556,6 @@
   gap: 5px;
 }
 
-
 .production-history-more {
   margin: 8px 12px 10px;
 }
@@ -727,7 +729,10 @@
 .production-history-head,
 .production-history-row {
   display: grid;
-  grid-template-columns: minmax(100px, 0.8fr) minmax(150px, 1.2fr) minmax(90px, 0.7fr) minmax(110px, 0.75fr);
+  grid-template-columns: minmax(100px, 0.8fr) minmax(150px, 1.2fr) minmax(
+      90px,
+      0.7fr
+    ) minmax(110px, 0.75fr);
   align-items: center;
   min-width: 560px;
   gap: 12px;
