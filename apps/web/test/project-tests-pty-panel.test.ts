@@ -425,3 +425,48 @@ test('depois de uma execução com falhas, "Rodar só as que falharam" executa a
   });
   wrapper.unmount();
 });
+
+test('"Rodar de novo" no histórico repete os mesmos arquivos da execução', async () => {
+  mocks.fetchProjectTestHistory.mockResolvedValue({
+    items: [
+      {
+        id: 'h1',
+        projectId: 'projeto-1',
+        commandId: 'full-suite',
+        scope: 'targeted',
+        targetFiles: ['src/a.test.ts', 'src/b.test.ts'],
+        status: 'stopped',
+        startedAt: '2026-10-29T10:00:00.000Z',
+        finishedAt: '2026-10-29T10:00:05.000Z',
+        exitCode: 1,
+      },
+    ],
+    page: 1,
+    pageSize: 10,
+    total: 1,
+    totalPages: 1,
+  });
+  mocks.startProjectTestPty.mockResolvedValue(
+    runningSnapshot({
+      scope: 'targeted',
+      targetFiles: ['src/a.test.ts', 'src/b.test.ts'],
+    }),
+  );
+
+  const wrapper = mount(ProjectTestsPtyPanel, {
+    props: { project: project() },
+  });
+  await flushPromises();
+
+  await buttonByText(wrapper, 'Histórico')!.trigger('click');
+  const rerun = buttonByText(wrapper, 'Rodar de novo');
+  assert.ok(rerun);
+  await rerun.trigger('click');
+  await flushPromises();
+
+  assert.deepEqual(mocks.startProjectTestPty.mock.calls[0]?.[3], {
+    mode: 'files',
+    paths: ['src/a.test.ts', 'src/b.test.ts'],
+  });
+  wrapper.unmount();
+});

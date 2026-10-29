@@ -77,7 +77,9 @@ test('parseVitestJson converte caminhos absolutos em relativos ao projeto', () =
             {
               fullName: 'soma falha',
               status: 'failed',
-              failureMessages: ['AssertionError: expected 1 to be 2\n  at a.test.ts:5'],
+              failureMessages: [
+                'AssertionError: expected 1 to be 2\n  at a.test.ts:5',
+              ],
               location: { line: 5, column: 3 },
             },
           ],
@@ -91,7 +93,10 @@ test('parseVitestJson converte caminhos absolutos em relativos ao projeto', () =
   assert.equal(result.summary.failed, 1);
   assert.equal(result.summary.durationMs, 400);
   assert.deepEqual(result.failedFiles, ['src/a.test.ts']);
-  assert.equal(result.failures[0]?.message, 'AssertionError: expected 1 to be 2');
+  assert.equal(
+    result.failures[0]?.message,
+    'AssertionError: expected 1 to be 2',
+  );
   assert.equal(result.failures[0]?.location?.line, 5);
 });
 

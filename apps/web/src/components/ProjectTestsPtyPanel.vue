@@ -25,6 +25,7 @@ import {
 } from '../api';
 import { usePtyTerminalSocket } from '../composables/usePtyTerminalSocket';
 import TestFilePicker from './project-tests/TestFilePicker.vue';
+import TestInsights from './project-tests/TestInsights.vue';
 import TestResults from './project-tests/TestResults.vue';
 import UiButton from './ui/UiButton.vue';
 import UiTag from './ui/UiTag.vue';
@@ -288,6 +289,43 @@ async function start(only?: string[]): Promise<void> {
   } finally {
     starting.value = false;
   }
+}
+
+/** Barras de duração das últimas execuções (da mais antiga para a mais nova). */
+const durationBars = computed(() => {
+  const records = [...(history.value?.items ?? [])].reverse();
+  const durations = records.map((record) => {
+    if (!record.finishedAt) return 0;
+    const started = new Date(record.startedAt).getTime();
+    const finished = new Date(record.finishedAt).getTime();
+    return Number.isFinite(started) && Number.isFinite(finished)
+      ? Math.max(0, finished - started)
+      : 0;
+  });
+  const longest = Math.max(...durations, 1);
+  return records.map((record, index) => ({
+    id: record.id,
+    height: Math.max(8, Math.round(((durations[index] ?? 0) / longest) * 100)),
+    tone: historyStatus(record).tone,
+    title: `${historyStatus(record).label} · ${formatDuration(record)}`,
+  }));
+});
+
+function canRerun(record: TestExecutionRecord): boolean {
+  if (record.scope !== 'targeted') return true;
+  return (record.targetFiles?.length ?? (record.targetFile ? 1 : 0)) > 0;
+}
+
+function rerunRecord(record: TestExecutionRecord): void {
+  if (isRunning.value || starting.value || !canRerun(record)) return;
+  if (overview.value?.commands.some((c) => c.id === record.commandId)) {
+    selectedCommandId.value = record.commandId;
+  }
+  const paths =
+    record.scope === 'targeted'
+      ? (record.targetFiles ?? (record.targetFile ? [record.targetFile] : []))
+      : [];
+  void start(paths);
 }
 
 function rerunFailed(): void {
@@ -640,7 +678,21 @@ watch(selectedCommandId, () => {
           <p v-if="historyErrorMessage" class="tests-banner is-error">
             {{ historyErrorMessage }}
           </p>
-          <ul v-else-if="history?.items.length">
+          <TestInsights :intelligence="intelligence" />
+          <div
+            v-if="durationBars.length > 1"
+            class="tests-duration"
+            aria-label="Duração das últimas execuções"
+          >
+            <span
+              v-for="bar in durationBars"
+              :key="bar.id"
+              :data-tone="bar.tone"
+              :style="{ height: `${bar.height}%` }"
+              :title="bar.title"
+            />
+          </div>
+          <ul v-if="history?.items.length">
             <li v-for="record in history.items" :key="record.id">
               <UiTag :tone="historyStatus(record).tone">
                 {{ historyStatus(record).label }}
@@ -651,9 +703,20 @@ watch(selectedCommandId, () => {
                 {{ formatDateTime(record.startedAt) }} ·
                 {{ formatDuration(record) }}
               </small>
+              <UiButton
+                size="sm"
+                class="tests-rerun"
+                :disabled="isRunning || starting || !canRerun(record)"
+                @click="rerunRecord(record)"
+              >
+                Rodar de novo
+              </UiButton>
             </li>
           </ul>
-          <p v-else-if="!loadingHistory" class="tests-muted">
+          <p
+            v-if="!history?.items.length && !loadingHistory"
+            class="tests-muted"
+          >
             Nenhuma execução registrada.
           </p>
         </div>
@@ -920,6 +983,33 @@ watch(selectedCommandId, () => {
 .tests-history li small {
   margin-left: auto;
   color: var(--text-dim);
+}
+
+.tests-duration {
+  display: flex;
+  height: 56px;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 10px 16px 0;
+}
+
+.tests-duration span {
+  width: 14px;
+  min-height: 4px;
+  border-radius: 3px 3px 0 0;
+  background: var(--border-strong);
+}
+
+.tests-duration span[data-tone='success'] {
+  background: var(--success-text);
+}
+
+.tests-duration span[data-tone='danger'] {
+  background: var(--danger-text, #f85149);
+}
+
+.tests-duration span[data-tone='accent'] {
+  background: var(--accent);
 }
 
 .tests-history .tests-muted {

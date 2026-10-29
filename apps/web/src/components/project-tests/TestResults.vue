@@ -72,7 +72,9 @@ function locationLabel(failure: TestRunResult['failures'][number]): string {
           {{ locationLabel(failure) }}
         </code>
         <pre class="test-results-message">{{ failure.message }}</pre>
-        <p v-if="failure.expected !== undefined || failure.actual !== undefined">
+        <p
+          v-if="failure.expected !== undefined || failure.actual !== undefined"
+        >
           <small>
             esperado <code>{{ failure.expected ?? '—' }}</code> · recebido
             <code>{{ failure.actual ?? '—' }}</code>

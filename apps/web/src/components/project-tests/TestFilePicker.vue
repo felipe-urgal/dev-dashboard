@@ -196,7 +196,10 @@ function dirOf(file: string): string {
 
         <ul v-if="isOpen(group.dir)">
           <li v-for="file in group.files" :key="file">
-            <label :title="file" :data-failed="failedSet.has(file) || undefined">
+            <label
+              :title="file"
+              :data-failed="failedSet.has(file) || undefined"
+            >
               <input
                 type="checkbox"
                 :checked="selectedSet.has(file)"
