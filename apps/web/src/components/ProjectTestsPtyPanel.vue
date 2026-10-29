@@ -115,6 +115,7 @@ const executionStateLabel = computed(() => {
   if (isRunning.value)
     return connectionLost.value ? 'Conexão perdida' : 'Executando';
   if (snapshot.value.cancelled) return 'Cancelado';
+  if (snapshot.value.exitCode === null) return 'Interrompido';
   return snapshot.value.exitCode === 0 ? 'Sucesso' : 'Falhou';
 });
 const executionStateTone = computed<
@@ -122,7 +123,8 @@ const executionStateTone = computed<
 >(() => {
   if (!snapshot.value) return 'neutral';
   if (isRunning.value) return connectionLost.value ? 'warning' : 'accent';
-  if (snapshot.value.cancelled) return 'neutral';
+  if (snapshot.value.cancelled || snapshot.value.exitCode === null)
+    return 'neutral';
   return snapshot.value.exitCode === 0 ? 'success' : 'danger';
 });
 const runLabel = computed(() => {
@@ -490,7 +492,9 @@ watch(
   { immediate: true },
 );
 
-watch(selectedCommandId, () => {
+// Recarrega também quando o catálogo termina de carregar: a execução restaurada
+// pode definir a suíte antes de sabermos se ela aceita escolher arquivos.
+watch([selectedCommandId, canPickFiles], () => {
   void loadFiles();
   void loadIntelligence();
 });

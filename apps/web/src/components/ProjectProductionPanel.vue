@@ -435,8 +435,11 @@ const statusView = computed(
         return {
           title: 'Status vivo de produção indisponível',
           description:
-            status.errorMessage ??
-            'prod:status não forneceu uma evidência estruturada válida.',
+            (status.errorMessage ??
+              'prod:status não forneceu uma evidência estruturada válida.') +
+            (status.statusAvailability === 'invalid-response'
+              ? ' Para o status bater, o script deve imprimir uma linha como: DEV_DASHBOARD_PRODUCTION_STATUS_V1={"version":1,"revision":"<sha>","state":"ready"} (state: ready, degraded ou unavailable).'
+              : ''),
           label: 'Não verificado',
           tone:
             status.statusAvailability === 'command-failed'
@@ -1007,8 +1010,13 @@ async function pollProviderStatus(current: number): Promise<void> {
   }
 }
 
+/** Revisão usada para comparar: a ativa em produção ou, sem status vivo, o último deploy bem-sucedido. */
+const comparisonRevision = computed(
+  () => productionRevision.value ?? lastSuccessfulDeployment.value?.revision,
+);
+
 async function loadChanges(current: number): Promise<void> {
-  const revision = productionRevision.value;
+  const revision = comparisonRevision.value;
   if (
     !canExecuteDeployment.value ||
     !revision ||
@@ -1401,7 +1409,7 @@ onBeforeUnmount(() => {
       v-if="!hasProductionCapability"
       :key="`setup-${project.id}`"
       :project-id="project.id"
-      :default-branch="gitOverview?.branch ?? 'main'"
+      default-branch="main"
       @saved="handleContractSaved"
     />
 
@@ -1412,7 +1420,8 @@ onBeforeUnmount(() => {
             v-if="!hasActiveDeployment && !canRetryLatestVerify"
             :changes="changes"
             :loading="changesLoading"
-            :comparable="Boolean(productionRevision)"
+            :comparable="Boolean(comparisonRevision)"
+            :basis="productionRevision ? 'live' : 'history'"
             :branch="branch"
           >
             <template #action>
