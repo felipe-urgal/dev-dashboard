@@ -297,6 +297,45 @@ test('Claude só recebe o shell pré-aprovado com workspace:run e o prompt expli
   assert.equal(args.at(-1), prompt);
 });
 
+test('Claude recebe o navegador (Playwright MCP fixo e estrito) só com browser:use', async () => {
+  const fake = createProviderRunner();
+  const provider = new ClaudeCodeAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    command: 'claude-test',
+    runProcess: fake.runner,
+  });
+
+  await provider.execute(request(['workspace:write']));
+  assert.equal(fake.calls.at(-1)?.args.includes('--mcp-config'), false);
+
+  await provider.execute(request(['browser:use']));
+  let args = fake.calls.at(-1)?.args ?? [];
+  assert.equal(args[2], 'dontAsk');
+  assert.equal(args[args.indexOf('--allowedTools') + 1], 'mcp__playwright');
+  assert.equal(args.includes('--strict-mcp-config'), true);
+  const config = JSON.parse(args[args.indexOf('--mcp-config') + 1] ?? '{}');
+  assert.equal(config.mcpServers.playwright.command, 'npx');
+  assert.match(
+    config.mcpServers.playwright.args.join(' '),
+    /@playwright\/mcp@\d+\.\d+\.\d+ --headless --isolated/,
+  );
+  assert.match(
+    String(args.at(-1)),
+    /browser:use: use the Playwright browser tools/,
+  );
+
+  await provider.execute(request(['workspace:run', 'browser:use']));
+  args = fake.calls.at(-1)?.args ?? [];
+  const tools = args.indexOf('--allowedTools');
+  assert.equal(args[2], 'auto');
+  assert.deepEqual(args.slice(tools + 1, tools + 3), [
+    'Bash',
+    'mcp__playwright',
+  ]);
+  // O prompt posicional nunca pode ficar logo após uma flag variádica.
+  assert.equal(args.at(-2), '--verbose');
+});
+
 test('Claude devolve o session_id e transmite progresso saneado ao vivo', async () => {
   const lines = [
     JSON.stringify({

@@ -18,6 +18,7 @@ const TASK_STATES = new Set<AgentTaskState>([
 const CAPABILITIES = new Set<AgentCapability>([
   'workspace:write',
   'workspace:run',
+  'browser:use',
   'git:commit',
   'git:push',
   'github:pull-request',

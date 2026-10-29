@@ -8,6 +8,7 @@ export type AgentConcreteProviderId = Exclude<AgentProviderId, 'automatic'>;
 export type AgentCapability =
   | 'workspace:write'
   | 'workspace:run'
+  | 'browser:use'
   | 'git:commit'
   | 'git:push'
   | 'github:pull-request'
