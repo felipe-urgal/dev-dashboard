@@ -65,6 +65,14 @@ function testsItem(
       action,
     };
   }
+  if (latest.status === 'failed' && latest.exitCode === undefined) {
+    return {
+      id: 'tests',
+      tone: 'warn',
+      label: 'A última execução de testes foi interrompida',
+      action,
+    };
+  }
   if (latest.status === 'failed' || (latest.exitCode ?? 0) !== 0) {
     return {
       id: 'tests',

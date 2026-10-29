@@ -11,6 +11,8 @@ const props = defineProps<{
   /** Há uma revisão de produção conhecida para comparar. */
   comparable: boolean;
   branch: string;
+  /** `history`: comparado com o último deploy registrado, não com o status vivo. */
+  basis?: 'live' | 'history';
 }>();
 
 const available = computed(() =>
@@ -20,7 +22,7 @@ const available = computed(() =>
 const headline = computed(() => {
   if (props.loading) return 'Comparando com a produção…';
   const data = available.value;
-  if (!data) return 'Pronto para publicar';
+  if (!data) return 'O que vai subir';
   if (data.total === 0) return 'Produção está em dia';
   return data.total === 1
     ? '1 commit novo desde a produção'
@@ -69,6 +71,10 @@ function relative(value: string): string {
     </p>
 
     <template v-else-if="available.total > 0">
+      <p v-if="basis === 'history'" class="prod-changes-note">
+        Comparado com o último deploy registrado pelo Dev Dashboard (o status
+        vivo de produção não respondeu).
+      </p>
       <div class="prod-changes-chips">
         <UiTag>{{ available.files }} arquivos</UiTag>
         <UiTag v-if="available.migrations > 0" tone="warning">
