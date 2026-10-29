@@ -53,7 +53,6 @@ function harness() {
     taskId: string;
     providerId: string;
     attachmentIds: string[];
-    profileId: string | undefined;
     resolve: (value: AgentExecutionResult) => void;
     reject: (error: Error) => void;
   }> = [];
@@ -69,7 +68,6 @@ function harness() {
     taskId,
     providerId,
     attachmentIds,
-    profileId,
   ) =>
     new Promise((resolve, reject) => {
       requests.push({
@@ -77,7 +75,6 @@ function harness() {
         taskId,
         providerId,
         attachmentIds: attachmentIds ?? [],
-        profileId,
         resolve,
         reject,
       });
@@ -148,7 +145,6 @@ test('execution captures provider and attachments exactly once, then reconciles'
   const pending = h.state.executeCurrent({
     providerId: 'automatic',
     attachmentIds: ids,
-    profileId: 'safe-profile',
   });
   ids.push('attachment-2');
   await h.state.executeCurrent({ providerId: 'codex', attachmentIds: ids });
@@ -159,9 +155,8 @@ test('execution captures provider and attachments exactly once, then reconciles'
       h.requests[0]!.taskId,
       h.requests[0]!.providerId,
       h.requests[0]!.attachmentIds,
-      h.requests[0]!.profileId,
     ],
-    ['project-a', 'task-a', 'automatic', ['attachment-1'], 'safe-profile'],
+    ['project-a', 'task-a', 'automatic', ['attachment-1']],
   );
   assert.equal(h.state.executing.value, true);
   h.requests[0]!.resolve(execution('task-a'));

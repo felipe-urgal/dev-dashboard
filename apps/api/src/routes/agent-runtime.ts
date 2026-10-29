@@ -41,7 +41,6 @@ interface CreateTaskBody {
 interface ExecuteBody {
   providerId?: AgentProviderId;
   attachmentIds?: string[];
-  profileId?: string;
 }
 
 interface ConversationTurnBody {
@@ -49,24 +48,6 @@ interface ConversationTurnBody {
   content: string;
   providerId?: AgentProviderId;
   attachmentIds?: string[];
-  profileId?: string;
-}
-
-interface ExecutionProfileBody {
-  defaultProfileId?: string;
-  profiles: Array<{
-    id: string;
-    label: string;
-    providerId: AgentProviderId;
-    fallbackOrder?: Array<'codex' | 'claude-code'>;
-    timeoutMs?: number;
-    budget?: {
-      maxTotalTokens?: number;
-      maxEstimatedCostUsd?: number;
-      mode?: 'soft' | 'hard';
-    };
-    requestedCapabilities: AgentCapability[];
-  }>;
 }
 
 interface AttachmentBody {
@@ -103,11 +84,6 @@ interface TaskListQuery {
   cursor?: string;
   order?: 'priority';
   includeArchived?: boolean;
-}
-
-interface ProviderPreferenceBody {
-  preferredProviderId: 'codex' | 'claude-code';
-  fallbackOrder?: Array<'codex' | 'claude-code'>;
 }
 
 interface AuthorizationBody {
@@ -241,115 +217,6 @@ const adoptGitRefBodySchema = {
   },
 } as const;
 
-const providerPreferenceBodySchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['preferredProviderId'],
-  properties: {
-    preferredProviderId: {
-      type: 'string',
-      enum: ['codex', 'claude-code'],
-    },
-    fallbackOrder: {
-      type: 'array',
-      uniqueItems: true,
-      maxItems: 2,
-      items: {
-        type: 'string',
-        enum: ['codex', 'claude-code'],
-      },
-    },
-  },
-} as const;
-
-const providerPreferenceSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['projectId', 'preferredProviderId', 'fallbackOrder', 'updatedAt'],
-  properties: {
-    projectId: { type: 'string' },
-    preferredProviderId: {
-      type: 'string',
-      enum: ['codex', 'claude-code'],
-    },
-    fallbackOrder: {
-      type: 'array',
-      uniqueItems: true,
-      maxItems: 2,
-      items: {
-        type: 'string',
-        enum: ['codex', 'claude-code'],
-      },
-    },
-    updatedAt: { type: 'string' },
-  },
-} as const;
-
-const executionProfileSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['id', 'label', 'providerId', 'requestedCapabilities'],
-  properties: {
-    id: {
-      type: 'string',
-      minLength: 1,
-      maxLength: 64,
-      pattern: '^[a-z0-9][a-z0-9-]*$',
-    },
-    label: { type: 'string', minLength: 1, maxLength: 80 },
-    providerId: { type: 'string', enum: [...providerIds] },
-    fallbackOrder: {
-      type: 'array',
-      uniqueItems: true,
-      maxItems: 2,
-      items: { type: 'string', enum: ['codex', 'claude-code'] },
-    },
-    timeoutMs: { type: 'integer', minimum: 5000, maximum: 1800000 },
-    budget: {
-      type: 'object',
-      additionalProperties: false,
-      minProperties: 1,
-      properties: {
-        maxTotalTokens: { type: 'integer', minimum: 1 },
-        maxEstimatedCostUsd: { type: 'number', exclusiveMinimum: 0 },
-        mode: { type: 'string', enum: ['soft', 'hard'] },
-      },
-    },
-    requestedCapabilities: {
-      type: 'array',
-      uniqueItems: true,
-      maxItems: capabilities.length,
-      items: { type: 'string', enum: [...capabilities] },
-    },
-  },
-} as const;
-
-const executionProfileBodySchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['profiles'],
-  properties: {
-    defaultProfileId: { type: 'string', minLength: 1, maxLength: 64 },
-    profiles: {
-      type: 'array',
-      maxItems: 8,
-      items: executionProfileSchema,
-    },
-  },
-} as const;
-
-const executionProfileConfigurationSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['projectId', 'profiles', 'updatedAt'],
-  properties: {
-    projectId: { type: 'string' },
-    defaultProfileId: { type: 'string' },
-    profiles: { type: 'array', maxItems: 8, items: executionProfileSchema },
-    updatedAt: { type: 'string' },
-  },
-} as const;
-
 const usageQuerySchema = {
   type: 'object',
   additionalProperties: false,
@@ -364,7 +231,6 @@ const executeBodySchema = {
   additionalProperties: false,
   properties: {
     providerId: { type: 'string', enum: [...providerIds] },
-    profileId: { type: 'string', minLength: 1, maxLength: 64 },
     attachmentIds: {
       type: 'array',
       uniqueItems: true,
@@ -382,7 +248,6 @@ const conversationTurnBodySchema = {
     id: { type: 'string', minLength: 1, maxLength: 256 },
     content: { type: 'string', minLength: 1, maxLength: 16000 },
     providerId: { type: 'string', enum: [...providerIds] },
-    profileId: { type: 'string', minLength: 1, maxLength: 64 },
     attachmentIds: {
       type: 'array',
       uniqueItems: true,
@@ -1265,146 +1130,6 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       })),
   );
 
-  app.get<{ Params: ProjectParams }>(
-    '/projects/:projectId/agent/provider-preference',
-    {
-      schema: {
-        params: projectParamsSchema,
-        response: {
-          200: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['preference'],
-            properties: {
-              preference: {
-                anyOf: [providerPreferenceSchema, { type: 'null' }],
-              },
-            },
-          },
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request) =>
-      withAgentErrors(async () => ({
-        preference: await options.agentRuntimeApiService.getProviderPreference(
-          request.params.projectId,
-        ),
-      })),
-  );
-
-  app.put<{ Params: ProjectParams; Body: ProviderPreferenceBody }>(
-    '/projects/:projectId/agent/provider-preference',
-    {
-      schema: {
-        params: projectParamsSchema,
-        body: providerPreferenceBodySchema,
-        response: {
-          200: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['preference'],
-            properties: {
-              preference: providerPreferenceSchema,
-            },
-          },
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request) =>
-      withAgentErrors(async () => ({
-        preference: await options.agentRuntimeApiService.setProviderPreference(
-          request.params.projectId,
-          {
-            preferredProviderId: request.body.preferredProviderId,
-            ...(request.body.fallbackOrder
-              ? { fallbackOrder: request.body.fallbackOrder }
-              : {}),
-          },
-        ),
-      })),
-  );
-
-  app.delete<{ Params: ProjectParams }>(
-    '/projects/:projectId/agent/provider-preference',
-    {
-      schema: {
-        params: projectParamsSchema,
-        response: {
-          204: { type: 'null' },
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request, reply) => {
-      await withAgentErrors(() =>
-        options.agentRuntimeApiService.clearProviderPreference(
-          request.params.projectId,
-        ),
-      );
-      return reply.code(204).send();
-    },
-  );
-
-  app.get<{ Params: ProjectParams }>(
-    '/projects/:projectId/agent/execution-profiles',
-    {
-      schema: {
-        params: projectParamsSchema,
-        response: {
-          200: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['configuration'],
-            properties: {
-              configuration: {
-                anyOf: [executionProfileConfigurationSchema, { type: 'null' }],
-              },
-            },
-          },
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request) =>
-      withAgentErrors(async () => ({
-        configuration:
-          await options.agentRuntimeApiService.getExecutionProfiles(
-            request.params.projectId,
-          ),
-      })),
-  );
-
-  app.put<{ Params: ProjectParams; Body: ExecutionProfileBody }>(
-    '/projects/:projectId/agent/execution-profiles',
-    {
-      schema: {
-        params: projectParamsSchema,
-        body: executionProfileBodySchema,
-        response: {
-          200: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['configuration'],
-            properties: {
-              configuration: executionProfileConfigurationSchema,
-            },
-          },
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request) =>
-      withAgentErrors(async () => ({
-        configuration:
-          await options.agentRuntimeApiService.setExecutionProfiles(
-            request.params.projectId,
-            request.body,
-          ),
-      })),
-  );
-
   app.get<{ Params: ProjectParams; Querystring: TaskListQuery }>(
     '/projects/:projectId/agent/tasks',
     {
@@ -1768,16 +1493,6 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
             ? { attachmentIds: request.body.attachmentIds }
             : {}),
         };
-        if (request.body.profileId) {
-          return options.agentRuntimeApiService.execute(
-            request.params.projectId,
-            request.params.taskId,
-            request.body.providerId,
-            userTurn,
-            request.body.attachmentIds,
-            request.body.profileId,
-          );
-        }
         if (request.body.attachmentIds?.length) {
           return options.agentRuntimeApiService.execute(
             request.params.projectId,
@@ -1820,16 +1535,6 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) =>
       withAgentErrors(() => {
-        if (request.body?.profileId) {
-          return options.agentRuntimeApiService.execute(
-            request.params.projectId,
-            request.params.taskId,
-            request.body.providerId,
-            undefined,
-            request.body.attachmentIds,
-            request.body.profileId,
-          );
-        }
         if (request.body?.attachmentIds?.length) {
           return options.agentRuntimeApiService.execute(
             request.params.projectId,

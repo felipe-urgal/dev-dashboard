@@ -7,10 +7,8 @@ import {
   AgentAuditStore,
   AgentBudgetStore,
   AgentConversationStore,
-  AgentExecutionProfileStore,
   AgentLiveFeed,
   AgentSessionStore,
-  AgentProviderPreferenceStore,
   AgentRuntimeStateStore,
   AgentTaskLockManager,
   AgentUsageStore,
@@ -243,12 +241,6 @@ function createAgentRuntimeApiService(
   const auditStore = new AgentAuditStore({ stateDirectory });
   const usageStore = new AgentUsageStore({ stateDirectory });
   const budgetStore = new AgentBudgetStore({ stateDirectory });
-  const providerPreferenceStore = new AgentProviderPreferenceStore({
-    stateDirectory,
-  });
-  const executionProfileStore = new AgentExecutionProfileStore({
-    stateDirectory,
-  });
   const lockManager = new AgentTaskLockManager({
     stateDirectory,
     ...(options.now ? { now: options.now } : {}),
@@ -276,15 +268,6 @@ function createAgentRuntimeApiService(
     return executionContext.cwd;
   };
   const providerRegistry = createLocalAgentProviderRegistry({
-    resolveAutomaticPreference: async (request) => {
-      const preference = await providerPreferenceStore.get(request.projectId);
-      return preference
-        ? {
-            preferredProviderId: preference.preferredProviderId,
-            fallbackOrder: preference.fallbackOrder,
-          }
-        : null;
-    },
     resolveCwd,
     ...(options.now
       ? { now: () => new Date(options.now!()).toISOString() }
@@ -344,8 +327,6 @@ function createAgentRuntimeApiService(
     auditStore,
     providerRegistry,
     attachmentStore,
-    executionProfileStore,
-    providerPreferenceStore,
     workflowRuntime,
     projectStore: context.projectStore,
     worktreeLifecycle: context.gitWorktreeLifecycleService,

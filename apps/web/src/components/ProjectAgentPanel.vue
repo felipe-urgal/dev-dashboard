@@ -41,6 +41,7 @@ import {
 } from '../agent-provider-doctor';
 import {
   fetchAgentActivity,
+  cleanupAgentTask,
   completeAgentTask,
   fetchAgentProviders,
   fetchAgentTaskStatus,
@@ -352,6 +353,8 @@ const showAllHistory = ref(false);
 const composing = ref(false);
 const confirmingComplete = ref(false);
 const completionNotice = ref('');
+// Oferta de remover o worktree da task logo após concluí-la (token de uso único).
+const cleanupOffer = ref<{ taskId: string; token: string } | null>(null);
 type DetailTab =
   'context' | 'attachments' | 'permissions' | 'usage' | 'activity' | 'alerts';
 const detailTab = ref<DetailTab>('context');
@@ -716,6 +719,7 @@ async function load(): Promise<void> {
   composing.value = false;
   confirmingComplete.value = false;
   completionNotice.value = '';
+  cleanupOffer.value = null;
   taskLoadVersion += 1;
   selectedTaskId.value = '';
   status.value = null;
@@ -844,6 +848,7 @@ async function selectTask(taskId: string): Promise<void> {
   composing.value = false;
   confirmingComplete.value = false;
   completionNotice.value = '';
+  cleanupOffer.value = null;
   invalidateCreation();
   invalidateArchive();
   selectedTaskId.value = taskId;
@@ -892,15 +897,52 @@ async function completeCurrent(): Promise<void> {
     const result = await completeAgentTask(props.project.id, record.task.id);
     replaceTask(result.task);
     confirmingComplete.value = false;
-    completionNotice.value = result.cleanup.diagnostic
-      ? 'Task concluída. ' + result.cleanup.diagnostic
-      : 'Task concluída.';
+    const { cleanup } = result;
+    const canOfferCleanup =
+      (cleanup.status === 'eligible' ||
+        cleanup.status === 'cleanup-required') &&
+      Boolean(cleanup.confirmationToken);
+    cleanupOffer.value = canOfferCleanup
+      ? { taskId: record.task.id, token: cleanup.confirmationToken! }
+      : null;
+    completionNotice.value = canOfferCleanup
+      ? 'Task concluída. O worktree dela já pode ser removido.'
+      : cleanup.diagnostic
+        ? 'Task concluída. ' + cleanup.diagnostic
+        : 'Task concluída.';
     await loadTask(record.task.id);
   } catch (error) {
     errorMessage.value =
       error instanceof Error
         ? error.message
         : 'Não foi possível concluir a task.';
+  } finally {
+    mutating.value = false;
+  }
+}
+
+async function removeTaskWorktree(): Promise<void> {
+  const offer = cleanupOffer.value;
+  if (!offer || mutating.value) return;
+  mutating.value = true;
+  errorMessage.value = '';
+  try {
+    const result = await cleanupAgentTask(
+      props.project.id,
+      offer.taskId,
+      offer.token,
+    );
+    cleanupOffer.value = null;
+    completionNotice.value =
+      result.status === 'removed' || result.status === 'already-cleaned'
+        ? 'Worktree removido.'
+        : (result.diagnostic ??
+          'Não foi possível remover o worktree agora (' + result.status + ').');
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível remover o worktree.';
   } finally {
     mutating.value = false;
   }
@@ -1356,13 +1398,33 @@ onBeforeUnmount(() => {
             </div>
           </header>
 
-          <p
+          <div
             v-if="completionNotice"
             class="ag-banner ag-banner-info"
             role="status"
           >
             {{ completionNotice }}
-          </p>
+            <span
+              v-if="cleanupOffer?.taskId === currentTask.task.id"
+              class="ag-inline"
+            >
+              <button
+                class="secondary-button"
+                type="button"
+                :disabled="mutating"
+                @click="removeTaskWorktree"
+              >
+                Remover worktree
+              </button>
+              <button
+                class="ag-link"
+                type="button"
+                @click="cleanupOffer = null"
+              >
+                Manter
+              </button>
+            </span>
+          </div>
           <p
             v-if="budgetAlertMessage && budget?.blocking"
             class="ag-banner"
@@ -2426,6 +2488,13 @@ textarea:focus,
 
 .ag-timeline li small {
   color: var(--text-dim);
+}
+
+.ag-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 6px;
 }
 
 code {

@@ -45,23 +45,6 @@ function service(
         version: '1.0.0',
       },
     ],
-    getExecutionProfiles: async () => null,
-    setExecutionProfiles: async (projectId, input) => ({
-      projectId,
-      ...(input.defaultProfileId
-        ? { defaultProfileId: input.defaultProfileId }
-        : {}),
-      profiles: input.profiles,
-      updatedAt: '2026-09-23T10:00:00.000Z',
-    }),
-    getProviderPreference: async () => null,
-    setProviderPreference: async (projectId, input) => ({
-      projectId,
-      preferredProviderId: input.preferredProviderId,
-      fallbackOrder: input.fallbackOrder ?? [],
-      updatedAt: '2026-09-23T10:00:00.000Z',
-    }),
-    clearProviderPreference: async () => undefined,
     listTasks: async () => [task],
     createTask: async () => task,
     getTask: async () => task,
@@ -600,82 +583,6 @@ test('Agent Runtime HTTP rejeita reenvio do mesmo turnId como conflito', async (
     },
   });
   assert.equal(response.statusCode, 409);
-});
-
-test('Agent Runtime HTTP configura preferência de provider por projeto', async (context) => {
-  const calls: unknown[] = [];
-  const app = Fastify();
-  registerApiErrorHandling(app);
-  app.register(agentRuntimeRoutes, {
-    prefix: '/api',
-    agentRuntimeRealtimeService: realtimeService(),
-    agentRuntimeApiService: service({
-      setProviderPreference: async (...args) => {
-        calls.push(['set', ...args]);
-        return {
-          projectId: args[0],
-          preferredProviderId: args[1].preferredProviderId,
-          fallbackOrder: args[1].fallbackOrder ?? [],
-          updatedAt: '2026-09-23T10:00:00.000Z',
-        };
-      },
-      getProviderPreference: async (projectId) => {
-        calls.push(['get', projectId]);
-        return {
-          projectId,
-          preferredProviderId: 'claude-code',
-          fallbackOrder: ['codex'],
-          updatedAt: '2026-09-23T10:00:00.000Z',
-        };
-      },
-      clearProviderPreference: async (projectId) => {
-        calls.push(['clear', projectId]);
-      },
-    }),
-  });
-  context.after(() => app.close());
-
-  const saved = await app.inject({
-    method: 'PUT',
-    url: '/api/projects/project-1/agent/provider-preference',
-    payload: {
-      preferredProviderId: 'claude-code',
-      fallbackOrder: ['codex'],
-      command: 'ignored',
-    },
-  });
-  assert.equal(saved.statusCode, 200);
-  assert.deepEqual(calls[0], [
-    'set',
-    'project-1',
-    {
-      preferredProviderId: 'claude-code',
-      fallbackOrder: ['codex'],
-    },
-  ]);
-
-  const current = await app.inject({
-    method: 'GET',
-    url: '/api/projects/project-1/agent/provider-preference',
-  });
-  assert.equal(current.statusCode, 200);
-  assert.equal(current.json().preference.preferredProviderId, 'claude-code');
-
-  const cleared = await app.inject({
-    method: 'DELETE',
-    url: '/api/projects/project-1/agent/provider-preference',
-  });
-  assert.equal(cleared.statusCode, 204);
-  assert.deepEqual(calls.at(-1), ['clear', 'project-1']);
-
-  const invalid = await app.inject({
-    method: 'PUT',
-    url: '/api/projects/project-1/agent/provider-preference',
-    payload: {
-      preferredProviderId: 'chatgpt-browser',
-    },
-  });
-  assert.equal(invalid.statusCode, 400);
 });
 
 test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas por schema', async (context) => {
@@ -1306,89 +1213,6 @@ test('Agent Runtime HTTP anexa por conteúdo bounded sem aceitar path do browser
         contentBase64: Buffer.from('fail').toString('base64'),
       },
     ],
-  ]);
-});
-
-test('Agent Runtime HTTP persiste perfis e encaminha somente profileId na execução', async (context) => {
-  const calls: unknown[] = [];
-  const app = Fastify();
-  registerApiErrorHandling(app);
-  app.register(agentRuntimeRoutes, {
-    prefix: '/api',
-    agentRuntimeRealtimeService: realtimeService(),
-    agentRuntimeApiService: service({
-      setExecutionProfiles: async (projectId, input) => {
-        calls.push(['profiles', projectId, input]);
-        return {
-          projectId,
-          ...input,
-          updatedAt: '2026-09-26T20:00:00.000Z',
-        };
-      },
-      execute: async (...args) => {
-        calls.push(['execute', ...args]);
-        return service().execute('project-1', 'task-1');
-      },
-    }),
-  });
-  context.after(() => app.close());
-
-  const saved = await app.inject({
-    method: 'PUT',
-    url: '/api/projects/project-1/agent/execution-profiles',
-    payload: {
-      defaultProfileId: 'normal',
-      profiles: [
-        {
-          id: 'normal',
-          label: 'Normal',
-          providerId: 'automatic',
-          fallbackOrder: ['codex', 'claude-code'],
-          timeoutMs: 120000,
-          requestedCapabilities: ['workspace:write'],
-        },
-      ],
-    },
-  });
-  assert.equal(saved.statusCode, 200);
-
-  const executed = await app.inject({
-    method: 'POST',
-    url: '/api/projects/project-1/agent/tasks/task-1/executions',
-    payload: {
-      providerId: 'automatic',
-      profileId: 'normal',
-      timeoutMs: 1,
-      model: 'caller-controlled',
-    },
-  });
-  assert.equal(executed.statusCode, 200);
-
-  assert.deepEqual(calls[0], [
-    'profiles',
-    'project-1',
-    {
-      defaultProfileId: 'normal',
-      profiles: [
-        {
-          id: 'normal',
-          label: 'Normal',
-          providerId: 'automatic',
-          fallbackOrder: ['codex', 'claude-code'],
-          timeoutMs: 120000,
-          requestedCapabilities: ['workspace:write'],
-        },
-      ],
-    },
-  ]);
-  assert.deepEqual(calls[1], [
-    'execute',
-    'project-1',
-    'task-1',
-    'automatic',
-    undefined,
-    undefined,
-    'normal',
   ]);
 });
 

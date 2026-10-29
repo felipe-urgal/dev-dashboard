@@ -106,14 +106,13 @@ function harness() {
   };
 }
 
-test('envio gera um único ID e captura provider, profile, anexos e conteúdo', async () => {
+test('envio gera um único ID e captura provider, anexos e conteúdo', async () => {
   const h = harness();
   h.state.conversationInstruction.value = '  Continue  ';
   const attachmentIds = ['att-1'];
   const pending = h.state.continueCurrentConversation({
     providerId: 'codex',
     attachmentIds,
-    profileId: 'safe',
   });
   attachmentIds.push('att-2');
   await h.state.continueCurrentConversation({
@@ -127,7 +126,6 @@ test('envio gera um único ID e captura provider, profile, anexos e conteúdo', 
     content: 'Continue',
     providerId: 'codex',
     attachmentIds: ['att-1'],
-    profileId: 'safe',
   });
   assert.equal(h.state.conversationSending.value, true);
   h.requests[0]!.resolve(result('turn-1', 'task-a'));
