@@ -8,8 +8,7 @@ export type ProjectToolIcon =
   | 'git'
   | 'tests'
   | 'agent'
-  | 'production'
-  | 'readme';
+  | 'production';
 
 export type ProjectToolGroup = 'server' | 'git' | 'direct';
 
@@ -145,17 +144,6 @@ export const PROJECT_TOOLS: readonly ProjectTool[] = [
     icon: 'production',
     environmentAware: false,
     isAvailable: (project) => project.capabilities.includes('production'),
-  },
-  {
-    id: 'readme',
-    label: 'README',
-    description: 'Documentação do projeto',
-    routeName: 'project-readme',
-    group: 'direct',
-    aliases: 'readme docs documentação',
-    icon: 'readme',
-    environmentAware: false,
-    isAvailable: always,
   },
 ];
 

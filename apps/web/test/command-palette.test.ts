@@ -44,21 +44,6 @@ async function mountPalette(
         name: 'project-production',
         component: { template: '<div />' },
       },
-      {
-        path: '/projects/:projectId/environment',
-        name: 'project-environment',
-        component: { template: '<div />' },
-      },
-      {
-        path: '/projects/:projectId/doctor',
-        name: 'project-doctor',
-        component: { template: '<div />' },
-      },
-      {
-        path: '/projects/:projectId/readme',
-        name: 'project-readme',
-        component: { template: '<div />' },
-      },
     ],
   });
   await router.push(path);

@@ -4,7 +4,6 @@ import {
   CodeBracketIcon,
   CommandLineIcon,
   CpuChipIcon,
-  DocumentTextIcon,
   QueueListIcon,
   RocketLaunchIcon,
   ServerStackIcon,
@@ -22,5 +21,4 @@ export const projectToolIcons: Record<ProjectToolIcon, Component> = {
   tests: BeakerIcon,
   agent: CpuChipIcon,
   production: RocketLaunchIcon,
-  readme: DocumentTextIcon,
 };

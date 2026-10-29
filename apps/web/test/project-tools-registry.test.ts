@@ -70,7 +70,7 @@ describe('registry de Project Tools', () => {
     expect(to('project-p1-tests').query).toEqual({
       environmentInstanceId: 'env-1',
     });
-    expect(to('project-p1-readme').query).toBeUndefined();
+    expect(to('project-p1-production').query).toBeUndefined();
     expect(to('project-p2-terminal').query).toBeUndefined();
   });
 

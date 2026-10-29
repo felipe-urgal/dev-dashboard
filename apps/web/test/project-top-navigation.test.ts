@@ -52,7 +52,6 @@ describe('ProjectTopNavigation', () => {
       'Git',
       'Agente',
       'Produção',
-      'README',
     ]);
     expect(
       wrapper.findAll('.project-nav-hub-active').map((hub) => hub.text()),

@@ -29,11 +29,6 @@ export const router = createRouter({
       component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
-      path: '/projects/:projectId/readme',
-      name: 'project-readme',
-      component: () => import('../views/ProjectDetailsView.vue'),
-    },
-    {
       path: '/projects/:projectId/server',
       name: 'project-server',
       component: () => import('../views/ProjectDetailsView.vue'),

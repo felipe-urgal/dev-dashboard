@@ -44,9 +44,6 @@ const ProjectSelfUpdateProductionPanel = lazyTool(
 const ProjectRailsRuntimePanel = lazyTool(
   () => import('../components/ProjectRailsRuntimePanel.vue'),
 );
-const ProjectReadmePanel = lazyTool(
-  () => import('../components/ProjectReadmePanel.vue'),
-);
 const ProjectServerPanel = lazyTool(
   () => import('../components/ProjectServerPanel.vue'),
 );
@@ -89,7 +86,6 @@ const environmentInstanceId = computed(() => {
   return typeof candidate === 'string' && candidate ? candidate : undefined;
 });
 
-const isReadmeRoute = computed(() => route.name === 'project-readme');
 const isServerRoute = computed(
   () => route.name === 'project-server' || route.name === 'project-details',
 );
@@ -303,12 +299,6 @@ onBeforeUnmount(stopGitOverviewRefresh);
           "
         />
       </Teleport>
-
-      <ProjectReadmePanel
-        v-if="isReadmeRoute"
-        :key="`readme-${project.id}`"
-        :project="project"
-      />
 
       <ProjectServerPanel
         v-else-if="isServerRoute"
