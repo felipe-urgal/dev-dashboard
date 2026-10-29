@@ -6,6 +6,7 @@ import {
   ArrowUpTrayIcon,
   ArrowUturnLeftIcon,
   CheckCircleIcon,
+  ArrowTurnDownRightIcon,
   ChevronDownIcon,
   ClockIcon,
   CodeBracketIcon,
@@ -191,11 +192,15 @@ function activeLabel(hub: NavHub): string {
           "
           aria-haspopup="menu"
         >
-          <span class="project-nav-glyph">
+          <span class="project-nav-top">
             <component :is="hub.icon" aria-hidden="true" />
+            <span>{{ hub.label }}</span>
             <ChevronDownIcon class="project-nav-chevron" aria-hidden="true" />
           </span>
-          <span>{{ hub === activeHub ? activeLabel(hub) : hub.label }}</span>
+          <span v-if="hub === activeHub" class="project-nav-sub">
+            <ArrowTurnDownRightIcon aria-hidden="true" />
+            {{ activeLabel(hub) }}
+          </span>
         </button>
       </NDropdown>
 
@@ -248,7 +253,10 @@ function activeLabel(hub: NavHub): string {
 /* O dropdown segue a largura do botão: o mínimo evita quebrar os submenus. */
 .project-nav-hub-menu {
   min-width: 150px;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 2px;
 }
 
 .project-nav-hub svg {
@@ -257,12 +265,29 @@ function activeLabel(hub: NavHub): string {
   flex: 0 0 18px;
 }
 
-.project-nav-glyph {
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
+.project-nav-top {
+  display: inline-flex;
   align-items: center;
-  gap: 1px;
+  gap: 8px;
+}
+
+.project-nav-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.project-nav-hub-active .project-nav-sub {
+  color: var(--accent);
+}
+
+.project-nav-hub .project-nav-sub svg {
+  width: 13px;
+  height: 13px;
+  flex-basis: 13px;
 }
 
 .project-nav-hub .project-nav-chevron {

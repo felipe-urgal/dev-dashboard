@@ -47,15 +47,17 @@ describe('ProjectTopNavigation', () => {
     const wrapper = mountNavigation();
     const hubs = wrapper.findAll('.project-nav-hub');
 
-    expect(hubs.map((hub) => hub.text().replace(/\s+/g, ' '))).toEqual([
-      'Servidor',
-      'Git',
-      'Agente',
-      'Produção',
-    ]);
     expect(
-      wrapper.findAll('.project-nav-hub-active').map((hub) => hub.text()),
-    ).toEqual(['Servidor']);
+      hubs.map((hub) =>
+        hub.find('.project-nav-top').exists()
+          ? hub.get('.project-nav-top').text()
+          : hub.text(),
+      ),
+    ).toEqual(['Execução', 'Git', 'Agente', 'Produção']);
+    expect(wrapper.findAll('.project-nav-hub-active')).toHaveLength(1);
+    expect(wrapper.get('.project-nav-hub-active .project-nav-sub').text()).toBe(
+      'Servidor',
+    );
   });
 
   it('marca a aba do Git ativa a partir da query da rota', () => {
@@ -64,6 +66,11 @@ describe('ProjectTopNavigation', () => {
 
     const wrapper = mountNavigation();
 
-    expect(wrapper.find('.project-nav-hub-active').text()).toBe('Branches');
+    expect(wrapper.get('.project-nav-hub-active .project-nav-top').text()).toBe(
+      'Git',
+    );
+    expect(wrapper.get('.project-nav-hub-active .project-nav-sub').text()).toBe(
+      'Branches',
+    );
   });
 });
