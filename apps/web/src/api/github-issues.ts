@@ -75,3 +75,24 @@ export async function closeProjectGithubIssue(
   );
   return response.issue;
 }
+
+export async function removeProjectGithubIssue(
+  projectId: string,
+  issueNumber: number,
+): Promise<void> {
+  await requestJson<{ number: number }>(
+    endpoint(projectId) + '/' + issueNumber,
+    { method: 'DELETE' },
+  );
+}
+
+export async function reopenProjectGithubIssue(
+  projectId: string,
+  issueNumber: number,
+): Promise<GithubIssue> {
+  const response = await requestJson<{ issue: GithubIssue }>(
+    endpoint(projectId) + '/' + issueNumber + '/reopen',
+    { method: 'POST' },
+  );
+  return response.issue;
+}

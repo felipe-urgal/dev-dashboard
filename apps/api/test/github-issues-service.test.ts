@@ -173,3 +173,46 @@ test('sinaliza paginação quando o GitHub retorna a página completa', async ()
   assert.equal(result.issues.length, 50);
   assert.equal(result.hasMore, true);
 });
+
+test('remove a issue pelo gh e não toca em Pull Requests', async () => {
+  const deletes: string[][] = [];
+  const service = new GithubIssuesService(async (command, args) => {
+    if (command === 'git') return 'git@github.com:example/project.git';
+    if (command === 'gh' && args[0] === 'issue') {
+      deletes.push([...args]);
+      return '';
+    }
+    const number = String(args[args.length - 1]).endsWith('/12') ? 12 : 13;
+    return JSON.stringify(
+      number === 12 ? rawIssue(12) : { ...rawIssue(13), pull_request: {} },
+    );
+  });
+
+  await service.remove(PROJECT, 12);
+  assert.deepEqual(deletes, [
+    ['issue', 'delete', '12', '--repo', 'example/project', '--yes'],
+  ]);
+
+  await assert.rejects(
+    () => service.remove(PROJECT, 13),
+    (error: unknown) =>
+      error instanceof GithubIssuesError && error.code === 'ISSUE_NOT_FOUND',
+  );
+  assert.equal(deletes.length, 1);
+});
+
+test('reabre uma issue fechada uma única vez', async () => {
+  let patches = 0;
+  const service = new GithubIssuesService(async (command, args) => {
+    if (command === 'git') return 'git@github.com:example/project.git';
+    if (args.includes('PATCH')) {
+      patches += 1;
+      assert.ok(args.includes('state=open'));
+      return JSON.stringify(rawIssue(14, 'open'));
+    }
+    return JSON.stringify(rawIssue(14, patches ? 'open' : 'closed'));
+  });
+  assert.equal((await service.reopen(PROJECT, 14)).state, 'open');
+  assert.equal((await service.reopen(PROJECT, 14)).state, 'open');
+  assert.equal(patches, 1);
+});

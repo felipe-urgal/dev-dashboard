@@ -307,4 +307,39 @@ export class GithubIssuesService {
       ),
     );
   }
+
+  public async reopen(
+    projectPath: string,
+    number: number,
+  ): Promise<GithubIssue> {
+    const repository = await this.repository(projectPath);
+    const issue = await this.getIssue(projectPath, repository, number);
+    if (issue.state === 'open') return issue;
+    return issueRequired(
+      await this.githubJson(
+        projectPath,
+        'repos/' + repository + '/issues/' + number,
+        'PATCH',
+        { state: 'open' },
+      ),
+    );
+  }
+
+  /** Remove a issue de forma permanente (exige permissão de admin no repositório). */
+  public async remove(projectPath: string, number: number): Promise<void> {
+    const repository = await this.repository(projectPath);
+    await this.getIssue(projectPath, repository, number);
+    try {
+      await this.commandRunner(
+        'gh',
+        ['issue', 'delete', String(number), '--repo', repository, '--yes'],
+        projectPath,
+      );
+    } catch {
+      throw new GithubIssuesError(
+        'REMOTE_UNAVAILABLE',
+        'Não foi possível remover a issue. É preciso ser admin do repositório e estar autenticado no gh.',
+      );
+    }
+  }
 }
