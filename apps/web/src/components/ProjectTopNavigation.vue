@@ -228,7 +228,6 @@ function activeLabel(hub: NavHub): string {
 .project-nav-hub {
   position: relative;
   display: inline-flex;
-  height: 100%;
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;
