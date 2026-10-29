@@ -282,9 +282,9 @@ function activeLabel(hub: NavHub): string {
 
 .project-nav-hub::after {
   position: absolute;
-  right: 12px;
+  right: 0;
   bottom: 0;
-  left: 12px;
+  left: 0;
   height: 2px;
   border-radius: 2px 2px 0 0;
   background: transparent;
