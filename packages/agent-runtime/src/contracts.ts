@@ -267,6 +267,20 @@ export interface AgentProviderConversationContext {
   omittedTurns: number;
 }
 
+export type AgentLiveEventKind = 'text' | 'tool' | 'result' | 'error';
+
+/** Evento de progresso de uma execução, já saneado e limitado, exibido ao vivo na tela. */
+export interface AgentLiveEvent {
+  seq: number;
+  at: string;
+  kind: AgentLiveEventKind;
+  text: string;
+  tool?: string;
+}
+
+export type AgentLiveEventInput = Pick<AgentLiveEvent, 'kind' | 'text'> &
+  Partial<Pick<AgentLiveEvent, 'tool'>>;
+
 export interface AgentProviderExecutionRequest {
   taskId: string;
   executionId: string;
@@ -281,6 +295,10 @@ export interface AgentProviderExecutionRequest {
     AgentEvidence,
     'kind' | 'summary' | 'reference' | 'observedAt'
   >[];
+  /** Sessão do provider a retomar (o contexto anterior já está nela). */
+  resumeSessionId?: string;
+  /** Progresso ao vivo; nunca deve lançar nem bloquear a execução. */
+  onProgress?: (event: AgentLiveEventInput) => void;
   signal?: AbortSignal;
 }
 
@@ -293,6 +311,8 @@ export interface AgentProviderResult {
   evidence?: AgentEvidence[];
   failure?: AgentExecutionFailure;
   usage?: AgentUsage;
+  /** Sessão do provider para continuar a conversa no próximo turno. */
+  sessionId?: string;
 }
 
 export interface AgentProvider {

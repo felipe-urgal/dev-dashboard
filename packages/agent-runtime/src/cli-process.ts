@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 
 export const DEFAULT_AGENT_CLI_MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
 export const DEFAULT_AGENT_CLI_TERMINATION_GRACE_MS = 2_000;
@@ -31,6 +32,8 @@ export interface AgentCliProcessRequest {
   maxOutputBytes?: number;
   terminationGraceMs?: number;
   signal?: AbortSignal;
+  /** Chamado a cada linha completa de stdout, enquanto o processo roda (progresso ao vivo). */
+  onStdoutLine?: (line: string) => void;
 }
 
 export interface AgentCliProcessResult {
@@ -84,6 +87,8 @@ export async function runAgentCliProcess(
       cwd: request.cwd,
       env: request.env ?? process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
+      // Grupo próprio: o cancelamento alcança também os processos filhos das ferramentas.
+      detached: true,
     });
   } catch (error) {
     throw new AgentCliProcessError(
@@ -92,6 +97,37 @@ export async function runAgentCliProcess(
       { cause: error },
     );
   }
+
+  const killTree = (signal: NodeJS.Signals): void => {
+    try {
+      if (child.pid !== undefined) {
+        process.kill(-child.pid, signal);
+        return;
+      }
+    } catch {
+      // Grupo já encerrado: o kill direto abaixo cobre o caso residual.
+    }
+    child.kill(signal);
+  };
+
+  const stdoutDecoder = new StringDecoder('utf8');
+  let pendingStdoutLine = '';
+  const emitStdoutLines = (text: string, flush = false): void => {
+    if (!request.onStdoutLine) return;
+    pendingStdoutLine += text;
+    const lines = pendingStdoutLine.split(/\r?\n/);
+    pendingStdoutLine = flush ? '' : (lines.pop() ?? '');
+    if (flush && lines.length > 0 && lines[lines.length - 1] === '')
+      lines.pop();
+    for (const line of lines) {
+      if (!line) continue;
+      try {
+        request.onStdoutLine(line);
+      } catch {
+        // O consumidor de progresso nunca pode derrubar a execução.
+      }
+    }
+  };
 
   const stdoutChunks: Buffer[] = [];
   const stderrChunks: Buffer[] = [];
@@ -147,7 +183,7 @@ export async function runAgentCliProcess(
       terminationError = error;
 
       try {
-        child.kill('SIGTERM');
+        killTree('SIGTERM');
       } catch {
         // Escalation below still attempts SIGKILL.
       }
@@ -156,7 +192,7 @@ export async function runAgentCliProcess(
         if (settled) return;
 
         try {
-          child.kill('SIGKILL');
+          killTree('SIGKILL');
         } catch {
           // The bounded final wait below prevents an infinite pending promise.
         }
@@ -206,6 +242,11 @@ export async function runAgentCliProcess(
 
     function onStdout(chunk: unknown): void {
       append(stdoutChunks, chunk);
+      if (request.onStdoutLine && !settled && !terminationError) {
+        emitStdoutLines(
+          Buffer.isBuffer(chunk) ? stdoutDecoder.write(chunk) : String(chunk),
+        );
+      }
     }
 
     function onStderr(chunk: unknown): void {
@@ -233,6 +274,7 @@ export async function runAgentCliProcess(
         return;
       }
 
+      emitStdoutLines(stdoutDecoder.end(), true);
       settleResolve({ exitCode: code, signal });
     }
 

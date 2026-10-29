@@ -239,17 +239,114 @@ test('Claude doctor validates supported version and auth before auto mode', asyn
   assert.equal(execution.outcome, 'succeeded');
 
   const executionCall = fake.calls.at(-1);
-  assert.deepEqual(executionCall?.args.slice(0, 9), [
+  assert.deepEqual(executionCall?.args.slice(0, 8), [
     '-p',
     '--permission-mode',
     'auto',
     '--permission-prompts',
     'none',
-    '--no-session-persistence',
     '--output-format',
     'stream-json',
     '--verbose',
   ]);
+});
+
+test('Claude roda somente leitura sem workspace:write e retoma a sessão com --resume', async () => {
+  const fake = createProviderRunner();
+  const provider = new ClaudeCodeAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    command: 'claude-test',
+    runProcess: fake.runner,
+  });
+
+  await provider.execute(request([]));
+  assert.equal(fake.calls.at(-1)?.args[2], 'plan');
+  assert.equal(fake.calls.at(-1)?.args.includes('--resume'), false);
+
+  await provider.execute({
+    ...request(),
+    resumeSessionId: 'session-abc12345',
+    continuationInstruction: 'Agora ajuste o teste.',
+  });
+  const args = fake.calls.at(-1)?.args ?? [];
+  assert.deepEqual(args.slice(5, 7), ['--resume', 'session-abc12345']);
+  const prompt = String(args.at(-1));
+  assert.match(prompt, /^Agora ajuste o teste\./);
+  assert.equal(prompt.includes('Implement the requested change'), false);
+});
+
+test('Claude devolve o session_id e transmite progresso saneado ao vivo', async () => {
+  const lines = [
+    JSON.stringify({
+      type: 'system',
+      subtype: 'init',
+      session_id: 'sess-12345678',
+    }),
+    JSON.stringify({
+      type: 'assistant',
+      message: {
+        content: [
+          { type: 'text', text: 'Vou ler o arquivo.' },
+          { type: 'tool_use', name: 'Read', input: { file_path: 'src/a.ts' } },
+        ],
+      },
+    }),
+    JSON.stringify({
+      type: 'result',
+      result: 'Pronto',
+      session_id: 'sess-12345678',
+    }),
+  ];
+  const provider = new ClaudeCodeAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    command: 'claude-test',
+    runProcess: async (input) => {
+      if (input.args[0] === '--version') {
+        return result({ stdout: '2.1.259 (Claude Code)\n' });
+      }
+      if (input.args[0] === 'auth') return result();
+      for (const line of lines) input.onStdoutLine?.(line);
+      return result({ stdout: lines.join('\n') + '\n' });
+    },
+  });
+
+  const progress: Array<{ kind: string; text: string; tool?: string }> = [];
+  const execution = await provider.execute({
+    ...request(),
+    onProgress: (event) => progress.push(event),
+  });
+
+  assert.equal(execution.sessionId, 'sess-12345678');
+  assert.deepEqual(progress, [
+    { kind: 'text', text: 'Vou ler o arquivo.' },
+    { kind: 'tool', tool: 'Read', text: 'src/a.ts' },
+  ]);
+});
+
+test('Claude recomeça sem --resume quando a sessão retomada falha sem resposta', async () => {
+  const fake = { runs: [] as string[][] };
+  const provider = new ClaudeCodeAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    command: 'claude-test',
+    runProcess: async (input) => {
+      if (input.args[0] === '--version') {
+        return result({ stdout: '2.1.259 (Claude Code)\n' });
+      }
+      if (input.args[0] === 'auth') return result();
+      fake.runs.push([...input.args]);
+      return input.args.includes('--resume')
+        ? result({ exitCode: 1, stderr: 'No conversation found' })
+        : result({ stdout: '' });
+    },
+  });
+
+  const execution = await provider.execute({
+    ...request(),
+    resumeSessionId: 'session-gone1234',
+  });
+  assert.equal(execution.outcome, 'succeeded');
+  assert.equal(fake.runs.length, 2);
+  assert.equal(fake.runs[1]?.includes('--resume'), false);
 });
 
 test('Claude captures structured model, tokens, cost and duration', async () => {

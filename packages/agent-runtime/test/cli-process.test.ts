@@ -96,3 +96,40 @@ test('CLI runner fails closed when command cannot be spawned', async () => {
       error instanceof AgentCliProcessError && error.code === 'spawn-failed',
   );
 });
+
+test('CLI runner entrega cada linha de stdout enquanto o processo roda, inclusive a última sem quebra', async () => {
+  const lines: string[] = [];
+  const result = await runAgentCliProcess({
+    command: process.execPath,
+    args: ['-e', 'process.stdout.write("um\\ndois\\r\\ntres")'],
+    cwd,
+    timeoutMs: 2_000,
+    label: 'Node fixture',
+    onStdoutLine: (line) => lines.push(line),
+  });
+
+  assert.equal(result.exitCode, 0);
+  assert.deepEqual(lines, ['um', 'dois', 'tres']);
+});
+
+test('CLI runner cancela também processos filhos do comando', async () => {
+  const controller = new AbortController();
+  const started = runAgentCliProcess({
+    command: process.execPath,
+    args: [
+      '-e',
+      'require("node:child_process").spawn(process.execPath,["-e","setInterval(()=>{},1000)"],{stdio:"inherit"}); setInterval(()=>{},1000)',
+    ],
+    cwd,
+    timeoutMs: 10_000,
+    label: 'Node fixture',
+    signal: controller.signal,
+  });
+  setTimeout(() => controller.abort(), 300);
+
+  await assert.rejects(
+    () => started,
+    (error: unknown) =>
+      error instanceof AgentCliProcessError && error.code === 'cancelled',
+  );
+});

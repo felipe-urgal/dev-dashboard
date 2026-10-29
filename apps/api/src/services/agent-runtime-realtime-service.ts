@@ -1,5 +1,6 @@
 import type {
   AgentAuditSnapshot,
+  AgentLiveEvent,
   AgentWorkflowTaskStatus,
 } from '@dev-dashboard/agent-runtime';
 
@@ -8,6 +9,8 @@ import type { AgentRuntimeApiServicePort } from './agent-runtime-api-service.js'
 export interface AgentRuntimeRealtimeSnapshot {
   status: AgentWorkflowTaskStatus;
   activity: AgentAuditSnapshot;
+  /** Progresso ao vivo da execução em andamento (mais recentes por último). */
+  live: AgentLiveEvent[];
 }
 
 export interface AgentRuntimeRealtimeAttachment {
@@ -19,7 +22,8 @@ export interface AgentRuntimeRealtimeServiceOptions {
   intervalMs?: number;
 }
 
-type RealtimeReader = Pick<AgentRuntimeApiServicePort, 'status' | 'activity'>;
+type RealtimeReader = Pick<AgentRuntimeApiServicePort, 'status' | 'activity'> &
+  Partial<Pick<AgentRuntimeApiServicePort, 'live'>>;
 
 export class AgentRuntimeRealtimeService {
   private readonly intervalMs: number;
@@ -91,10 +95,11 @@ export class AgentRuntimeRealtimeService {
     projectId: string,
     taskId: string,
   ): Promise<AgentRuntimeRealtimeSnapshot> {
-    const [status, activity] = await Promise.all([
+    const [status, activity, live] = await Promise.all([
       this.reader.status(projectId, taskId),
       this.reader.activity(projectId, taskId),
+      this.reader.live?.(projectId, taskId) ?? [],
     ]);
-    return { status, activity };
+    return { status, activity, live: live.slice(-100) };
   }
 }

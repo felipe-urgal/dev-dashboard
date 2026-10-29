@@ -8,6 +8,8 @@ import {
   AgentBudgetStore,
   AgentConversationStore,
   AgentExecutionProfileStore,
+  AgentLiveFeed,
+  AgentSessionStore,
   AgentProviderPreferenceStore,
   AgentRuntimeStateStore,
   AgentTaskLockManager,
@@ -288,7 +290,12 @@ function createAgentRuntimeApiService(
       ? { now: () => new Date(options.now!()).toISOString() }
       : {}),
   });
+  const liveFeed = new AgentLiveFeed(
+    options.now ? { now: () => new Date(options.now!()).toISOString() } : {},
+  );
   const workflowRuntime = new AgentWorkflowRuntime({
+    liveFeed,
+    sessionStore: new AgentSessionStore({ stateDirectory }),
     taskStore,
     providerRegistry,
     checkpointStore: auditStore,
@@ -332,6 +339,7 @@ function createAgentRuntimeApiService(
   });
 
   return new AgentRuntimeApiService({
+    liveFeed,
     taskStore,
     auditStore,
     providerRegistry,
