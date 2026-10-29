@@ -15,8 +15,10 @@ export interface ProjectTestPtyStatusSnapshot {
 }
 
 export interface ProjectTestPtyStartOptions {
-  mode?: 'full-suite' | 'file' | 'related';
+  mode?: 'full-suite' | 'file' | 'files' | 'related';
   path?: string;
+  /** Arquivos escolhidos pelo usuário (mode `files`). */
+  paths?: string[];
   line?: number;
   namePattern?: string;
 }

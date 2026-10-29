@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { ArrowPathIcon, PlayIcon, StopIcon } from '@heroicons/vue/24/outline';
 
 import type {
   Project,
@@ -11,6 +12,7 @@ import type {
 
 import {
   cancelProjectTestPty,
+  fetchProjectTestFiles,
   fetchProjectTestHistory,
   fetchProjectTestIntelligence,
   fetchProjectTestPtyStatus,
@@ -20,6 +22,9 @@ import {
   type ProjectTestPtyStatusSnapshot,
 } from '../api';
 import { usePtyTerminalSocket } from '../composables/usePtyTerminalSocket';
+import TestFilePicker from './project-tests/TestFilePicker.vue';
+import UiButton from './ui/UiButton.vue';
+import UiTag from './ui/UiTag.vue';
 
 const props = defineProps<{
   project: Project;
@@ -34,13 +39,15 @@ const starting = ref(false);
 const cancelling = ref(false);
 const errorMessage = ref('');
 const connectionLost = ref(false);
-const contextOpen = ref(false);
+const tab = ref<'output' | 'history'>('output');
 const history = ref<TestExecutionHistory | null>(null);
 const loadingHistory = ref(false);
 const historyErrorMessage = ref('');
 const intelligence = ref<TestIntelligenceSuggestion | null>(null);
-const loadingIntelligence = ref(false);
-const intelligenceErrorMessage = ref('');
+const files = ref<string[]>([]);
+const loadingFiles = ref(false);
+const filesErrorMessage = ref('');
+const selectedFiles = ref<string[]>([]);
 const terminalContextMenu = ref<{ left: number; top: number } | null>(null);
 
 const {
@@ -70,7 +77,7 @@ const {
           }
         : null);
     connectionLost.value = false;
-    if (contextOpen.value) void loadHistory();
+    void loadHistory();
   },
   onError: (message) => {
     errorMessage.value = message;
@@ -89,6 +96,14 @@ const selectedCommand = computed(() =>
     (command) => command.id === selectedCommandId.value,
   ),
 );
+const canPickFiles = computed(
+  () => selectedCommand.value?.supportsFileTarget === true,
+);
+const relatedFiles = computed(() => {
+  if (intelligence.value?.recommendation !== 'targeted') return [];
+  const available = new Set(files.value);
+  return intelligence.value.testFiles.filter((file) => available.has(file));
+});
 const executionStateLabel = computed(() => {
   if (!snapshot.value) return '';
   if (isRunning.value)
@@ -96,17 +111,19 @@ const executionStateLabel = computed(() => {
   if (snapshot.value.cancelled) return 'Cancelado';
   return snapshot.value.exitCode === 0 ? 'Sucesso' : 'Falhou';
 });
-const executionStateTone = computed(() => {
+const executionStateTone = computed<
+  'neutral' | 'accent' | 'warning' | 'success' | 'danger'
+>(() => {
   if (!snapshot.value) return 'neutral';
-  if (isRunning.value) return connectionLost.value ? 'warning' : 'running';
+  if (isRunning.value) return connectionLost.value ? 'warning' : 'accent';
   if (snapshot.value.cancelled) return 'neutral';
   return snapshot.value.exitCode === 0 ? 'success' : 'danger';
 });
-const relatedTestCount = computed(() =>
-  intelligence.value?.recommendation === 'targeted'
-    ? intelligence.value.testFiles.length
-    : 0,
-);
+const runLabel = computed(() => {
+  if (starting.value) return 'Iniciando…';
+  const count = selectedFiles.value.length;
+  return count > 0 ? `Executar selecionados (${count})` : 'Executar todos';
+});
 
 async function loadOverview(refresh = false): Promise<void> {
   loadingOverview.value = true;
@@ -138,6 +155,32 @@ async function loadOverview(refresh = false): Promise<void> {
   }
 }
 
+async function loadFiles(): Promise<void> {
+  files.value = [];
+  selectedFiles.value = [];
+  filesErrorMessage.value = '';
+  if (!selectedCommandId.value || !canPickFiles.value) return;
+  const commandId = selectedCommandId.value;
+  loadingFiles.value = true;
+  try {
+    const result = await fetchProjectTestFiles(
+      props.project.id,
+      commandId,
+      props.environmentInstanceId,
+    );
+    if (commandId !== selectedCommandId.value) return;
+    files.value = result.map((file) => file.path);
+  } catch (error) {
+    if (commandId !== selectedCommandId.value) return;
+    filesErrorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível listar os arquivos de teste.';
+  } finally {
+    if (commandId === selectedCommandId.value) loadingFiles.value = false;
+  }
+}
+
 async function loadHistory(): Promise<void> {
   loadingHistory.value = true;
   historyErrorMessage.value = '';
@@ -145,7 +188,7 @@ async function loadHistory(): Promise<void> {
     history.value = await fetchProjectTestHistory(
       props.project.id,
       1,
-      5,
+      10,
       props.environmentInstanceId,
     );
   } catch (error) {
@@ -159,26 +202,19 @@ async function loadHistory(): Promise<void> {
 }
 
 async function loadIntelligence(): Promise<void> {
-  if (!selectedCommandId.value) {
-    intelligence.value = null;
-    return;
-  }
-  loadingIntelligence.value = true;
-  intelligenceErrorMessage.value = '';
+  intelligence.value = null;
+  if (!selectedCommandId.value || !canPickFiles.value) return;
+  const commandId = selectedCommandId.value;
   try {
-    intelligence.value = await fetchProjectTestIntelligence(
+    const result = await fetchProjectTestIntelligence(
       props.project.id,
-      selectedCommandId.value,
+      commandId,
       props.environmentInstanceId,
     );
-  } catch (error) {
+    if (commandId === selectedCommandId.value) intelligence.value = result;
+  } catch {
+    // Sem a recomendação, escolher e executar arquivos continua disponível.
     intelligence.value = null;
-    intelligenceErrorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível calcular a recomendação de testes.';
-  } finally {
-    loadingIntelligence.value = false;
   }
 }
 
@@ -204,19 +240,19 @@ async function loadStatusAndReconnect(): Promise<void> {
   }
 }
 
-async function start(
-  mode: 'full-suite' | 'related' = 'full-suite',
-): Promise<void> {
+async function start(): Promise<void> {
   if (!selectedCommandId.value || isRunning.value || starting.value) return;
   errorMessage.value = '';
   starting.value = true;
   disposeTerminal();
+  tab.value = 'output';
+  const paths = [...selectedFiles.value];
   try {
     snapshot.value = await startProjectTestPty(
       props.project.id,
       selectedCommandId.value,
       props.environmentInstanceId,
-      { mode },
+      paths.length > 0 ? { mode: 'files', paths } : { mode: 'full-suite' },
     );
     connectionLost.value = false;
     connect(
@@ -233,6 +269,12 @@ async function start(
   }
 }
 
+function selectRelated(): void {
+  selectedFiles.value = [
+    ...new Set([...selectedFiles.value, ...relatedFiles.value]),
+  ];
+}
+
 function reconnect(): void {
   errorMessage.value = '';
   connectionLost.value = false;
@@ -240,14 +282,6 @@ function reconnect(): void {
   connect(
     projectTestPtyWebSocketUrl(props.project.id, props.environmentInstanceId),
   );
-}
-
-function handleContextToggle(event: Event): void {
-  const details = event.currentTarget as HTMLDetailsElement;
-  contextOpen.value = details.open;
-  if (!details.open) return;
-  void loadHistory();
-  void loadIntelligence();
 }
 
 function formatDateTime(value: string): string {
@@ -276,13 +310,22 @@ function formatDuration(record: TestExecutionRecord): string {
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
-function historyStatus(record: TestExecutionRecord): string {
-  if (record.cancelled) return 'Cancelado';
+function historyStatus(record: TestExecutionRecord): {
+  label: string;
+  tone: 'neutral' | 'accent' | 'success' | 'danger';
+} {
+  if (record.cancelled) return { label: 'Cancelado', tone: 'neutral' };
   if (record.status === 'running' || record.status === 'starting')
-    return 'Executando';
+    return { label: 'Executando', tone: 'accent' };
   if (record.status === 'failed' || (record.exitCode ?? 0) !== 0)
-    return 'Falhou';
-  return 'Sucesso';
+    return { label: 'Falhou', tone: 'danger' };
+  return { label: 'Sucesso', tone: 'success' };
+}
+
+function historyScope(record: TestExecutionRecord): string {
+  if (record.scope !== 'targeted') return 'Todos os testes';
+  const count = record.targetFiles?.length ?? (record.targetFile ? 1 : 0);
+  return count === 1 ? '1 arquivo' : `${count} arquivos`;
 }
 
 async function cancel(): Promise<void> {
@@ -365,204 +408,207 @@ watch(
     disposeTerminal();
     snapshot.value = null;
     connectionLost.value = false;
-    contextOpen.value = false;
     history.value = null;
     intelligence.value = null;
+    files.value = [];
+    selectedFiles.value = [];
     errorMessage.value = '';
     selectedCommandId.value = '';
     overview.value = null;
+    tab.value = 'output';
     void loadOverview();
     void loadStatusAndReconnect();
+    void loadHistory();
   },
   { immediate: true },
 );
 
 watch(selectedCommandId, () => {
-  intelligence.value = null;
-  if (contextOpen.value) void loadIntelligence();
+  void loadFiles();
+  void loadIntelligence();
 });
 </script>
 
 <template>
-  <section class="tests-pty-panel">
-    <section class="tests-execution-pane">
-      <div class="tests-execution-controls">
-        <label class="tests-control-field">
-          <span>Suíte de testes</span>
-          <select
-            v-model="selectedCommandId"
-            :disabled="
-              loadingOverview ||
-              isRunning ||
-              (overview?.commands.length ?? 0) <= 1
-            "
-            aria-label="Comando de teste"
+  <section class="tests-page">
+    <header class="tests-toolbar">
+      <label v-if="(overview?.commands.length ?? 0) > 1" class="tests-suite">
+        <span class="visually-hidden">Suíte de testes</span>
+        <select
+          v-model="selectedCommandId"
+          :disabled="loadingOverview || isRunning"
+          aria-label="Comando de teste"
+        >
+          <option
+            v-for="command in overview?.commands ?? []"
+            :key="command.id"
+            :value="command.id"
           >
-            <option v-if="loadingOverview" value="">Carregando…</option>
-            <option v-else-if="overview && !overview.supported" value="">
-              Nenhuma suíte detectada
-            </option>
-            <option
-              v-for="command in overview?.commands ?? []"
-              :key="command.id"
-              :value="command.id"
-            >
-              {{ command.label }}
-            </option>
-          </select>
-        </label>
+            {{ command.label }}
+          </option>
+        </select>
+      </label>
+      <code v-else-if="selectedCommand" class="tests-suite-label">
+        {{ selectedCommand.label }}
+      </code>
+      <span v-else-if="loadingOverview" class="tests-muted">Carregando…</span>
 
-        <div class="tests-control-field">
-          <span>Ambiente</span>
-          <div
-            class="tests-local-environment"
-            aria-label="Ambiente de execução"
-          >
-            {{ environmentInstanceId ? 'Environment Instance' : 'Principal' }}
-          </div>
-        </div>
+      <UiTag v-if="snapshot" :tone="executionStateTone">
+        {{ executionStateLabel }}
+      </UiTag>
 
-        <div class="tests-execution-actions">
-          <button
-            type="button"
-            class="primary-button"
-            :disabled="
-              loadingOverview || !selectedCommand || isRunning || starting
-            "
-            @click="start('full-suite')"
-          >
-            {{ starting ? 'Iniciando…' : 'Executar testes' }}
-          </button>
-          <button
-            v-if="isRunning"
-            type="button"
-            class="secondary-button"
-            :disabled="cancelling"
-            @click="cancel"
-          >
-            {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
-          </button>
-        </div>
-      </div>
+      <span class="tests-spacer" />
 
-      <div
-        v-if="!loadingOverview && overview && !overview.supported"
-        class="tests-empty-state"
+      <UiButton
+        v-if="canPickFiles && relatedFiles.length > 0"
+        :disabled="isRunning || starting"
+        title="Marca os testes relacionados aos arquivos alterados na branch"
+        @click="selectRelated"
       >
-        <span>Nenhuma suíte de testes foi detectada neste ambiente.</span>
-        <button
-          type="button"
-          class="secondary-button"
-          @click="loadOverview(true)"
-        >
-          Detectar novamente
-        </button>
-      </div>
+        Selecionar relacionados ({{ relatedFiles.length }})
+      </UiButton>
+      <UiButton v-if="isRunning" :disabled="cancelling" @click="cancel">
+        <StopIcon aria-hidden="true" />
+        {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
+      </UiButton>
+      <UiButton
+        variant="primary"
+        class="tests-run-button"
+        :disabled="loadingOverview || !selectedCommand || isRunning || starting"
+        :busy="starting"
+        @click="start"
+      >
+        <PlayIcon aria-hidden="true" />
+        {{ runLabel }}
+      </UiButton>
+    </header>
 
-      <p v-if="connecting" class="tests-pty-status">Conectando à execução…</p>
-      <p v-if="errorMessage" class="tests-pty-error" role="alert">
-        {{ errorMessage }}
-      </p>
-      <div v-if="connectionLost && isRunning" class="tests-connection-lost">
-        <span
-          >A execução continua ativa, mas a conexão com a saída foi
-          interrompida.</span
-        >
-        <button type="button" class="secondary-button" @click="reconnect">
-          Reconectar
-        </button>
-      </div>
+    <div
+      v-if="!loadingOverview && overview && !overview.supported"
+      class="tests-note"
+    >
+      <span>Nenhuma suíte de testes foi detectada neste projeto.</span>
+      <UiButton @click="loadOverview(true)">Detectar novamente</UiButton>
+    </div>
 
-      <details class="tests-context" @toggle="handleContextToggle">
-        <summary>
-          <span>Contexto de execução</span>
-          <small>Histórico e Test Intelligence</small>
-        </summary>
-        <div class="tests-context-grid">
-          <section class="tests-intelligence" aria-label="Test Intelligence">
-            <header>
-              <strong>Test Intelligence</strong>
-              <span v-if="loadingIntelligence">Calculando…</span>
-              <span v-else-if="intelligence">
-                {{
-                  intelligence.recommendation === 'targeted'
-                    ? `${intelligence.testFiles.length} relacionados`
-                    : 'Suíte completa'
-                }}
-              </span>
-            </header>
-            <p v-if="intelligenceErrorMessage" class="tests-context-error">
-              {{ intelligenceErrorMessage }}
-            </p>
-            <template v-else-if="intelligence">
-              <p>
-                {{ intelligence.baseBranch }} →
-                {{ intelligence.currentBranch }} ·
-                {{ intelligence.changedFiles.length }} arquivo(s) alterado(s)
-              </p>
-              <button
-                v-if="relatedTestCount > 0"
-                type="button"
-                class="secondary-button"
-                :disabled="isRunning || starting"
-                @click="start('related')"
-              >
-                Executar {{ relatedTestCount }} relacionados
-              </button>
-            </template>
-          </section>
+    <p v-if="connecting" class="tests-banner">Conectando à execução…</p>
+    <p v-if="errorMessage" class="tests-banner is-error" role="alert">
+      {{ errorMessage }}
+    </p>
+    <div v-if="connectionLost && isRunning" class="tests-banner is-warning">
+      <span>
+        A execução continua ativa, mas a conexão com a saída foi interrompida.
+      </span>
+      <UiButton @click="reconnect">Reconectar</UiButton>
+    </div>
 
-          <section class="tests-history" aria-label="Histórico de testes">
-            <header>
-              <strong>Últimas execuções</strong>
-              <span v-if="loadingHistory">Atualizando…</span>
-              <span v-else>{{ history?.total ?? 0 }}</span>
-            </header>
-            <p v-if="historyErrorMessage" class="tests-context-error">
-              {{ historyErrorMessage }}
-            </p>
-            <ul v-else-if="history?.items.length">
-              <li v-for="record in history.items" :key="record.id">
-                <span>{{ historyStatus(record) }}</span>
-                <strong>{{ record.commandId }}</strong>
-                <small>
-                  {{ formatDateTime(record.startedAt) }} ·
-                  {{ formatDuration(record) }}
-                </small>
-              </li>
-            </ul>
-            <p v-else-if="!loadingHistory">Nenhuma execução registrada.</p>
-          </section>
-        </div>
-      </details>
+    <div
+      v-if="overview?.supported"
+      class="tests-body"
+      :class="{ 'has-files': canPickFiles }"
+    >
+      <TestFilePicker
+        v-if="canPickFiles"
+        v-model:selected="selectedFiles"
+        :files="files"
+        :loading="loadingFiles"
+        :error="filesErrorMessage"
+        :disabled="isRunning || starting"
+        @retry="loadFiles"
+      />
 
-      <section v-if="snapshot" class="tests-output">
-        <div class="tests-output-heading">
-          <div>
-            <span>Saída da execução</span>
-            <small>{{ selectedCommand?.label ?? snapshot.commandId }}</small>
-            <span
-              class="tests-execution-state"
-              :class="`is-${executionStateTone}`"
-            >
-              {{ executionStateLabel }}
-            </span>
-            <small v-if="snapshot.truncated">saída anterior truncada</small>
-          </div>
+      <section class="tests-results">
+        <div class="tests-results-tabs" role="tablist">
           <button
-            v-if="!isRunning"
             type="button"
-            class="secondary-button"
+            role="tab"
+            :aria-selected="tab === 'output'"
+            @click="tab = 'output'"
+          >
+            Saída
+          </button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="tab === 'history'"
+            @click="tab = 'history'"
+          >
+            Histórico
+            <span v-if="history?.total">{{ history.total }}</span>
+          </button>
+          <span class="tests-spacer" />
+          <UiButton
+            v-if="tab === 'history'"
+            icon
+            variant="ghost"
+            aria-label="Atualizar histórico"
+            :disabled="loadingHistory"
+            @click="loadHistory"
+          >
+            <ArrowPathIcon
+              :class="{ spinning: loadingHistory }"
+              aria-hidden="true"
+            />
+          </UiButton>
+          <UiButton
+            v-if="tab === 'output' && snapshot && !isRunning"
             @click="closeTerminal"
           >
             Fechar saída
-          </button>
+          </UiButton>
         </div>
-        <div
-          ref="terminalContainer"
-          class="tests-pty-terminal"
-          @contextmenu.capture="openTerminalContextMenu"
-        ></div>
+
+        <div v-show="tab === 'output'" class="tests-output">
+          <div v-if="snapshot" class="tests-output-meta">
+            <span>
+              {{
+                snapshot.scope === 'targeted'
+                  ? `${snapshot.targetFiles.length} arquivo(s)`
+                  : 'Todos os testes'
+              }}
+            </span>
+            <small v-if="snapshot.truncated">saída anterior truncada</small>
+          </div>
+          <div
+            v-if="snapshot"
+            ref="terminalContainer"
+            class="tests-pty-terminal"
+            @contextmenu.capture="openTerminalContextMenu"
+          ></div>
+          <div v-else class="tests-empty">
+            <strong>Nenhuma execução em andamento</strong>
+            <p>
+              {{
+                canPickFiles
+                  ? 'Marque os arquivos que quer testar ou execute todos.'
+                  : 'Execute a suíte para ver a saída aqui.'
+              }}
+            </p>
+          </div>
+        </div>
+
+        <div v-show="tab === 'history'" class="tests-history">
+          <p v-if="historyErrorMessage" class="tests-banner is-error">
+            {{ historyErrorMessage }}
+          </p>
+          <ul v-else-if="history?.items.length">
+            <li v-for="record in history.items" :key="record.id">
+              <UiTag :tone="historyStatus(record).tone">
+                {{ historyStatus(record).label }}
+              </UiTag>
+              <strong>{{ historyScope(record) }}</strong>
+              <code>{{ record.commandId }}</code>
+              <small>
+                {{ formatDateTime(record.startedAt) }} ·
+                {{ formatDuration(record) }}
+              </small>
+            </li>
+          </ul>
+          <p v-else-if="!loadingHistory" class="tests-muted">
+            Nenhuma execução registrada.
+          </p>
+        </div>
+
         <div
           v-if="terminalContextMenu"
           class="tests-terminal-context-menu"
@@ -585,160 +631,173 @@ watch(selectedCommandId, () => {
           </button>
         </div>
       </section>
-    </section>
+    </div>
   </section>
 </template>
 
 <style scoped>
-.tests-pty-panel {
+.tests-page {
   display: flex;
-  width: 100%;
   min-width: 0;
-  min-height: calc(100vh - var(--app-topbar-height, 72px));
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tests-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.tests-suite select {
+  height: 34px;
+  max-width: 320px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  color: var(--text);
+  background: var(--surface-0);
+  font: inherit;
+  font-size: 13px;
+}
+
+.tests-suite-label {
+  color: var(--text);
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tests-muted {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.tests-spacer {
+  flex: 1 1 0;
+}
+
+.tests-note,
+.tests-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-muted);
+  background: var(--surface-1);
+  font-size: 13px;
+}
+
+.tests-note {
+  justify-content: space-between;
+  padding: 24px;
+}
+
+.tests-banner.is-error {
+  border-color: transparent;
+  color: var(--danger-text, #f85149);
+  background: color-mix(in srgb, var(--danger-text, #f85149) 12%, transparent);
+}
+
+.tests-banner.is-warning {
+  justify-content: space-between;
+  border-color: transparent;
+  color: var(--warning-text);
+  background: color-mix(in srgb, var(--warning-text) 12%, transparent);
+}
+
+.tests-body {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.tests-body.has-files {
+  grid-template-columns: 340px minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .tests-body.has-files {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tests-results {
+  display: flex;
+  min-width: 0;
+  min-height: 480px;
   flex-direction: column;
   overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
   background: var(--surface-1);
 }
 
-.tests-execution-pane {
+.tests-results-tabs {
   display: flex;
-  min-width: 0;
-  min-height: 0;
-  flex: 1 1 auto;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.tests-execution-controls {
-  display: grid;
-  min-height: 64px;
-  flex: 0 0 auto;
-  grid-template-columns: minmax(260px, 1fr) minmax(160px, 0.32fr) auto;
-  align-items: end;
-  gap: 10px;
-  padding: 9px 12px 10px 14px;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
-}
-
-.tests-control-field {
-  display: grid;
-  min-width: 0;
+  align-items: center;
   gap: 4px;
-  color: var(--text-muted);
-  font-size: 9px;
-  font-weight: var(--font-weight-strong);
-}
-
-.tests-control-field select,
-.tests-local-environment {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 34px;
-  border-radius: var(--radius-sm);
-  font-size: 10px;
-}
-
-.tests-control-field select {
-  padding: 0 9px;
-  border: 1px solid var(--border);
-  color: var(--text);
-  background: var(--surface-2);
-}
-
-.tests-local-environment {
-  display: flex;
-  align-items: center;
-  padding: 0 9px;
-  border: 1px solid var(--border);
-  color: var(--text);
-  background: var(--surface-2);
-}
-
-.tests-execution-actions {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.tests-execution-actions button,
-.tests-output-heading button {
-  min-height: 34px;
-  padding-inline: 11px;
-  white-space: nowrap;
-  font-size: 10px;
-}
-
-.tests-pty-status,
-.tests-pty-error {
-  flex: 0 0 auto;
-  margin: 0;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--border);
-  font-size: 10px;
 }
 
-.tests-pty-status {
+.tests-results-tabs button[role='tab'] {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
   color: var(--text-muted);
-  background: var(--surface-2);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.tests-pty-error {
-  color: var(--danger-text);
-  background: var(--danger-surface);
+.tests-results-tabs button[aria-selected='true'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tests-results-tabs button span {
+  color: var(--text-dim);
+  font-size: 11.5px;
 }
 
 .tests-output {
   display: flex;
-  min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  overflow: hidden;
   background: #10131c;
 }
 
-.tests-output-heading {
+.tests-output-meta {
   display: flex;
-  min-height: 46px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 7px 12px;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
-}
-
-.tests-output-heading > div {
-  display: flex;
-  min-width: 0;
   align-items: baseline;
-  gap: 8px;
-}
-
-.tests-output-heading span {
-  color: var(--text);
-  font-size: 10px;
-  font-weight: var(--font-weight-strong);
-}
-
-.tests-output-heading small {
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  gap: 10px;
+  padding: 8px 18px 0;
+  color: #9aa3bd;
+  font-size: 12px;
 }
 
 .tests-pty-terminal {
   flex: 1 1 0;
   min-width: 0;
-  min-height: 0;
+  min-height: 420px;
   box-sizing: border-box;
   width: 100%;
   overflow: hidden;
-  padding: 14px 18px 18px;
+  padding: 10px 18px 18px;
   background: #10131c;
 }
 
@@ -756,6 +815,76 @@ watch(selectedCommandId, () => {
 
 .tests-pty-terminal :global(.xterm-viewport::-webkit-scrollbar) {
   display: none;
+}
+
+.tests-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 40px 24px;
+  color: #9aa3bd;
+  text-align: center;
+}
+
+.tests-empty strong {
+  color: #dbe0f2;
+}
+
+.tests-empty p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.tests-history {
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 6px 0;
+}
+
+.tests-history ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tests-history li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.tests-history li:first-child {
+  border-top: 0;
+}
+
+.tests-history li code {
+  color: var(--text-dim);
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+}
+
+.tests-history li small {
+  margin-left: auto;
+  color: var(--text-dim);
+}
+
+.tests-history .tests-muted {
+  padding: 20px 16px;
+}
+
+.spinning {
+  animation: tests-spin 1s linear infinite;
+}
+
+@keyframes tests-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .tests-terminal-context-menu {
@@ -789,193 +918,12 @@ watch(selectedCommandId, () => {
 
 .tests-terminal-context-menu-button:hover,
 .tests-terminal-context-menu-button:focus-visible {
-  background: rgb(124 139 255 / 22%);
-  outline: none;
+  background: #252c43;
 }
 
 .tests-terminal-context-menu-button kbd {
-  color: #7d84a3;
-  font: inherit;
-  font-size: 10px;
-}
-
-.tests-empty-state,
-.tests-connection-lost {
-  display: flex;
-  min-height: 42px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 7px 12px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 10px;
-  background: var(--surface-2);
-}
-
-.tests-context {
-  flex: 0 0 auto;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-1);
-}
-
-.tests-context > summary {
-  display: flex;
-  min-height: 34px;
-  align-items: center;
-  gap: 8px;
-  padding: 0 14px;
-  cursor: pointer;
-  color: var(--text);
-  font-size: 10px;
-}
-
-.tests-context > summary small {
-  color: var(--text-muted);
-}
-
-.tests-context-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  border-top: 1px solid var(--border);
-}
-
-.tests-intelligence,
-.tests-history {
-  display: grid;
-  align-content: start;
-  gap: 7px;
-  min-width: 0;
-  padding: 10px 14px;
-  font-size: 10px;
-}
-
-.tests-intelligence {
-  border-right: 1px solid var(--border);
-}
-
-.tests-intelligence header,
-.tests-history header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.tests-intelligence p,
-.tests-history p {
-  margin: 0;
-  color: var(--text-muted);
-}
-
-.tests-history ul {
-  display: grid;
-  gap: 5px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.tests-history li {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.tests-history li strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tests-history li small {
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.tests-context-error {
-  color: var(--danger-text) !important;
-}
-
-.tests-execution-state {
-  padding: 2px 6px;
-  border-radius: 999px;
-  font-size: 9px;
-  font-weight: var(--font-weight-strong);
-}
-
-.tests-execution-state.is-running {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.tests-execution-state.is-success {
-  color: var(--success-text);
-  background: var(--success-surface);
-}
-
-.tests-execution-state.is-danger {
-  color: var(--danger-text);
-  background: var(--danger-surface);
-}
-
-.tests-execution-state.is-warning {
-  color: var(--text-muted);
-  background: var(--surface-2);
-}
-
-.tests-execution-state.is-neutral {
-  color: var(--text-muted);
-  background: var(--surface-2);
-}
-
-@media (max-width: 980px) {
-  .tests-execution-controls {
-    grid-template-columns: minmax(0, 1fr) minmax(160px, 0.55fr);
-  }
-
-  .tests-execution-actions {
-    grid-column: 1 / -1;
-    justify-content: flex-end;
-  }
-
-  .tests-context-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .tests-intelligence {
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-@media (max-width: 700px) {
-  .tests-execution-controls {
-    grid-template-columns: 1fr;
-  }
-
-  .tests-execution-actions {
-    grid-column: auto;
-    flex-wrap: wrap;
-    justify-content: stretch;
-  }
-
-  .tests-execution-actions button {
-    flex: 1 1 auto;
-  }
-
-  .tests-output-heading {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .tests-output-heading > div {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 2px;
-  }
+  color: #8b93b0;
+  font-family: var(--font-family-mono);
+  font-size: 11px;
 }
 </style>

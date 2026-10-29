@@ -564,3 +564,42 @@ test('resolveFileCommand rejeita namePattern para runner sem suporte', async () 
     await rm(project.path, { recursive: true, force: true });
   }
 });
+
+test('resolveFilesCommand executa vários arquivos numa única invocação e rejeita caminhos fora do projeto', async () => {
+  const project = await makeProject('node', {
+    'package.json': JSON.stringify({
+      name: 'demo',
+      scripts: { test: 'vitest run' },
+      devDependencies: { vitest: '^1.0.0' },
+    }),
+    'src/a.test.ts': '',
+    'src/b.test.ts': '',
+  });
+  try {
+    const service = new TestDetectionService();
+    const overview = await service.getOverview(project);
+    const commandId = overview.commands[0]!.id;
+
+    const resolved = await service.resolveFilesCommand(project, commandId, [
+      'src/a.test.ts',
+      'src/b.test.ts',
+      'src/a.test.ts',
+    ]);
+    assert.deepEqual(resolved, {
+      command: 'npm',
+      args: ['run', 'test', '--', 'src/a.test.ts', 'src/b.test.ts'],
+    });
+
+    await assert.rejects(
+      () =>
+        service.resolveFilesCommand(project, commandId, [
+          'src/a.test.ts',
+          '../outside.test.ts',
+        ]),
+      (error: unknown) =>
+        error instanceof TestFileError && error.code === 'TEST_FILE_NOT_FOUND',
+    );
+  } finally {
+    await rm(project.path, { recursive: true, force: true });
+  }
+});

@@ -12,26 +12,19 @@ test('executa testes por PTY, restaura após reload e registra histórico', asyn
 
   await openProjectTool(page, 'Execução', 'Testes');
 
-  const command = page.getByLabel('Comando de teste');
-  await expect(command).toContainText('test');
+  await page.getByRole('button', { name: 'Executar todos' }).click();
 
-  await page.getByRole('button', { name: 'Executar testes' }).click();
-
-  const executionState = page.locator('.tests-execution-state');
-  await expect(executionState).toHaveText('Sucesso', { timeout: 15_000 });
-  const selectedBeforeReload = await command.inputValue();
-  expect(selectedBeforeReload).not.toBe('');
+  await expect(
+    page.locator('.tests-toolbar').getByText('Sucesso', { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
 
   await page.reload();
 
-  await expect(page.getByLabel('Comando de teste')).toHaveValue(
-    selectedBeforeReload,
-  );
-  await expect(page.locator('.tests-execution-state')).toHaveText('Sucesso');
+  await expect(
+    page.locator('.tests-toolbar').getByText('Sucesso', { exact: true }),
+  ).toBeVisible();
 
-  await page.locator('.tests-context > summary').click();
-
-  const history = page.getByLabel('Histórico de testes');
-  await expect(history).toContainText('Sucesso');
-  await expect(history).toContainText(selectedBeforeReload);
+  await page.getByRole('tab', { name: /Histórico/ }).click();
+  await expect(page.locator('.tests-history')).toContainText('Sucesso');
+  await expect(page.locator('.tests-history')).toContainText('Todos os testes');
 });

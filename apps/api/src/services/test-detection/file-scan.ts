@@ -125,19 +125,26 @@ export function ensureTestPathInsideProject(
 
 const NPM_SCRIPT_RUNNERS = new Set(['npm', 'pnpm', 'yarn', 'bun']);
 
-export function composeFileCommand(
+export function composeFilesCommand(
   resolved: ResolvedCommand,
-  filePath: string,
+  filePaths: readonly string[],
 ): ResolvedCommand {
   const isPackageScriptInvocation =
     NPM_SCRIPT_RUNNERS.has(resolved.command) && resolved.args[0] === 'run';
   if (isPackageScriptInvocation) {
     return {
       command: resolved.command,
-      args: [...resolved.args, '--', filePath],
+      args: [...resolved.args, '--', ...filePaths],
     };
   }
-  return { command: resolved.command, args: [...resolved.args, filePath] };
+  return { command: resolved.command, args: [...resolved.args, ...filePaths] };
+}
+
+export function composeFileCommand(
+  resolved: ResolvedCommand,
+  filePath: string,
+): ResolvedCommand {
+  return composeFilesCommand(resolved, [filePath]);
 }
 
 export function composeNamePatternArgs(

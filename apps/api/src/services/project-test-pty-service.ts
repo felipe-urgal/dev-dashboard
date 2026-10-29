@@ -43,12 +43,14 @@ export class ProjectTestPtyError extends Error {
   }
 }
 
-export type ProjectTestPtyMode = 'full-suite' | 'file' | 'related';
+export type ProjectTestPtyMode = 'full-suite' | 'file' | 'files' | 'related';
 
 export interface ProjectTestPtyStartRequest {
   commandId: string;
   mode?: ProjectTestPtyMode;
   path?: string;
+  /** Arquivos de teste escolhidos pelo usuário (mode `files`). */
+  paths?: string[];
   line?: number;
   namePattern?: string;
 }
@@ -247,6 +249,21 @@ export class ProjectTestPtyService {
         );
         scope = 'targeted';
         targetFiles = [input.path];
+      } else if (input.mode === 'files') {
+        const paths = input.paths ?? [];
+        if (paths.length === 0) {
+          throw new ProjectTestPtyError(
+            'TARGET_INVALID',
+            'Selecione ao menos um arquivo de teste.',
+          );
+        }
+        resolved = await this.testDetectionService.resolveFilesCommand(
+          scopedProject,
+          input.commandId,
+          paths,
+        );
+        scope = 'targeted';
+        targetFiles = Array.from(new Set(paths));
       } else if (input.mode === 'related') {
         const related = await this.relatedTestService.resolve(
           scopedProject,
