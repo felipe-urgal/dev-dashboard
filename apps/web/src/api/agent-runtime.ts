@@ -610,9 +610,25 @@ export async function executeAgentTask(
   );
 }
 
+export interface AgentTaskCleanup {
+  status:
+    | 'not-applicable'
+    | 'eligible'
+    | 'blocked'
+    | 'already-cleaned'
+    | 'removed'
+    | 'cleanup-required'
+    | 'failed'
+    | 'unverified';
+  worktreeId?: string;
+  confirmationToken?: string;
+  expiresAt?: string;
+  diagnostic?: string;
+}
+
 export interface AgentTaskCompletion {
   task: AgentTaskRecord;
-  cleanup: { status: string; diagnostic?: string };
+  cleanup: AgentTaskCleanup;
 }
 
 /** Conclui uma task em revisão; exige confirmação explícita (`confirmed: true`). */
@@ -626,6 +642,22 @@ export async function completeAgentTask(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ confirmed: true }),
+    },
+  );
+}
+
+/** Remove o worktree da task concluída; exige o token emitido na conclusão. */
+export async function cleanupAgentTask(
+  projectId: string,
+  taskId: string,
+  confirmationToken: string,
+): Promise<AgentTaskCleanup> {
+  return requestJson<AgentTaskCleanup>(
+    taskPath(projectId, taskId) + '/cleanup',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmationToken }),
     },
   );
 }
