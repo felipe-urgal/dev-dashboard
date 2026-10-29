@@ -50,10 +50,8 @@ describe('ProjectTopNavigation', () => {
     expect(hubs.map((hub) => hub.text().replace(/\s+/g, ' '))).toEqual([
       'Execução · Servidor',
       'Git',
-      'Desenvolvimento',
       'Agente',
       'Produção',
-      'README',
     ]);
     expect(
       wrapper.findAll('.project-nav-hub-active').map((hub) => hub.text()),

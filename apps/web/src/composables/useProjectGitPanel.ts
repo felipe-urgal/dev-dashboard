@@ -37,14 +37,7 @@ import { deriveCommitScope } from '../utils/git-commit-scope';
 import { useAutoDismiss } from './useAutoDismiss';
 
 export type GitTab =
-  | 'branches'
-  | 'sync'
-  | 'diff'
-  | 'commit'
-  | 'undo'
-  | 'issues'
-  | 'pull-request'
-  | 'history';
+  'branches' | 'sync' | 'diff' | 'commit' | 'undo' | 'pull-request' | 'history';
 
 export interface GitTabOption {
   id: GitTab;
@@ -77,7 +70,6 @@ export function useProjectGitPanel(
     { id: 'diff', label: 'Diff', icon: '±' },
     { id: 'commit', label: 'Commit', icon: '●' },
     { id: 'undo', label: 'Desfazer', icon: '↶' },
-    { id: 'issues', label: 'Issues', icon: '☷' },
     { id: 'pull-request', label: 'Pull Request', icon: '↗' },
     { id: 'history', label: 'Histórico', icon: '◷' },
   ];

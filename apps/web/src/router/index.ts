@@ -29,11 +29,6 @@ export const router = createRouter({
       component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
-      path: '/projects/:projectId/readme',
-      name: 'project-readme',
-      component: () => import('../views/ProjectDetailsView.vue'),
-    },
-    {
       path: '/projects/:projectId/server',
       name: 'project-server',
       component: () => import('../views/ProjectDetailsView.vue'),
@@ -45,11 +40,6 @@ export const router = createRouter({
     {
       path: '/projects/:projectId/git',
       name: 'project-git',
-      component: () => import('../views/ProjectDetailsView.vue'),
-    },
-    {
-      path: '/projects/:projectId/worktrees',
-      name: 'project-worktrees',
       component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
@@ -89,11 +79,6 @@ export const router = createRouter({
     {
       path: '/projects/:projectId/console',
       name: 'project-console',
-      component: () => import('../views/ProjectDetailsView.vue'),
-    },
-    {
-      path: '/projects/:projectId/environment',
-      name: 'project-environment',
       component: () => import('../views/ProjectDetailsView.vue'),
     },
     {

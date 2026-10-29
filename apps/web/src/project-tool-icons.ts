@@ -1,12 +1,9 @@
 import type { Component } from 'vue';
 import {
-  AdjustmentsHorizontalIcon,
   BeakerIcon,
   CodeBracketIcon,
   CommandLineIcon,
   CpuChipIcon,
-  DocumentTextIcon,
-  FolderIcon,
   QueueListIcon,
   RocketLaunchIcon,
   ServerStackIcon,
@@ -21,10 +18,7 @@ export const projectToolIcons: Record<ProjectToolIcon, Component> = {
   sidekiq: QueueListIcon,
   webpack: CodeBracketIcon,
   git: CodeBracketIcon,
-  worktrees: FolderIcon,
   tests: BeakerIcon,
-  environment: AdjustmentsHorizontalIcon,
   agent: CpuChipIcon,
   production: RocketLaunchIcon,
-  readme: DocumentTextIcon,
 };

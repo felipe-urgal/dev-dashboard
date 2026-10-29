@@ -37,15 +37,11 @@
 }
 :deep(.server-dashboard),
 :deep(.git-modern-panel),
-:deep(.project-environment-panel),
 :deep(.rails-runtime-panel),
 :deep(.tests-pty-panel) {
   height: auto;
   min-height: 0;
   overflow: visible;
-}
-:deep(.project-environment-panel) {
-  max-height: none;
 }
 :deep(.terminal-panel) {
   height: auto;
@@ -88,28 +84,10 @@
 :deep(.server-dashboard),
 :deep(.server-dashboard-grid),
 :deep(.git-modern-panel),
-:deep(.project-environment-panel),
 :deep(.rails-runtime-panel),
 :deep(.terminal-panel) {
   min-height: 0;
   height: auto;
-}
-:deep(.readme-panel) {
-  height: 100%;
-  width: 100%;
-  min-width: 0;
-}
-:deep(.readme-document) {
-  width: 100%;
-  max-width: 1180px;
-  box-sizing: border-box;
-  margin: 0 auto;
-}
-:deep(.readme-code-block) {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
 }
 
 @media (max-width: 720px) {
@@ -127,9 +105,6 @@
 }
 :deep(.project-details-page .server-card + .server-card) {
   border-left: 1px solid var(--border);
-}
-:deep(.project-details-page .readme-panel) {
-  box-shadow: none;
 }
 .database-explorer {
   background: var(--surface-0);

@@ -10,7 +10,7 @@ test('executa testes por PTY, restaura após reload e registra histórico', asyn
     .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
     .click();
 
-  await openProjectTool(page, 'Desenvolvimento', 'Testes');
+  await openProjectTool(page, 'Execução', 'Testes');
 
   const command = page.getByLabel('Comando de teste');
   await expect(command).toContainText('test');

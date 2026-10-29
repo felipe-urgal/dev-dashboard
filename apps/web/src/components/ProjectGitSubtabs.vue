@@ -4,7 +4,6 @@ import type { Component } from 'vue';
 import {
   ArrowsRightLeftIcon,
   CheckCircleIcon,
-  ClipboardDocumentListIcon,
   ClockIcon,
   DocumentMagnifyingGlassIcon,
   ShareIcon,
@@ -15,7 +14,6 @@ import type { GitTab, GitTabOption } from '../composables/useProjectGitPanel';
 const heroiconByTab: Partial<Record<GitTab, Component>> = {
   sync: ArrowsRightLeftIcon,
   branches: ShareIcon,
-  issues: ClipboardDocumentListIcon,
   diff: DocumentMagnifyingGlassIcon,
   commit: CheckCircleIcon,
   history: ClockIcon,

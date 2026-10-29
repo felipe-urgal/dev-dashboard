@@ -6,14 +6,11 @@ export type ProjectToolIcon =
   | 'sidekiq'
   | 'webpack'
   | 'git'
-  | 'worktrees'
   | 'tests'
-  | 'environment'
   | 'agent'
-  | 'production'
-  | 'readme';
+  | 'production';
 
-export type ProjectToolGroup = 'server' | 'git' | 'development' | 'direct';
+export type ProjectToolGroup = 'server' | 'git' | 'direct';
 
 export interface ProjectToolContext {
   project: Project;
@@ -104,6 +101,17 @@ export const PROJECT_TOOLS: readonly ProjectTool[] = [
     requiresDetection: 'webpack',
   },
   {
+    id: 'tests',
+    label: 'Testes',
+    description: 'Suítes e histórico de execução',
+    routeName: 'project-tests',
+    group: 'server',
+    aliases: 'test tests testes suíte suite',
+    icon: 'tests',
+    environmentAware: true,
+    isAvailable: (project) => project.capabilities.includes('tests'),
+  },
+  {
     id: 'git',
     label: 'Git',
     description: 'Sincronização, branches, commit e histórico',
@@ -114,39 +122,6 @@ export const PROJECT_TOOLS: readonly ProjectTool[] = [
     environmentAware: false,
     isAvailable: (project) => project.capabilities.includes('git'),
     sidebar: false,
-  },
-  {
-    id: 'worktrees',
-    label: 'Worktrees',
-    description: 'Worktrees e ambientes do repositório',
-    routeName: 'project-worktrees',
-    group: 'git',
-    aliases: 'worktree worktrees branches ambientes',
-    icon: 'worktrees',
-    environmentAware: false,
-    isAvailable: (project) => project.capabilities.includes('git'),
-  },
-  {
-    id: 'tests',
-    label: 'Testes',
-    description: 'Suítes e histórico de execução',
-    routeName: 'project-tests',
-    group: 'development',
-    aliases: 'test tests testes suíte suite',
-    icon: 'tests',
-    environmentAware: true,
-    isAvailable: (project) => project.capabilities.includes('tests'),
-  },
-  {
-    id: 'environment',
-    label: 'Variáveis de ambiente',
-    description: 'Configuração de ambiente do projeto',
-    routeName: 'project-environment',
-    group: 'development',
-    aliases: 'environment env variáveis ambiente',
-    icon: 'environment',
-    environmentAware: true,
-    isAvailable: always,
   },
   {
     id: 'agent',
@@ -170,17 +145,6 @@ export const PROJECT_TOOLS: readonly ProjectTool[] = [
     environmentAware: false,
     isAvailable: (project) => project.capabilities.includes('production'),
   },
-  {
-    id: 'readme',
-    label: 'README',
-    description: 'Documentação do projeto',
-    routeName: 'project-readme',
-    group: 'direct',
-    aliases: 'readme docs documentação',
-    icon: 'readme',
-    environmentAware: false,
-    isAvailable: always,
-  },
 ];
 
 /** Sub-recursos da aba Git (`?tab=`), declarados uma única vez. */
@@ -190,7 +154,6 @@ export const PROJECT_GIT_TABS = [
   { id: 'diff', label: 'Diff' },
   { id: 'commit', label: 'Commit' },
   { id: 'undo', label: 'Desfazer' },
-  { id: 'issues', label: 'Issues' },
   { id: 'pull-request', label: 'Pull Request' },
   { id: 'history', label: 'Histórico' },
 ] as const;

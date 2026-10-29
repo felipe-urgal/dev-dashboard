@@ -35,9 +35,6 @@ function lazyTool(loader: () => Promise<{ default: Component }>): Component {
 const ProjectGitPanel = lazyTool(
   () => import('../components/ProjectGitPanel.vue'),
 );
-const ProjectWorktreesPanel = lazyTool(
-  () => import('../components/ProjectWorktreesPanel.vue'),
-);
 const ProjectProductionPanel = lazyTool(
   () => import('../components/ProjectProductionPanel.vue'),
 );
@@ -46,12 +43,6 @@ const ProjectSelfUpdateProductionPanel = lazyTool(
 );
 const ProjectRailsRuntimePanel = lazyTool(
   () => import('../components/ProjectRailsRuntimePanel.vue'),
-);
-const ProjectEnvironmentPanel = lazyTool(
-  () => import('../components/ProjectEnvironmentPanel.vue'),
-);
-const ProjectReadmePanel = lazyTool(
-  () => import('../components/ProjectReadmePanel.vue'),
 );
 const ProjectServerPanel = lazyTool(
   () => import('../components/ProjectServerPanel.vue'),
@@ -95,13 +86,11 @@ const environmentInstanceId = computed(() => {
   return typeof candidate === 'string' && candidate ? candidate : undefined;
 });
 
-const isReadmeRoute = computed(() => route.name === 'project-readme');
 const isServerRoute = computed(
   () => route.name === 'project-server' || route.name === 'project-details',
 );
 const isGitRoute = computed(() => route.name === 'project-git');
 
-const isWorktreesRoute = computed(() => route.name === 'project-worktrees');
 const isTestsRoute = computed(() => route.name === 'project-tests');
 const isAgentRoute = computed(() => route.name === 'project-agent');
 const isProductionRoute = computed(() => route.name === 'project-production');
@@ -111,7 +100,6 @@ const isRailsSidekiqRoute = computed(
 const isRailsWebpackRoute = computed(
   () => route.name === 'project-rails-webpack',
 );
-const isEnvironmentRoute = computed(() => route.name === 'project-environment');
 const isTerminalRoute = computed(() => route.name === 'project-terminal');
 const isConsoleRoute = computed(() => route.name === 'project-console');
 
@@ -312,14 +300,8 @@ onBeforeUnmount(stopGitOverviewRefresh);
         />
       </Teleport>
 
-      <ProjectReadmePanel
-        v-if="isReadmeRoute"
-        :key="`readme-${project.id}`"
-        :project="project"
-      />
-
       <ProjectServerPanel
-        v-else-if="isServerRoute"
+        v-if="isServerRoute"
         :key="`server-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
         :environment-instance-id="environmentInstanceId"
@@ -330,12 +312,6 @@ onBeforeUnmount(stopGitOverviewRefresh);
         :key="`git-${project.id}`"
         :project="project"
         @git-updated="updateGitOverview"
-      />
-
-      <ProjectWorktreesPanel
-        v-else-if="isWorktreesRoute"
-        :key="`worktrees-${project.id}`"
-        :project="project"
       />
 
       <ProjectTestsPanel
@@ -404,13 +380,6 @@ onBeforeUnmount(stopGitOverviewRefresh);
         :key="`rails-webpack-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
         worker-id="webpack"
-        :environment-instance-id="environmentInstanceId"
-      />
-
-      <ProjectEnvironmentPanel
-        v-else-if="isEnvironmentRoute"
-        :key="`environment-${project.id}-${environmentInstanceId ?? 'primary'}`"
-        :project="project"
         :environment-instance-id="environmentInstanceId"
       />
     </template>

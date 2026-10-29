@@ -42,7 +42,7 @@ describe('registry de Project Tools', () => {
         expect(to.query?.environmentInstanceId, tool.id).toBeUndefined();
       }
     }
-    expect(findProjectTool('environment')?.environmentAware).toBe(true);
+    expect(findProjectTool('tests')?.environmentAware).toBe(true);
   });
 
   it('palette descobre toda ferramenta da sidebar, exceto as dependentes de detecção', () => {
@@ -67,10 +67,10 @@ describe('registry de Project Tools', () => {
         query?: Record<string, string>;
       };
 
-    expect(to('project-p1-environment').query).toEqual({
+    expect(to('project-p1-tests').query).toEqual({
       environmentInstanceId: 'env-1',
     });
-    expect(to('project-p1-readme').query).toBeUndefined();
+    expect(to('project-p1-production').query).toBeUndefined();
     expect(to('project-p2-terminal').query).toBeUndefined();
   });
 
@@ -86,7 +86,7 @@ describe('registry de Project Tools', () => {
   });
 
   it('troca entre ferramentas environment-aware mantém o mesmo ambiente', () => {
-    const ids = ['server', 'terminal', 'environment'];
+    const ids = ['server', 'terminal', 'tests'];
     for (const id of ids) {
       const to = projectToolRoute(id, 'p1', { environmentInstanceId: 'env-9' });
       expect(to.query, id).toEqual({ environmentInstanceId: 'env-9' });

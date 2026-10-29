@@ -124,8 +124,6 @@ function percent(done: number, all: number): number {
 
 <style scoped>
 .git-diff-files {
-  position: sticky;
-  top: calc(var(--diff-sticky-top) + 0px);
   display: flex;
   max-height: calc(100vh - var(--diff-sticky-top) - 16px);
   flex-direction: column;

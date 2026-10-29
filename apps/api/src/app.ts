@@ -10,7 +10,6 @@ import { activityRoutes } from './routes/activity.js';
 import { agentRuntimeRoutes } from './routes/agent-runtime.js';
 import { hostServiceRoutes } from './routes/host-services.js';
 import { serviceCatalogRoutes } from './routes/service-catalog.js';
-import { serviceDiagnosticsRoutes } from './routes/service-diagnostics.js';
 import { projectServiceBindingRoutes } from './routes/project-service-bindings.js';
 import { serviceRuntimeProfileRoutes } from './routes/service-runtime-profiles.js';
 import { serviceLifecyclePlanRoutes } from './routes/service-lifecycle-plans.js';
@@ -18,36 +17,24 @@ import { systemdLifecycleCapabilitiesRoutes } from './routes/systemd-lifecycle-c
 import { confirmedLifecycleReconciliationRoutes } from './routes/confirmed-lifecycle-reconciliation.js';
 
 import { projectRoutes } from './routes/projects.js';
-import { projectDoctorRoutes } from './routes/project-doctor.js';
-import { devContainerRoutes } from './routes/dev-container.js';
-import { releaseReadinessRoutes } from './routes/release-readiness.js';
-import { dependencyHealthRoutes } from './routes/dependency-health.js';
-import { dependencyUpgradePlanRoutes } from './routes/dependency-upgrade-plan.js';
-import { migrationRoutes } from './routes/migrations.js';
-import { localCiRoutes } from './routes/local-ci.js';
-import { dockerComposeRoutes } from './routes/docker-compose.js';
 import { projectCoverageRoutes } from './routes/project-coverage.js';
 import { deploymentRoutes } from './routes/deployments.js';
 import { productionOverviewRoutes } from './routes/production-overview.js';
 import { deploymentSudoRoutes } from './routes/deployment-sudo.js';
 import { gitMutationRoutes } from './routes/git-mutations.js';
 import { gitMutationHistoryRoutes } from './routes/git-mutation-history.js';
-import { projectReadmeRoutes } from './routes/project-readme.js';
 import { projectFileRoutes } from './routes/project-files.js';
 import { projectFileMutationRoutes } from './routes/project-file-mutations.js';
 import { projectWorkspaceEditRoutes } from './routes/project-workspace-edits.js';
 import { projectLanguageServerRoutes } from './routes/project-language-server.js';
 import { projectTerminalRoutes } from './routes/project-terminal.js';
 import { gitWorkspaceRoutes } from './routes/git-workspace.js';
-import { EnvironmentInstanceCleanupService } from './services/environment-instance-cleanup-service.js';
-import { GitWorktreeRemovalResourceGuardService } from './services/git-worktree-removal-resource-guard.js';
 import { GitSyncProgressService } from './services/git-sync-progress-service.js';
 import { SystemdServiceInventory } from './services/systemd-service-inventory.js';
 import { SystemdLifecycleCapabilitiesService } from './services/systemd-lifecycle-capabilities-service.js';
 import { SystemdUserLifecycleGrantPolicy } from './services/systemd-user-lifecycle-authorization.js';
 import { ServiceCatalogService } from './services/service-catalog-service.js';
 import { ServiceDiagnosticsService } from './services/service-diagnostics-service.js';
-import { SystemdJournalReader } from './services/systemd-journal-reader.js';
 import { ProjectServiceBindingService } from './services/project-service-binding-service.js';
 import { ServiceRuntimeProfileService } from './services/service-runtime-profile-service.js';
 import { ServiceLifecyclePlanningService } from './services/service-lifecycle-planning-service.js';
@@ -55,11 +42,9 @@ import { ConfirmedLifecycleReconciliationService } from './services/confirmed-li
 import { ConfirmedLifecycleRecoveryReviewService } from './services/confirmed-lifecycle-recovery-review-service.js';
 import { ServiceResourceLeaseInspector } from './services/service-resource-lease-inspector.js';
 import { DockerContainerObserver } from './services/docker-container-observer.js';
-import { gitWorktreeRoutes } from './routes/git-worktrees.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
 import { gitPullRequestMutationRoutes } from './routes/git-pull-request-mutations.js';
-import { githubIssuesRoutes } from './routes/github-issues.js';
 import { gitUndoRoutes } from './routes/git-undo.js';
 import { gitCommitDetailsRoutes } from './routes/git-commit-details.js';
 import { gitCurrentBranchHistoryRoutes } from './routes/git-current-branch-history.js';
@@ -75,14 +60,10 @@ import { testRelatedRoutes } from './routes/test-related.js';
 import { databaseRoutes } from './routes/database.js';
 import { databaseExplorerSessionRoutes } from './routes/database-explorer-sessions.js';
 import { railsRoutes } from './routes/rails.js';
-import { bundlerRoutes } from './routes/bundler.js';
-import { projectEnvironmentRoutes } from './routes/project-environment.js';
 import { scriptRoutes } from './routes/scripts.js';
 import { scriptHistoryRoutes } from './routes/script-history.js';
-import { dependenciesPtyRoutes } from './routes/dependencies-pty-routes.js';
 import { settingsRoutes } from './routes/settings.js';
 import { projectBrowserRoutes } from './routes/project-browser.js';
-import { securityCenterRoutes } from './routes/security-center.js';
 
 import { workspaceRoutes } from './routes/workspaces.js';
 
@@ -152,15 +133,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const composition = createAppComposition(context, options);
   const {
     databaseExplorerSessionStore,
-    projectDoctorService,
-    devContainerDiscoveryService,
-    devContainerLifecyclePlanningService,
-    devContainerLifecycleConfirmationService,
-    devContainerStartService,
-    devContainerCleanupService,
-    devContainerStopConfirmationService,
-    devContainerLifecycleExecutionService,
-    devContainerRecoveryService,
     portInspectorService,
     projectFileMutationService,
     projectWorkspaceEditService,
@@ -172,55 +144,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
     activitySnapshotService,
     confirmedLifecycleJobs,
     attentionCenterService,
-    releaseReadinessService,
-    dependencyHealthService,
-    dependencyUpgradePlanService,
-    migrationOverviewService,
-    migrationMutationPlanningService,
-    migrationMutationConfirmationService,
-    migrationMutationExecutionService,
-    localCiDiscoveryService,
-    localCiExecutionService,
     dockerComposeProvider,
-    dockerComposePreflightService,
-    dockerComposeLifecycleService,
-    dockerComposeLifecycleConfirmationService,
-    dockerComposeLifecycleExecutionService,
     dockerComposeOwnershipStore,
-    securityScannerProvider,
-    securityScanSnapshotStore,
     agentRuntimeApiService,
     agentRuntimeRealtimeService,
   } = composition;
   registerAppLifecycle(app, context, composition);
   const gitSyncProgressService = new GitSyncProgressService();
-
-  const gitWorktreeRemovalResourceGuard =
-    new GitWorktreeRemovalResourceGuardService({
-      processManager: context.processManager,
-      projectStore: context.projectStore,
-      developmentEnvironmentInstanceStore:
-        context.developmentEnvironmentInstanceStore,
-      projectTerminalService,
-      dockerComposeOwnershipStore,
-      devContainerCleanupService,
-    });
-
-  const environmentInstanceCleanupService =
-    new EnvironmentInstanceCleanupService({
-      processManager: context.processManager,
-      projectTerminalService,
-      projectStore: context.projectStore,
-      dockerComposeOwnershipStore,
-      devContainerCleanupService,
-      developmentEnvironmentInstanceStore:
-        context.developmentEnvironmentInstanceStore,
-      ...(context.detachableExecutionService
-        ? {
-            detachableExecutionService: context.detachableExecutionService,
-          }
-        : {}),
-    });
 
   const localToken =
     options.localToken ?? (await new LocalTokenStore().getOrCreate());
@@ -297,24 +227,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(serviceCatalogRoutes, {
     prefix: '/api',
     catalog,
-  });
-
-  app.register(serviceDiagnosticsRoutes, {
-    prefix: '/api',
-    diagnostics:
-      options.serviceDiagnostics ??
-      new ServiceDiagnosticsService(
-        {
-          projects: context.projectStore,
-          bindings: context.projectServiceBindingStore,
-          catalog,
-          compose: dockerComposeLifecycleService,
-          processes: context.processManager,
-          activity: activitySnapshotService,
-          journal: new SystemdJournalReader(),
-        },
-        options.now ? { now: () => new Date(options.now!()) } : {},
-      ),
   });
 
   app.register(projectServiceBindingRoutes, {
@@ -402,82 +314,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     gitService: context.gitService,
   });
 
-  app.register(projectDoctorRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    projectDoctorService,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-  });
-
-  app.register(devContainerRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    devContainerDiscoveryService,
-    devContainerLifecyclePlanningService,
-    devContainerLifecycleConfirmationService,
-    devContainerStartService,
-    devContainerCleanupService,
-    devContainerStopConfirmationService,
-    devContainerLifecycleExecutionService,
-    devContainerRecoveryService,
-  });
-
-  app.register(releaseReadinessRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    releaseReadinessService,
-  });
-
-  app.register(dependencyHealthRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    dependencyHealthService,
-  });
-
-  app.register(dependencyUpgradePlanRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    dependencyUpgradePlanService,
-  });
-
-  app.register(migrationRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    migrationOverviewService,
-    migrationMutationPlanningService,
-    migrationMutationConfirmationService,
-    migrationMutationExecutionService,
-  });
-
-  app.register(localCiRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    localCiDiscoveryService,
-    localCiExecutionService,
-  });
-
-  app.register(dockerComposeRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    dockerComposeProvider,
-    dockerComposePreflightService,
-    dockerComposeLifecycleService,
-    dockerComposeLifecycleConfirmationService,
-    dockerComposeLifecycleExecutionService,
-    dockerComposeOwnershipStore,
-  });
-
   app.register(projectCoverageRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
@@ -520,16 +356,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     gitMutationHistoryService: context.gitMutationHistoryService,
   });
-  app.register(gitWorktreeRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    gitWorktreeObserver: context.gitWorktreeObserver,
-    gitWorktreeLifecycleService: context.gitWorktreeLifecycleService,
-    removalResourceGuard: gitWorktreeRemovalResourceGuard,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    environmentInstanceCleanupService,
-  });
   app.register(gitSyncRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
@@ -544,10 +370,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     gitMutationHistoryService: context.gitMutationHistoryService,
-  });
-  app.register(githubIssuesRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
   });
   app.register(gitUndoRoutes, {
     prefix: '/api',
@@ -583,11 +405,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     gitMutationHistoryService: context.gitMutationHistoryService,
   });
 
-  app.register(projectReadmeRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    projectFileService: context.projectFileService,
-  });
   app.register(projectFileRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
@@ -676,20 +493,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     railsRuntimeService: context.railsRuntimeService,
     railsMigrationPtyService: context.railsMigrationPtyService,
   });
-  app.register(bundlerRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    bundlerInspectionService: context.bundlerInspectionService,
-  });
-  app.register(projectEnvironmentRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    projectEnvironmentService: context.projectEnvironmentService,
-  });
   app.register(scriptRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
@@ -703,22 +506,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     scriptExecutionService: context.scriptExecutionService,
   });
-  app.register(dependenciesPtyRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    developmentEnvironmentInstanceStore:
-      context.developmentEnvironmentInstanceStore,
-    projectDependenciesPtyService: context.projectDependenciesPtyService,
-  });
   app.register(settingsRoutes, {
     prefix: '/api',
     environmentProfileRepository: context.environmentProfileRepository,
-  });
-  app.register(securityCenterRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    securityScannerProvider,
-    securityScanSnapshotStore,
   });
 
   if (options.staticDashboardEnabled) {

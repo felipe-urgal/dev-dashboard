@@ -9,7 +9,7 @@ import {
 
 /**
  * Para onde ir ao trocar de projeto: a mesma ferramenta, quando o novo projeto
- * a oferece (mantendo a aba do Git); senão Servidor, Git ou README. O ambiente
+ * a oferece (mantendo a aba do Git); senão Servidor, Git ou Terminal. O ambiente
  * (environmentInstanceId) e a tarefa do agente pertencem ao projeto anterior e
  * nunca são levados junto.
  */
@@ -26,7 +26,7 @@ export function resolveProjectSwitchTarget(
       tool.isAvailable(target),
   );
 
-  const fallback = ['server', 'git', 'readme']
+  const fallback = ['server', 'git', 'terminal']
     .map((id) => PROJECT_TOOLS.find((tool) => tool.id === id))
     .find((tool) => tool?.isAvailable(target));
 

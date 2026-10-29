@@ -5,11 +5,9 @@ import {
   ArrowPathIcon,
   ArrowUpTrayIcon,
   ArrowUturnLeftIcon,
-  BeakerIcon,
   CheckCircleIcon,
   ChevronDownIcon,
   ClockIcon,
-  ClipboardDocumentListIcon,
   CodeBracketIcon,
   DocumentDuplicateIcon,
   ServerStackIcon,
@@ -65,7 +63,6 @@ const gitTabIcons: Record<ProjectGitTabId, Component> = {
   diff: DocumentDuplicateIcon,
   commit: CheckCircleIcon,
   undo: ArrowUturnLeftIcon,
-  issues: ClipboardDocumentListIcon,
   'pull-request': ArrowUpTrayIcon,
   history: ClockIcon,
 };
@@ -73,7 +70,6 @@ const gitTabIcons: Record<ProjectGitTabId, Component> = {
 const groupMeta: Record<NavGroupId, { label: string; icon: Component }> = {
   server: { label: 'Execução', icon: ServerStackIcon },
   git: { label: 'Git', icon: CodeBracketIcon },
-  development: { label: 'Desenvolvimento', icon: BeakerIcon },
 };
 
 function toolItem(tool: ProjectTool): NavItem {
