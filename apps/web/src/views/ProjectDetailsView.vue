@@ -336,6 +336,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
         "
         :key="`production-self-update-${project.id}`"
         :project="project"
+        :git-overview="gitOverview"
       />
 
       <ProjectProductionPanel

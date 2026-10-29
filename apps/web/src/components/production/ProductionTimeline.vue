@@ -5,6 +5,7 @@ export interface ProductionTimelineStep {
   script?: string | undefined;
   status: 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled';
   statusLabel: string;
+  duration?: string | undefined;
 }
 
 defineProps<{ steps: readonly ProductionTimelineStep[] }>();
@@ -17,7 +18,10 @@ defineProps<{ steps: readonly ProductionTimelineStep[] }>();
       <div>
         <strong>{{ step.label }}</strong>
         <code v-if="step.script">{{ step.script }}</code>
-        <small>{{ step.statusLabel }}</small>
+        <small>
+          {{ step.statusLabel
+          }}<template v-if="step.duration"> · {{ step.duration }}</template>
+        </small>
       </div>
     </li>
   </ol>

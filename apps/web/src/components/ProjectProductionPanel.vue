@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { routerKey } from 'vue-router';
 import {
   ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
@@ -28,6 +29,7 @@ import type {
   Project,
   ProjectGitOverview,
   ProjectGitWorkspace,
+  TestExecutionRecord,
 } from '@dev-dashboard/contracts';
 
 import {
@@ -41,6 +43,7 @@ import {
   fetchDeploymentPlan,
   fetchProductionDeploymentStatus,
   fetchProjectGitWorkspace,
+  fetchProjectTestHistory,
   retryDeploymentVerify,
   startDeployment,
 } from '../api';
@@ -50,6 +53,7 @@ import ProductionChanges from './production/ProductionChanges.vue';
 import ProductionHistory, {
   type ProductionHistoryItem,
 } from './production/ProductionHistory.vue';
+import ProductionReadiness from './production/ProductionReadiness.vue';
 import ProductionPlanPanel, {
   type ProductionPlanStepView,
 } from './production/ProductionPlanPanel.vue';
@@ -58,6 +62,7 @@ import ProductionTimeline, {
   type ProductionTimelineStep,
 } from './production/ProductionTimeline.vue';
 import StatusBadge from './StatusBadge.vue';
+import { buildProductionReadiness } from '../utils/production-readiness';
 import UiButton from './ui/UiButton.vue';
 
 interface Props {
@@ -108,6 +113,8 @@ const history = ref<Deployment[]>([]);
 const changes = ref<DeploymentPendingChanges | null>(null);
 const changesLoading = ref(false);
 const commitSubjects = ref<Record<string, string>>({});
+const testRuns = ref<TestExecutionRecord[] | null>(null);
+const router = inject(routerKey, null);
 const activeDeployment = ref<Deployment | null>(null);
 const deploymentLog = ref<DeploymentLog | null>(null);
 const providerStatus = ref<ProductionDeploymentStatus | null>(null);
@@ -596,6 +603,7 @@ const timelineSteps = computed<ProductionTimelineStep[]>(() =>
     script: latestDeployment.value ? stepScript(step) : undefined,
     status: step.status,
     statusLabel: stepStatusLabels[step.status],
+    duration: stepDuration(step),
   })),
 );
 
@@ -616,6 +624,18 @@ const headerFacts = computed(() => {
     },
     { label: 'Branch', value: branch.value },
   ];
+  const runtime = commandStatus.value?.runtimeState;
+  if (commandStatus.value?.statusAvailability === 'available' && runtime) {
+    facts.push({
+      label: 'Saúde',
+      value:
+        runtime === 'ready'
+          ? 'Saudável'
+          : runtime === 'degraded'
+            ? 'Degradada'
+            : 'Indisponível',
+    });
+  }
   const latest = latestDeployment.value;
   if (latest) {
     facts.push(
@@ -628,6 +648,50 @@ const headerFacts = computed(() => {
   }
   return facts;
 });
+
+const readinessItems = computed(() =>
+  buildProductionReadiness({
+    branch: branch.value,
+    git: props.gitOverview,
+    tests: testRuns.value,
+    changes: changes.value,
+    health:
+      commandStatus.value?.statusAvailability === 'available' &&
+      commandStatus.value.runtimeState
+        ? commandStatus.value.runtimeState
+        : gitManagedStatus.value?.deployment?.state === 'ready'
+          ? 'ready'
+          : gitManagedStatus.value?.deployment?.state === 'error'
+            ? 'unavailable'
+            : null,
+    policies: production.value?.policies,
+    hasBackupCommand: Boolean(production.value?.commands.backup),
+  }),
+);
+
+function handleReadinessAction(id: 'run-tests'): void {
+  if (id === 'run-tests') {
+    void router?.push({
+      name: 'project-tests',
+      params: { projectId: props.project.id },
+    });
+  }
+}
+
+function stepDuration(step: {
+  startedAt?: string | undefined;
+  finishedAt?: string | undefined;
+}): string | undefined {
+  if (!step.startedAt || !step.finishedAt) return undefined;
+  const seconds = Math.round(
+    (new Date(step.finishedAt).getTime() - new Date(step.startedAt).getTime()) /
+      1000,
+  );
+  if (!Number.isFinite(seconds) || seconds < 0) return undefined;
+  return seconds < 60
+    ? `${seconds}s`
+    : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
 
 const publishLabel = computed(() => {
   if (operation.value === 'planning') return 'Preparando…';
@@ -926,6 +990,16 @@ async function loadChanges(current: number): Promise<void> {
   }
 }
 
+async function loadTestRuns(current: number): Promise<void> {
+  if (!props.project.capabilities.includes('tests')) return;
+  try {
+    const result = await fetchProjectTestHistory(props.project.id, 1, 10);
+    if (current === generation) testRuns.value = result.items;
+  } catch {
+    // Sem o histórico de testes, o checklist só omite esse item.
+  }
+}
+
 async function loadCommitSubjects(current: number): Promise<void> {
   const revisions = history.value.map((item) => item.revision);
   if (revisions.length === 0 || !props.project.capabilities.includes('git')) {
@@ -959,6 +1033,7 @@ async function load(preserveOperation = false): Promise<void> {
   history.value = [];
   changes.value = null;
   commitSubjects.value = {};
+  testRuns.value = null;
   activeDeployment.value = null;
   deploymentLog.value = null;
   providerStatus.value = null;
@@ -977,7 +1052,11 @@ async function load(preserveOperation = false): Promise<void> {
     await loadExecutionState(current);
     if (canExecuteDeployment.value) await loadProviderState(current);
     if (current === generation) scheduleRelevantPoll(current);
-    await Promise.all([loadChanges(current), loadCommitSubjects(current)]);
+    await Promise.all([
+      loadChanges(current),
+      loadCommitSubjects(current),
+      loadTestRuns(current),
+    ]);
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
     errorMessage.value =
@@ -1297,6 +1376,12 @@ onBeforeUnmount(() => {
               </UiButton>
             </template>
           </ProductionChanges>
+
+          <ProductionReadiness
+            v-if="!hasActiveDeployment && !canRetryLatestVerify"
+            :items="readinessItems"
+            @action="handleReadinessAction"
+          />
 
           <ProductionPlanPanel
             v-if="plan"

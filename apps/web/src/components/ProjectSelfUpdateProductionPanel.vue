@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, inject, onBeforeUnmount, ref, watch } from 'vue';
+import { routerKey } from 'vue-router';
 import {
   ArrowPathIcon,
   ExclamationTriangleIcon,
@@ -12,6 +13,8 @@ import type {
   DeploymentPendingChanges,
   DeploymentPlan,
   Project,
+  ProjectGitOverview,
+  TestExecutionRecord,
 } from '@dev-dashboard/contracts';
 
 import {
@@ -22,6 +25,7 @@ import {
   fetchDeploymentHistory,
   fetchDeploymentLog,
   fetchDeploymentPlan,
+  fetchProjectTestHistory,
   startDeployment,
 } from '../api';
 import ProductionChanges from './production/ProductionChanges.vue';
@@ -31,18 +35,21 @@ import ProductionHistory, {
 import ProductionPlanPanel, {
   type ProductionPlanStepView,
 } from './production/ProductionPlanPanel.vue';
+import ProductionReadiness from './production/ProductionReadiness.vue';
 import ProductionStatusHeader from './production/ProductionStatusHeader.vue';
 import ProductionTimeline, {
   type ProductionTimelineStep,
 } from './production/ProductionTimeline.vue';
 import ProjectLogViewer from './ProjectLogViewer.vue';
 import UiButton from './ui/UiButton.vue';
+import { buildProductionReadiness } from '../utils/production-readiness';
 
 interface Props {
   project: Project;
+  gitOverview?: ProjectGitOverview | null;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), { gitOverview: null });
 
 type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
@@ -63,6 +70,8 @@ const history = ref<Deployment[]>([]);
 const changes = ref<DeploymentPendingChanges | null>(null);
 const changesLoading = ref(false);
 const commitSubjects = ref<Record<string, string>>({});
+const testRuns = ref<TestExecutionRecord[] | null>(null);
+const router = inject(routerKey, null);
 const log = ref<DeploymentLog | null>(null);
 
 let generation = 0;
@@ -303,6 +312,37 @@ async function loadChanges(current: number): Promise<void> {
   }
 }
 
+async function loadTestRuns(current: number): Promise<void> {
+  if (!props.project.capabilities.includes('tests')) return;
+  try {
+    const result = await fetchProjectTestHistory(props.project.id, 1, 10);
+    if (current === generation) testRuns.value = result.items;
+  } catch {
+    // Sem o histórico de testes, o checklist só omite esse item.
+  }
+}
+
+const readinessItems = computed(() =>
+  buildProductionReadiness({
+    branch: props.project.production?.branch ?? 'main',
+    git: props.gitOverview,
+    tests: testRuns.value,
+    changes: changes.value,
+    health: null,
+    policies: props.project.production?.policies,
+    hasBackupCommand: false,
+  }),
+);
+
+function handleReadinessAction(id: 'run-tests'): void {
+  if (id === 'run-tests') {
+    void router?.push({
+      name: 'project-tests',
+      params: { projectId: props.project.id },
+    });
+  }
+}
+
 async function loadCommitSubjects(current: number): Promise<void> {
   const revisions = history.value.map((item) => item.revision);
   if (revisions.length === 0) return;
@@ -350,6 +390,7 @@ async function load(): Promise<void> {
   history.value = [];
   changes.value = null;
   commitSubjects.value = {};
+  testRuns.value = null;
   log.value = null;
 
   try {
@@ -363,7 +404,11 @@ async function load(): Promise<void> {
     latest.value = result.items[0] ?? null;
     if (latest.value) await refreshLog(latest.value.id, current);
     if (shouldPoll(latest.value)) schedulePoll(current);
-    await Promise.all([loadChanges(current), loadCommitSubjects(current)]);
+    await Promise.all([
+      loadChanges(current),
+      loadCommitSubjects(current),
+      loadTestRuns(current),
+    ]);
   } catch (error) {
     if (current !== generation) return;
     errorMessage.value =
@@ -528,6 +573,12 @@ onBeforeUnmount(() => {
             </UiButton>
           </template>
         </ProductionChanges>
+
+        <ProductionReadiness
+          v-if="!shouldPoll(latest)"
+          :items="readinessItems"
+          @action="handleReadinessAction"
+        />
 
         <ProductionPlanPanel
           v-if="plan"
