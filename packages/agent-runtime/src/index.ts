@@ -161,15 +161,6 @@ export type {
 } from './budget-store.js';
 
 export {
-  AgentProviderPreferenceStore,
-  AgentProviderPreferenceStoreError,
-  type AgentLocalProviderId,
-  type AgentProviderPreference,
-  type AgentProviderPreferenceStoreErrorCode,
-  type AgentProviderPreferenceStoreOptions,
-} from './provider-preference-store.js';
-
-export {
   AgentConversationStore,
   AgentConversationStoreError,
   sanitizeAgentConversationContent,
@@ -193,16 +184,6 @@ export type {
   AgentAttachmentStoreErrorCode,
   AgentAttachmentStoreOptions,
 } from './attachment-store.js';
-
-export {
-  AgentExecutionProfileStore,
-  AgentExecutionProfileStoreError,
-} from './execution-profile-store.js';
-export type {
-  AgentExecutionProfile,
-  AgentExecutionProfileConfiguration,
-  AgentExecutionProfileStoreOptions,
-} from './execution-profile-store.js';
 
 export { AgentLiveFeed } from './live-feed.js';
 export type { AgentLiveFeedOptions } from './live-feed.js';

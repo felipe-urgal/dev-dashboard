@@ -20,10 +20,7 @@ import type {
   AgentAuthorization,
   AgentAuthorizationScope,
   AgentConversationTurn,
-  AgentEffectiveExecutionConfiguration,
   AgentEvidence,
-  AgentExecutionProfile,
-  AgentExecutionProfileConfiguration,
   AgentGitRefAdoptionRequest,
   AgentLiveEvent,
   AgentLiveFeed,
@@ -33,7 +30,6 @@ import type {
   AgentCapability,
   AgentCheckpointStatus,
   AgentProviderId,
-  AgentProviderPreference,
   AgentProviderRegistry,
   AgentProviderStatus,
   AgentTask,
@@ -133,11 +129,6 @@ export interface AgentUsagePeriod {
   observedTo?: string;
 }
 
-export interface AgentProviderPreferenceInput {
-  preferredProviderId: 'codex' | 'claude-code';
-  fallbackOrder?: Array<'codex' | 'claude-code'>;
-}
-
 export interface AgentTaskBudgetInput {
   maxTotalTokens?: number;
   maxEstimatedCostUsd?: number;
@@ -206,24 +197,6 @@ export interface AgentTaskCompletionResult {
 
 export interface AgentRuntimeApiServicePort {
   listProviders(): Promise<AgentProviderStatus[]>;
-  getExecutionProfiles(
-    projectId: string,
-  ): Promise<AgentExecutionProfileConfiguration | null>;
-  setExecutionProfiles(
-    projectId: string,
-    input: {
-      defaultProfileId?: string;
-      profiles: AgentExecutionProfile[];
-    },
-  ): Promise<AgentExecutionProfileConfiguration>;
-  getProviderPreference(
-    projectId: string,
-  ): Promise<AgentProviderPreference | null>;
-  setProviderPreference(
-    projectId: string,
-    input: AgentProviderPreferenceInput,
-  ): Promise<AgentProviderPreference>;
-  clearProviderPreference(projectId: string): Promise<void>;
   listTasks(projectId: string): Promise<AgentTaskRecord[]>;
   listTasksPage?(
     projectId: string,
@@ -265,7 +238,6 @@ export interface AgentRuntimeApiServicePort {
     providerId?: AgentProviderId,
     userTurn?: AgentWorkflowUserTurnInput,
     attachmentIds?: readonly string[],
-    profileId?: string,
   ): Promise<AgentWorkflowExecutionResult>;
   cancel(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
   retry(projectId: string, taskId: string): Promise<AgentTaskRecord>;
@@ -326,17 +298,6 @@ export interface AgentRuntimeApiServiceOptions {
   >;
   providerRegistry: AgentProviderRegistry;
   attachmentStore?: Pick<AgentAttachmentStore, 'list' | 'get' | 'create'>;
-  executionProfileStore?: {
-    get(projectId: string): Promise<AgentExecutionProfileConfiguration | null>;
-    set(
-      configuration: AgentExecutionProfileConfiguration,
-    ): Promise<AgentExecutionProfileConfiguration>;
-  };
-  providerPreferenceStore?: {
-    get(projectId: string): Promise<AgentProviderPreference | null>;
-    set(preference: AgentProviderPreference): Promise<AgentProviderPreference>;
-    clear(projectId: string): Promise<void>;
-  };
   workflowRuntime: Pick<
     AgentWorkflowRuntime,
     | 'status'
@@ -555,82 +516,6 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
         }
       }),
     );
-  }
-
-  public async getExecutionProfiles(
-    projectId: string,
-  ): Promise<AgentExecutionProfileConfiguration | null> {
-    this.requireProject(projectId);
-    return this.options.executionProfileStore?.get(projectId) ?? null;
-  }
-
-  public async setExecutionProfiles(
-    projectId: string,
-    input: {
-      defaultProfileId?: string;
-      profiles: AgentExecutionProfile[];
-    },
-  ): Promise<AgentExecutionProfileConfiguration> {
-    this.requireProject(projectId);
-    if (!this.options.executionProfileStore) {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_INVALID_REQUEST',
-        'Agent execution profile storage is unavailable.',
-      );
-    }
-    return this.options.executionProfileStore.set({
-      projectId,
-      ...(input.defaultProfileId
-        ? { defaultProfileId: input.defaultProfileId }
-        : {}),
-      profiles: input.profiles.map((profile) => structuredClone(profile)),
-      updatedAt: this.now(),
-    });
-  }
-
-  public async getProviderPreference(
-    projectId: string,
-  ): Promise<AgentProviderPreference | null> {
-    this.requireProject(projectId);
-    return this.options.providerPreferenceStore?.get(projectId) ?? null;
-  }
-
-  public async setProviderPreference(
-    projectId: string,
-    input: AgentProviderPreferenceInput,
-  ): Promise<AgentProviderPreference> {
-    this.requireProject(projectId);
-    if (!this.options.providerPreferenceStore) {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_INVALID_REQUEST',
-        'Agent provider preference storage is unavailable.',
-      );
-    }
-
-    const fallbackOrder: Array<'codex' | 'claude-code'> =
-      input.fallbackOrder ??
-      (input.preferredProviderId === 'codex' ? ['claude-code'] : ['codex']);
-    if (
-      new Set(fallbackOrder).size !== fallbackOrder.length ||
-      fallbackOrder.includes(input.preferredProviderId)
-    ) {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_INVALID_REQUEST',
-        'Agent provider fallback order is invalid.',
-      );
-    }
-
-    return this.options.providerPreferenceStore.set({
-      projectId,
-      preferredProviderId: input.preferredProviderId,
-      fallbackOrder: [...fallbackOrder],
-      updatedAt: this.now(),
-    });
-  }
-
-  public async clearProviderPreference(projectId: string): Promise<void> {
-    this.requireProject(projectId);
-    await this.options.providerPreferenceStore?.clear(projectId);
   }
 
   public async listTasks(projectId: string): Promise<AgentTaskRecord[]> {
@@ -1162,89 +1047,11 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     providerId?: AgentProviderId,
     userTurn?: AgentWorkflowUserTurnInput,
     attachmentIds: readonly string[] = [],
-    profileId?: string,
   ): Promise<AgentWorkflowExecutionResult> {
     const taskRecord = await this.getTask(projectId, taskId);
     this.validateTaskContextBinding(taskRecord.task);
 
-    const profileConfiguration =
-      await this.options.executionProfileStore?.get(projectId);
-    const selectedProfileId =
-      profileId ?? profileConfiguration?.defaultProfileId;
-    const profile = selectedProfileId
-      ? profileConfiguration?.profiles.find(
-          (candidate) => candidate.id === selectedProfileId,
-        )
-      : undefined;
-    if (selectedProfileId && !profile) {
-      throw new AgentRuntimeApiServiceError(
-        'AGENT_API_INVALID_REQUEST',
-        'Selected Agent execution profile was not found.',
-      );
-    }
-
-    let effectiveProviderId = providerId ?? profile?.providerId;
-    if (effectiveProviderId === 'automatic' && profile?.fallbackOrder?.length) {
-      const statuses = await this.listProviders();
-      const selected = profile.fallbackOrder.find((candidate) =>
-        statuses.some(
-          (status) =>
-            status.providerId === candidate &&
-            status.availability !== 'unavailable',
-        ),
-      );
-      if (!selected) {
-        throw new AgentRuntimeApiServiceError(
-          'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE',
-          'No provider from the selected execution profile is available.',
-        );
-      }
-      effectiveProviderId = selected;
-    }
-
-    const effectiveConfiguration:
-      AgentEffectiveExecutionConfiguration | undefined = profile
-      ? {
-          profileId: profile.id,
-          profileLabel: profile.label,
-          providerId: effectiveProviderId ?? profile.providerId,
-          ...(profile.fallbackOrder?.length
-            ? { fallbackOrder: [...profile.fallbackOrder] }
-            : {}),
-          ...(profile.timeoutMs !== undefined
-            ? { timeoutMs: profile.timeoutMs }
-            : {}),
-          ...(profile.budget
-            ? { budget: structuredClone(profile.budget) }
-            : {}),
-          requestedCapabilities: profile.requestedCapabilities.filter(
-            (capability) =>
-              taskRecord.task.requestedCapabilities.includes(capability),
-          ),
-          model: { status: 'unavailable' },
-          effort: { status: 'unavailable' },
-        }
-      : undefined;
-
-    if (profile?.budget?.mode === 'hard') {
-      const observed = (await this.usage(projectId, taskId)).total;
-      const tokensExceeded =
-        profile.budget.maxTotalTokens !== undefined &&
-        observed.totalTokens !== undefined &&
-        observed.totalTokens >= profile.budget.maxTotalTokens;
-      const observedCost =
-        observed.reportedCostUsd ?? observed.estimatedCostUsd;
-      const costExceeded =
-        profile.budget.maxEstimatedCostUsd !== undefined &&
-        observedCost !== undefined &&
-        observedCost >= profile.budget.maxEstimatedCostUsd;
-      if (tokensExceeded || costExceeded) {
-        throw new AgentRuntimeApiServiceError(
-          'AGENT_API_BUDGET_EXCEEDED',
-          'Agent execution profile hard budget has been reached.',
-        );
-      }
-    }
+    const effectiveProviderId = providerId;
 
     const budgetOverview = await this.budget(projectId, taskId);
     if (budgetOverview.blocking) {
@@ -1289,7 +1096,6 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
           taskId,
           ...(effectiveProviderId ? { providerId: effectiveProviderId } : {}),
           authorizations,
-          ...(effectiveConfiguration ? { effectiveConfiguration } : {}),
           ...(userTurn
             ? {
                 userTurn: {

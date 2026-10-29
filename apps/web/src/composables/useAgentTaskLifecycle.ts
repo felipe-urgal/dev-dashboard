@@ -22,7 +22,6 @@ interface LifecycleTarget {
 interface ExecutionInput {
   providerId: AgentProviderId;
   attachmentIds: string[];
-  profileId?: string;
 }
 
 interface LifecycleClient {
@@ -116,7 +115,6 @@ export function useAgentTaskLifecycle(
         target.taskId,
         input.providerId,
         [...input.attachmentIds],
-        input.profileId,
       );
       if (!isCurrent(target, version)) return;
       assertRecord(result.task, target);

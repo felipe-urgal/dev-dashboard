@@ -15,7 +15,6 @@ interface ConversationTarget {
 interface ConversationInput {
   providerId: AgentProviderId;
   attachmentIds: string[];
-  profileId?: string;
 }
 
 interface ConversationClient {
@@ -107,7 +106,6 @@ export function useAgentTaskConversation(
         ...(input.attachmentIds.length
           ? { attachmentIds: [...input.attachmentIds] }
           : {}),
-        ...(input.profileId ? { profileId: input.profileId } : {}),
       });
       if (!currentRequest()) return;
 
