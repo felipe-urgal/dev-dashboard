@@ -301,7 +301,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
       </Teleport>
 
       <ProjectServerPanel
-        v-else-if="isServerRoute"
+        v-if="isServerRoute"
         :key="`server-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
         :environment-instance-id="environmentInstanceId"

@@ -29,8 +29,6 @@ import { projectWorkspaceEditRoutes } from './routes/project-workspace-edits.js'
 import { projectLanguageServerRoutes } from './routes/project-language-server.js';
 import { projectTerminalRoutes } from './routes/project-terminal.js';
 import { gitWorkspaceRoutes } from './routes/git-workspace.js';
-import { EnvironmentInstanceCleanupService } from './services/environment-instance-cleanup-service.js';
-import { GitWorktreeRemovalResourceGuardService } from './services/git-worktree-removal-resource-guard.js';
 import { GitSyncProgressService } from './services/git-sync-progress-service.js';
 import { SystemdServiceInventory } from './services/systemd-service-inventory.js';
 import { SystemdLifecycleCapabilitiesService } from './services/systemd-lifecycle-capabilities-service.js';
@@ -135,7 +133,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const composition = createAppComposition(context, options);
   const {
     databaseExplorerSessionStore,
-    devContainerCleanupService,
     portInspectorService,
     projectFileMutationService,
     projectWorkspaceEditService,
@@ -154,33 +151,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
   } = composition;
   registerAppLifecycle(app, context, composition);
   const gitSyncProgressService = new GitSyncProgressService();
-
-  const gitWorktreeRemovalResourceGuard =
-    new GitWorktreeRemovalResourceGuardService({
-      processManager: context.processManager,
-      projectStore: context.projectStore,
-      developmentEnvironmentInstanceStore:
-        context.developmentEnvironmentInstanceStore,
-      projectTerminalService,
-      dockerComposeOwnershipStore,
-      devContainerCleanupService,
-    });
-
-  const environmentInstanceCleanupService =
-    new EnvironmentInstanceCleanupService({
-      processManager: context.processManager,
-      projectTerminalService,
-      projectStore: context.projectStore,
-      dockerComposeOwnershipStore,
-      devContainerCleanupService,
-      developmentEnvironmentInstanceStore:
-        context.developmentEnvironmentInstanceStore,
-      ...(context.detachableExecutionService
-        ? {
-            detachableExecutionService: context.detachableExecutionService,
-          }
-        : {}),
-    });
 
   const localToken =
     options.localToken ?? (await new LocalTokenStore().getOrCreate());
