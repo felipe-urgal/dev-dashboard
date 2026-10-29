@@ -367,9 +367,19 @@ export interface AgentConversationExecutionResult extends AgentExecutionResult {
   agentTurn: AgentConversationTurn;
 }
 
+export interface AgentLiveEvent {
+  seq: number;
+  at: string;
+  kind: 'text' | 'tool' | 'result' | 'error';
+  text: string;
+  tool?: string;
+}
+
 export interface AgentRealtimeSnapshot {
   status: AgentTaskStatus;
   activity: AgentActivity;
+  /** Progresso ao vivo da execução em andamento. */
+  live?: AgentLiveEvent[];
 }
 
 interface ProvidersResponse {

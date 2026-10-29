@@ -55,12 +55,14 @@ import {
   type AgentActivity,
   type AgentCapability,
   type AgentExecutionResult,
+  type AgentLiveEvent,
   type AgentProviderId,
   type AgentProviderStatus,
   type AgentTaskRecord,
   type AgentTaskStatus,
 } from '../api/agent-runtime';
 import EmptyState from './EmptyState.vue';
+import ProjectAgentLiveFeed from './ProjectAgentLiveFeed.vue';
 import ProjectAgentTaskHistoryCard from './ProjectAgentTaskHistoryCard.vue';
 import ProjectTaskContextSummary from './ProjectTaskContextSummary.vue';
 import StatusBadge from './StatusBadge.vue';
@@ -384,6 +386,12 @@ const {
   publishAgentNotifications,
   toggleAgentNotificationGroup,
 } = useAgentNotifications(() => props.project);
+const live = ref<{ taskId: string; events: AgentLiveEvent[] } | null>(null);
+const liveEvents = computed(() =>
+  live.value && live.value.taskId === selectedTaskId.value
+    ? live.value.events
+    : [],
+);
 const { applySnapshot } = useAgentTaskSnapshots(
   () =>
     selectedTaskId.value
@@ -394,6 +402,10 @@ const { applySnapshot } = useAgentTaskSnapshots(
   (snapshot) => {
     replaceTask(snapshot.status.task);
     publishAgentNotifications(snapshot);
+    live.value = {
+      taskId: snapshot.status.task.task.id,
+      events: Array.isArray(snapshot.live) ? snapshot.live : [],
+    };
   },
 );
 const {
@@ -1571,6 +1583,14 @@ onBeforeUnmount(() => {
               }}
               · modelo indisponível · esforço indisponível
             </div>
+
+            <ProjectAgentLiveFeed
+              v-if="
+                liveEvents.length > 0 || status?.runtime.state === 'running'
+              "
+              :events="liveEvents"
+              :running="status?.runtime.state === 'running'"
+            />
 
             <div class="agent-runtime-strip">
               <span>
