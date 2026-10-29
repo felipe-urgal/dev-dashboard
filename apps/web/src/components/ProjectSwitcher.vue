@@ -17,6 +17,8 @@ const props = defineProps<{
   runningIds: ReadonlySet<string>;
   /** Branch atual do projeto, exibida abaixo do nome. */
   branch?: string;
+  /** Sem alterações: branch verde; com alterações: amarela. */
+  branchClean?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -117,9 +119,13 @@ function handleSelect(key: string): void {
       }}</span>
       <span class="project-switcher-text">
         <span class="project-switcher-name">{{ current?.name }}</span>
-        <span v-if="branch" class="project-switcher-branch" :title="branch">{{
-          branch
-        }}</span>
+        <span
+          v-if="branch"
+          class="project-switcher-branch"
+          :class="{ 'project-switcher-branch-dirty': !branchClean }"
+          :title="branchClean ? branch : `${branch} · com alterações`"
+          >{{ branch }}</span
+        >
       </span>
       <ChevronDownIcon class="project-switcher-chevron" aria-hidden="true" />
     </button>
@@ -173,17 +179,24 @@ function handleSelect(key: string): void {
   min-width: 0;
   flex: 1;
   flex-direction: column;
+  align-items: flex-start;
   line-height: 1.2;
+  text-align: left;
 }
 
 .project-switcher-branch {
+  max-width: 100%;
   overflow: hidden;
-  color: var(--text-dim);
+  color: var(--success-text);
   font-family: var(--font-family-mono);
   font-size: 11px;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.project-switcher-branch-dirty {
+  color: var(--warning-text);
 }
 
 .project-switcher-name {

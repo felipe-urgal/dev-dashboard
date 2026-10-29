@@ -75,6 +75,7 @@ const runningProjectIds = computed(
 // A branch aparece no seletor; atualiza ao trocar de projeto ou de página
 // (checkout, criar e remover branch acontecem nas páginas de Git).
 const currentBranch = ref('');
+const currentBranchClean = ref(true);
 
 watch(
   () => [currentProjectId.value, route.fullPath] as const,
@@ -87,6 +88,7 @@ watch(
       const overview = await fetchProjectGit(projectId);
       if (projectId === currentProjectId.value) {
         currentBranch.value = overview.branch ?? '';
+        currentBranchClean.value = overview.clean;
       }
     } catch {
       currentBranch.value = '';
@@ -140,6 +142,7 @@ onMounted(() => {
             :selected-workspace-id="selectedWorkspaceId"
             :running-ids="runningProjectIds"
             :branch="currentBranch"
+            :branch-clean="currentBranchClean"
             @select="switchProject"
             @home="router.push({ name: 'dashboard' })"
             @select-workspace="
