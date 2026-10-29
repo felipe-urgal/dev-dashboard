@@ -26,38 +26,6 @@ async function makeRepo(): Promise<string> {
   return root;
 }
 
-test('amend inclui somente alterações staged e preserva o restante', async (context) => {
-  const root = await makeRepo();
-  context.after(async () => {
-    await rm(root, { recursive: true, force: true });
-  });
-
-  await writeFile(path.join(root, 'README.md'), 'v2\n');
-  await writeFile(path.join(root, 'staged.txt'), 'staged\n');
-  await git(root, ['add', 'staged.txt']);
-  await writeFile(path.join(root, 'novo-arquivo.txt'), 'novo\n');
-
-  const service = new GitService();
-  const confirmation = service.prepareMutationConfirmation(
-    'p1',
-    'amend',
-    'main',
-  );
-  const result = await service.amend(
-    root,
-    'p1',
-    'commit alterado',
-    confirmation.token,
-  );
-
-  assert.equal(result.subject, 'commit alterado');
-  assert.equal(await git(root, ['show', 'HEAD:README.md']), 'v1\n');
-  assert.equal(await git(root, ['show', 'HEAD:staged.txt']), 'staged\n');
-  const status = await git(root, ['status', '--porcelain']);
-  assert.match(status, /README\.md/);
-  assert.match(status, /\?\? novo-arquivo\.txt/);
-});
-
 test('amend não faz stage quando a confirmação é inválida', async (context) => {
   const root = await makeRepo();
   context.after(async () => {

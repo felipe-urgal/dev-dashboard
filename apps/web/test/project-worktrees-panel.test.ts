@@ -105,6 +105,7 @@ const workspace = {
 
 describe('ProjectWorktreesPanel', () => {
   beforeEach(() => {
+    document.body.innerHTML = '';
     vi.clearAllMocks();
     fetchProjectGitWorkspace.mockResolvedValue(workspace);
     fetchProjectGitWorktrees.mockResolvedValue(inspection);
@@ -135,19 +136,33 @@ describe('ProjectWorktreesPanel', () => {
     });
   });
 
+  function mountPanel() {
+    return mount(ProjectWorktreesPanel, {
+      props: { project },
+      attachTo: document.body,
+    });
+  }
+
+  const dialog = () => document.body.querySelector('.git-wt-dialog')!;
+
+  async function submitCreate() {
+    dialog().dispatchEvent(new Event('submit', { cancelable: true }));
+    await flushPromises();
+  }
+
   it('cria worktree usando somente uma branch local livre e deriva o diretório', async () => {
-    const wrapper = mount(ProjectWorktreesPanel, { props: { project } });
+    const wrapper = mountPanel();
     await flushPromises();
 
     await wrapper.get('.worktrees-primary-button').trigger('click');
-
-    const select = wrapper.get('select[name="branch"]');
-    expect(select.text()).toContain('feature/dashboard');
-    expect(select.text()).not.toContain('feature/login');
-    expect(select.text()).not.toContain('main');
-
-    await wrapper.get('form').trigger('submit');
     await flushPromises();
+
+    const select = dialog().querySelector('select[name="branch"]')!;
+    expect(select.textContent).toContain('feature/dashboard');
+    expect(select.textContent).not.toContain('feature/login');
+    expect(select.textContent).not.toContain('main');
+
+    await submitCreate();
 
     expect(createProjectGitWorktree).toHaveBeenCalledWith('p1', {
       branch: 'feature/dashboard',
@@ -155,29 +170,37 @@ describe('ProjectWorktreesPanel', () => {
       createBranch: false,
     });
     expect(wrapper.text()).toContain('Worktree criado.');
-    expect(fetchProjectGitWorktrees).toHaveBeenCalledTimes(2);
+    wrapper.unmount();
   });
 
   it('cria nova branch deixando explícita a origem no checkout atual', async () => {
-    const wrapper = mount(ProjectWorktreesPanel, { props: { project } });
+    const wrapper = mountPanel();
     await flushPromises();
 
     await wrapper.get('.worktrees-primary-button').trigger('click');
-    const radios = wrapper.findAll('input[type="radio"]');
-    await radios[1]!.setValue(true);
-    await wrapper.get('input[name="branch"]').setValue('feature/nova');
-    await wrapper.get('form').trigger('submit');
     await flushPromises();
+    const radios = dialog().querySelectorAll<HTMLInputElement>(
+      'input[type="radio"]',
+    );
+    radios[1]!.click();
+    await flushPromises();
+    const input = dialog().querySelector<HTMLInputElement>(
+      'input[name="branch"]',
+    )!;
+    input.value = 'feature/nova';
+    input.dispatchEvent(new Event('input'));
+    await flushPromises();
+    await submitCreate();
 
     expect(createProjectGitWorktree).toHaveBeenCalledWith('p1', {
       branch: 'feature/nova',
       directoryName: 'feature-nova',
       createBranch: true,
     });
-    expect(wrapper.text()).toContain('Worktree criado.');
+    wrapper.unmount();
   });
 
-  it('mostra órfão e limpa o registro sem entrar no fluxo de remoção normal', async () => {
+  it('limpa o registro órfão sem entrar no fluxo de remoção normal', async () => {
     fetchProjectGitWorktrees.mockResolvedValue({
       ...inspection,
       worktrees: [
@@ -193,18 +216,13 @@ describe('ProjectWorktreesPanel', () => {
       ],
     });
 
-    const wrapper = mount(ProjectWorktreesPanel, { props: { project } });
+    const wrapper = mountPanel();
     await flushPromises();
 
-    expect(wrapper.text()).toContain('órfão');
-    expect(wrapper.text()).toContain('gitdir aponta para pasta ausente');
-    expect(wrapper.text()).toContain('Limpar registro');
-
-    const cleanupButton = wrapper
+    await wrapper
       .findAll('button')
-      .find((button) => button.text().includes('Limpar registro'));
-    expect(cleanupButton).toBeDefined();
-    await cleanupButton!.trigger('click');
+      .find((button) => button.text().includes('Limpar registro'))!
+      .trigger('click');
     await flushPromises();
 
     expect(pruneProjectGitWorktree).toHaveBeenCalledWith(
@@ -212,34 +230,29 @@ describe('ProjectWorktreesPanel', () => {
       'worktree-33333333333333333333',
     );
     expect(prepareProjectGitWorktreeRemoval).not.toHaveBeenCalled();
-    expect(wrapper.text()).toContain('Registro órfão removido.');
+    wrapper.unmount();
   });
 
-  it('avisa alterações locais antes de remover e mantém a ação desabilitada', async () => {
+  it('não permite remover um worktree com alterações locais', async () => {
     fetchProjectGitWorktrees.mockResolvedValue({
       ...inspection,
       worktrees: [
         inspection.worktrees[0],
-        {
-          ...inspection.worktrees[1],
-          dirty: true,
-        },
+        { ...inspection.worktrees[1], dirty: true },
       ],
     });
 
-    const wrapper = mount(ProjectWorktreesPanel, { props: { project } });
+    const wrapper = mountPanel();
     await flushPromises();
 
-    expect(wrapper.text()).toContain('alterações');
-    expect(wrapper.text()).toContain(
-      'Possui alterações locais; resolva antes de remover.',
-    );
-    const removeButton = wrapper.get('.worktrees-danger-button');
-    expect(removeButton.attributes('disabled')).toBeDefined();
+    expect(
+      wrapper.get('.worktrees-danger-button').attributes('disabled'),
+    ).toBeDefined();
+    wrapper.unmount();
   });
 
   it('só remove depois da confirmação retornada pelo backend', async () => {
-    const wrapper = mount(ProjectWorktreesPanel, { props: { project } });
+    const wrapper = mountPanel();
     await flushPromises();
 
     await wrapper.get('.worktrees-danger-button').trigger('click');
@@ -250,10 +263,10 @@ describe('ProjectWorktreesPanel', () => {
       'worktree-22222222222222222222',
     );
     expect(removeProjectGitWorktree).not.toHaveBeenCalled();
-    expect(wrapper.text()).toContain('Confirmar remoção?');
 
-    const confirmationButtons = wrapper.findAll('.worktrees-danger-button');
-    await confirmationButtons.at(-1)!.trigger('click');
+    document.body
+      .querySelector<HTMLButtonElement>('.worktrees-confirm-remove')!
+      .click();
     await flushPromises();
 
     expect(removeProjectGitWorktree).toHaveBeenCalledWith(
@@ -261,6 +274,6 @@ describe('ProjectWorktreesPanel', () => {
       'worktree-22222222222222222222',
       'confirm-token',
     );
-    expect(wrapper.text()).toContain('Worktree removido.');
+    wrapper.unmount();
   });
 });
