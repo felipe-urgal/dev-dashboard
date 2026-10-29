@@ -19,28 +19,3 @@ The systemd owner reserves both keys until the command has returned and the unit
 Do **not** wire this adapter to public routes or buttons until #1117/#1116 implement a persisted, explicit grant and enforce a fresh, confirmed lifecycle plan, current binding/ownership, conflict handling, durable audit, independent consumers, and cancellation/recovery guarantees. The planner currently sets `executable: false` intentionally. System units must stay **read-only** unless a separate, narrowly delegated authorization mechanism is designed and proven.
 
 Tests in `apps/api/test/systemd-user-lifecycle-service.test.ts` use only fake inventory, lease and command runners. They do not operate on the host systemd or boot configuration. End-to-end planner/Activity integration remain outstanding.
-
-## Prepared coordinator bridge (PR #1150)
-
-The internal `SystemdConfirmedLifecycleRunner` translates the confirmed
-coordinator's planned node and confirmation into an owner request. It validates
-the canonical user-unit identity, exclusive required binding, action-specific
-disposition, fresh confirmation and a future `supported` capability before
-delegating. Activity now has a provider-specific sanitized classification for
-user-unit steps. See `docs/systemd-confirmed-lifecycle-bridge.md`.
-
-**There is still no runtime registration or HTTP mutation endpoint.** The
-current planner never emits a supported systemd node, the coordinator remains
-Compose-only and the user-unit authorizer requires a separately executable
-plan. The new bridge cannot start or stop real units in this application.
-
-## Durable single-unit confirmed coordinator (PR #1156)
-
-A separate, internal `SystemdConfirmedLifecycleCoordinator` now persists
-`begin` and `beforeStep` before dispatch through the existing user-unit owner,
-and records the sanitized Activity outcome before finishing the Job. Tests
-cover successful Start/Stop, owner failure, unavailable post-command observation,
-Activity outage, conflicting leases and orphaned intent. The implementation
-is not registered in the API, and the production planner still emits
-`executable:false`. For full restrictions and sequence see
-`docs/systemd-confirmed-lifecycle-bridge.md`.
