@@ -8,7 +8,6 @@ import {
   CheckCircleIcon,
   ChevronDownIcon,
   ClockIcon,
-  ClipboardDocumentListIcon,
   CodeBracketIcon,
   DocumentDuplicateIcon,
   ServerStackIcon,
@@ -64,7 +63,6 @@ const gitTabIcons: Record<ProjectGitTabId, Component> = {
   diff: DocumentDuplicateIcon,
   commit: CheckCircleIcon,
   undo: ArrowUturnLeftIcon,
-  issues: ClipboardDocumentListIcon,
   'pull-request': ArrowUpTrayIcon,
   history: ClockIcon,
 };

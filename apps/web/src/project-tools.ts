@@ -166,7 +166,6 @@ export const PROJECT_GIT_TABS = [
   { id: 'diff', label: 'Diff' },
   { id: 'commit', label: 'Commit' },
   { id: 'undo', label: 'Desfazer' },
-  { id: 'issues', label: 'Issues' },
   { id: 'pull-request', label: 'Pull Request' },
   { id: 'history', label: 'Histórico' },
 ] as const;

@@ -109,10 +109,6 @@
       @open-diff="openTab('diff')"
     />
 
-    <ProjectGitIssuesPage
-      v-else-if="activeTab === 'issues'"
-      :project-id="project.id"
-    />
 
     <ProjectGitPullRequestPage
       v-else-if="activeTab === 'pull-request'"
