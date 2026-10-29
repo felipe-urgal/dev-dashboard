@@ -996,7 +996,6 @@ onBeforeUnmount(() => {
   resetHistory();
   resetCreation();
   invalidateArchive();
-  resetExecutionProfiles();
   resetProviders();
   resetAttachments();
   resetConversation();
