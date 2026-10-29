@@ -2,21 +2,24 @@
 import {
   ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
-  PencilSquareIcon,
   PlusIcon,
-  XMarkIcon,
 } from '@heroicons/vue/24/outline';
-import { NModal } from 'naive-ui';
-import { onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import {
   closeProjectGithubIssue,
   createProjectGithubIssue,
   fetchProjectGithubIssues,
+  removeProjectGithubIssue,
+  reopenProjectGithubIssue,
   updateProjectGithubIssue,
   type GithubIssue,
 } from '../api/github-issues';
 import { confirmDialog } from '../stores/app-dialog';
+import GitIssueDialog from './git-issues/GitIssueDialog.vue';
+import GitIssueRow from './git-issues/GitIssueRow.vue';
+import UiButton from './ui/UiButton.vue';
+import UiSearchField from './ui/UiSearchField.vue';
 
 const props = defineProps<{ projectId: string }>();
 
@@ -33,8 +36,7 @@ const actionMessage = ref('');
 
 const modal = ref<'create' | 'edit' | null>(null);
 const selectedIssue = ref<GithubIssue | null>(null);
-const title = ref('');
-const body = ref('');
+const query = ref('');
 let generation = 0;
 
 async function loadIssues(): Promise<void> {
@@ -98,16 +100,12 @@ function selectState(next: 'open' | 'closed'): void {
 
 function openCreate(): void {
   selectedIssue.value = null;
-  title.value = '';
-  body.value = '';
   actionError.value = '';
   modal.value = 'create';
 }
 
 function openEdit(issue: GithubIssue): void {
   selectedIssue.value = issue;
-  title.value = issue.title;
-  body.value = issue.body;
   actionError.value = '';
   modal.value = 'edit';
 }
@@ -118,12 +116,8 @@ function closeModal(): void {
   selectedIssue.value = null;
 }
 
-function handleModalVisibility(show: boolean): void {
-  if (!show) closeModal();
-}
-
-async function saveIssue(): Promise<void> {
-  if (busy.value || !title.value.trim() || title.value.length > 256) return;
+async function saveIssue(title: string, body: string): Promise<void> {
+  if (busy.value || !title) return;
   const operation = modal.value;
   if (!operation) return;
   const number = selectedIssue.value?.number;
@@ -135,11 +129,7 @@ async function saveIssue(): Promise<void> {
   actionMessage.value = '';
   try {
     if (operation === 'create') {
-      const issue = await createProjectGithubIssue(
-        projectId,
-        title.value.trim(),
-        body.value,
-      );
+      const issue = await createProjectGithubIssue(projectId, title, body);
       if (projectId !== props.projectId) return;
       actionMessage.value = 'Issue #' + issue.number + ' criada.';
       state.value = 'open';
@@ -148,8 +138,8 @@ async function saveIssue(): Promise<void> {
       const issue = await updateProjectGithubIssue(
         projectId,
         number!,
-        title.value.trim(),
-        body.value,
+        title,
+        body,
       );
       if (projectId !== props.projectId) return;
       actionMessage.value = 'Issue #' + issue.number + ' atualizada.';
@@ -199,17 +189,88 @@ async function closeIssue(issue: GithubIssue): Promise<void> {
   }
 }
 
-function formatDate(value: string): string {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return '';
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(date);
+async function reopenIssue(issue: GithubIssue): Promise<void> {
+  if (busy.value || issue.state !== 'closed') return;
+  const projectId = props.projectId;
+
+  busy.value = true;
+  actionError.value = '';
+  actionMessage.value = '';
+  try {
+    await reopenProjectGithubIssue(projectId, issue.number);
+    if (projectId !== props.projectId) return;
+    actionMessage.value = 'Issue #' + issue.number + ' reaberta.';
+    await loadIssues();
+  } catch (error) {
+    if (projectId !== props.projectId) return;
+    actionError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível reabrir a issue.';
+  } finally {
+    busy.value = false;
+  }
 }
+
+async function removeIssue(issue: GithubIssue): Promise<void> {
+  if (busy.value) return;
+  const projectId = props.projectId;
+  const confirmed = await confirmDialog({
+    title: 'Remover issue #' + issue.number + '?',
+    message:
+      'A issue "' +
+      issue.title +
+      '" será apagada do GitHub, com comentários e histórico. Esta ação não pode ser desfeita. Para só encerrá-la, use Fechar.',
+    confirmLabel: 'Remover issue',
+    tone: 'danger',
+  });
+  if (!confirmed || busy.value || projectId !== props.projectId) return;
+
+  busy.value = true;
+  actionError.value = '';
+  actionMessage.value = '';
+  try {
+    await removeProjectGithubIssue(projectId, issue.number);
+    if (projectId !== props.projectId) return;
+    actionMessage.value = 'Issue #' + issue.number + ' removida.';
+    await loadIssues();
+  } catch (error) {
+    if (projectId !== props.projectId) return;
+    actionError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível remover a issue.';
+  } finally {
+    busy.value = false;
+  }
+}
+
+const filtered = computed(() => {
+  const term = query.value.trim().toLowerCase().replace(/^#/u, '');
+  if (!term) return issues.value;
+  return issues.value.filter(
+    (issue) =>
+      String(issue.number).includes(term) ||
+      issue.title.toLowerCase().includes(term) ||
+      issue.author.toLowerCase().includes(term) ||
+      issue.labels.some((label) => label.toLowerCase().includes(term)),
+  );
+});
+
+const repositoryUrl = computed(() =>
+  repository.value ? 'https://github.com/' + repository.value : '',
+);
 </script>
 
 <template>
   <section class="git-issues-page">
-    <header class="git-issues-toolbar">
+    <div class="git-issues-toolbar">
+      <UiSearchField
+        v-model="query"
+        label="Buscar issue"
+        placeholder="Buscar por título, #número, autor ou label"
+      />
+
       <div
         class="git-issues-filters"
         role="group"
@@ -217,7 +278,6 @@ function formatDate(value: string): string {
       >
         <button
           type="button"
-          :class="{ active: state === 'open' }"
           :aria-pressed="state === 'open'"
           :disabled="busy"
           @click="selectState('open')"
@@ -226,7 +286,6 @@ function formatDate(value: string): string {
         </button>
         <button
           type="button"
-          :class="{ active: state === 'closed' }"
           :aria-pressed="state === 'closed'"
           :disabled="busy"
           @click="selectState('closed')"
@@ -234,402 +293,234 @@ function formatDate(value: string): string {
           Fechadas
         </button>
       </div>
-      <div class="git-issues-actions">
-        <button
-          type="button"
-          class="secondary-button"
-          :disabled="busy || loading"
-          aria-label="Atualizar issues"
-          @click="loadIssues"
-        >
-          <ArrowPathIcon aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="primary-button"
-          :disabled="busy"
-          @click="openCreate"
-        >
-          <PlusIcon aria-hidden="true" /> Nova issue
-        </button>
-      </div>
-    </header>
 
-    <p v-if="repository" class="git-issues-repository">{{ repository }}</p>
+      <a
+        v-if="repositoryUrl"
+        class="git-issues-repository"
+        :href="repositoryUrl + '/issues'"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {{ repository }}
+        <ArrowTopRightOnSquareIcon aria-hidden="true" />
+      </a>
+
+      <span class="git-issues-spacer" />
+
+      <UiButton
+        icon
+        variant="ghost"
+        aria-label="Atualizar issues"
+        :disabled="busy || loading"
+        @click="loadIssues"
+      >
+        <ArrowPathIcon aria-hidden="true" />
+      </UiButton>
+      <UiButton variant="primary" :disabled="busy" @click="openCreate">
+        <PlusIcon aria-hidden="true" />
+        Nova issue
+      </UiButton>
+    </div>
+
     <p v-if="actionMessage" class="git-mutation-success" role="status">
       {{ actionMessage }}
     </p>
-    <p v-if="loadError" class="project-error" role="alert">{{ loadError }}</p>
     <p v-if="actionError && !modal" class="project-error" role="alert">
       {{ actionError }}
     </p>
 
-    <div class="git-issues-list" :aria-busy="loading">
-      <div v-if="loading" class="git-issues-empty">Consultando issues…</div>
-      <div
-        v-else-if="!loadError && issues.length === 0"
-        class="git-issues-empty"
-      >
-        Nenhuma issue {{ state === 'open' ? 'aberta' : 'fechada' }} nesta
-        página.
-      </div>
-
-      <article
-        v-for="issue in loading ? [] : issues"
-        :key="issue.number"
-        class="git-issue-row"
-      >
-        <div class="git-issue-details">
-          <a
-            :href="issue.url"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="git-issue-title"
-          >
-            #{{ issue.number }} · {{ issue.title }}
-            <ArrowTopRightOnSquareIcon aria-hidden="true" />
-          </a>
-          <div class="git-issue-meta">
-            <span v-if="issue.author">por {{ issue.author }}</span>
-            <span v-if="issue.updatedAt"
-              >atualizada em {{ formatDate(issue.updatedAt) }}</span
-            >
-            <span
-              v-for="label in issue.labels"
-              :key="label"
-              class="git-issue-label"
-            >
-              {{ label }}
-            </span>
-          </div>
-        </div>
-        <div class="git-issue-row-actions">
-          <button
-            type="button"
-            class="secondary-button"
-            :disabled="busy"
-            @click="openEdit(issue)"
-          >
-            <PencilSquareIcon aria-hidden="true" /> Editar
-          </button>
-          <button
-            v-if="issue.state === 'open'"
-            type="button"
-            class="secondary-button"
-            :disabled="busy"
-            @click="closeIssue(issue)"
-          >
-            Fechar
-          </button>
-        </div>
-      </article>
+    <div v-if="loadError" class="git-issues-note" role="alert">
+      <p>{{ loadError }}</p>
+      <UiButton :disabled="loading" @click="loadIssues">
+        Tentar novamente
+      </UiButton>
     </div>
+
+    <div v-else-if="loading" class="git-issues-note" aria-busy="true">
+      Consultando issues…
+    </div>
+
+    <div v-else-if="issues.length === 0" class="git-issues-note">
+      <p>
+        Nenhuma issue {{ state === 'open' ? 'aberta' : 'fechada' }}
+        {{ page > 1 ? 'nesta página' : 'em ' + repository }}.
+      </p>
+      <UiButton
+        v-if="state === 'open'"
+        variant="primary"
+        :disabled="busy"
+        @click="openCreate"
+      >
+        <PlusIcon aria-hidden="true" />
+        Criar a primeira issue
+      </UiButton>
+    </div>
+
+    <div v-else-if="filtered.length === 0" class="git-issues-note">
+      Nenhuma issue corresponde a “{{ query }}” nesta página.
+    </div>
+
+    <section v-else class="git-issues-section">
+      <header>
+        {{ state === 'open' ? 'Abertas' : 'Fechadas' }}
+        <span>
+          {{ filtered.length }}
+          {{ filtered.length === 1 ? 'issue' : 'issues' }}
+          {{ query.trim() ? 'filtradas' : 'nesta página' }}
+        </span>
+      </header>
+      <GitIssueRow
+        v-for="issue in filtered"
+        :key="issue.number"
+        :issue="issue"
+        :disabled="busy"
+        @edit="openEdit(issue)"
+        @close="closeIssue(issue)"
+        @reopen="reopenIssue(issue)"
+        @remove="removeIssue(issue)"
+      />
+    </section>
 
     <footer
       v-if="!loadError && !loading && (page > 1 || hasMore)"
       class="git-issues-pagination"
     >
-      <button
-        type="button"
-        class="secondary-button"
-        :disabled="busy || page === 1"
-        @click="page -= 1"
-      >
+      <UiButton :disabled="busy || page === 1" @click="page -= 1">
         Anterior
-      </button>
+      </UiButton>
       <span>Página {{ page }}</span>
-      <button
-        type="button"
-        class="secondary-button"
-        :disabled="busy || !hasMore"
-        @click="page += 1"
-      >
+      <UiButton :disabled="busy || !hasMore" @click="page += 1">
         Próxima
-      </button>
+      </UiButton>
     </footer>
 
-    <NModal
-      :show="modal !== null"
-      :mask-closable="!busy"
-      :close-on-esc="!busy"
-      @update:show="handleModalVisibility"
-    >
-      <section
-        class="git-issue-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="git-issue-modal-title"
-      >
-        <header>
-          <h2 id="git-issue-modal-title">
-            {{
-              modal === 'create'
-                ? 'Nova issue'
-                : 'Editar issue #' + selectedIssue?.number
-            }}
-          </h2>
-          <button
-            type="button"
-            aria-label="Fechar"
-            :disabled="busy"
-            @click="closeModal"
-          >
-            <XMarkIcon aria-hidden="true" />
-          </button>
-        </header>
-
-        <form @submit.prevent="saveIssue">
-          <label>
-            <span>Título</span>
-            <input
-              v-model="title"
-              type="text"
-              maxlength="256"
-              required
-              autofocus
-              :disabled="busy"
-            />
-          </label>
-          <label>
-            <span>Descrição (Markdown)</span>
-            <textarea
-              v-model="body"
-              rows="8"
-              maxlength="20000"
-              :disabled="busy"
-            />
-          </label>
-          <p v-if="actionError" class="project-error" role="alert">
-            {{ actionError }}
-          </p>
-          <footer>
-            <button
-              type="button"
-              class="secondary-button"
-              :disabled="busy"
-              @click="closeModal"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              class="primary-button"
-              :disabled="busy || !title.trim()"
-            >
-              {{
-                busy
-                  ? 'Salvando…'
-                  : modal === 'create'
-                    ? 'Criar issue'
-                    : 'Salvar alterações'
-              }}
-            </button>
-          </footer>
-        </form>
-      </section>
-    </NModal>
+    <GitIssueDialog
+      :mode="modal"
+      :issue="selectedIssue"
+      :busy="busy"
+      :error="actionError"
+      @close="closeModal"
+      @save="saveIssue"
+    />
   </section>
 </template>
 
 <style scoped>
 .git-issues-page {
-  display: grid;
-  align-content: start;
-  gap: var(--space-3);
-  min-width: 0;
-  padding: var(--space-4);
-}
-
-.git-issues-toolbar,
-.git-issues-actions,
-.git-issues-filters,
-.git-issue-row,
-.git-issue-row-actions,
-.git-issues-pagination,
-.git-issue-meta {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.git-issues-toolbar,
-.git-issue-row {
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
 }
 
 .git-issues-toolbar {
+  display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.git-issues-toolbar :deep(.ui-search) {
+  width: 340px;
+  max-width: 100%;
 }
 
 .git-issues-filters {
-  border: 1px solid var(--border);
-  padding: 3px;
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
 }
 
 .git-issues-filters button {
+  height: 32px;
+  padding: 0 12px;
   border: 0;
-  padding: 7px 12px;
-  background: transparent;
   color: var(--text-muted);
+  background: transparent;
   font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.git-issues-filters button.active {
-  background: var(--accent-soft);
+.git-issues-filters button + button {
+  border-left: 1px solid var(--border-strong);
+}
+
+.git-issues-filters button[aria-pressed='true'] {
   color: var(--accent);
-  font-weight: 700;
-}
-
-.git-issues-actions svg,
-.git-issue-row-actions svg {
-  width: 16px;
-  height: 16px;
-}
-
-.git-issues-actions button,
-.git-issue-row-actions button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+  background: var(--accent-soft);
 }
 
 .git-issues-repository {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--font-sm);
-}
-
-.git-issues-list {
-  border: 1px solid var(--border);
-}
-
-.git-issue-row {
-  min-width: 0;
-  padding: var(--space-3);
-  border-bottom: 1px solid var(--border);
-}
-
-.git-issue-row:last-child {
-  border-bottom: 0;
-}
-
-.git-issue-details {
-  display: grid;
-  min-width: 0;
-  gap: 5px;
-}
-
-.git-issue-title {
   display: inline-flex;
   align-items: center;
-  min-width: 0;
-  gap: 5px;
-  color: var(--text);
-  font-weight: 650;
-  overflow-wrap: anywhere;
+  gap: 6px;
+  color: var(--text-dim);
+  font-family: var(--font-family-mono);
+  font-size: 12.5px;
+  text-decoration: none;
 }
 
-.git-issue-title svg {
+.git-issues-repository:hover {
+  color: var(--text);
+}
+
+.git-issues-repository svg {
   width: 14px;
   height: 14px;
-  flex: none;
 }
 
-.git-issue-meta {
-  flex-wrap: wrap;
-  color: var(--text-muted);
-  font-size: var(--font-xs);
+.git-issues-spacer {
+  flex: 1 1 0;
 }
 
-.git-issue-label {
+.git-issues-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 24px;
   border: 1px solid var(--border);
-  background: var(--surface-2);
-  padding: 2px 6px;
-}
-
-.git-issue-row-actions {
-  flex: none;
-}
-
-.git-issues-empty {
-  padding: var(--space-5);
+  border-radius: 14px;
   color: var(--text-muted);
+  background: var(--surface-1);
   text-align: center;
 }
 
-.git-issues-pagination {
-  justify-content: center;
+.git-issues-note p {
+  margin: 0;
 }
 
-.git-issue-modal {
-  display: grid;
-  width: min(600px, calc(100vw - 32px));
-  gap: var(--space-4);
-  padding: var(--space-5);
-  background: var(--surface-1);
+.git-issues-section {
+  overflow: hidden;
   border: 1px solid var(--border);
-  color: var(--text);
+  border-radius: 14px;
+  background: var(--surface-1);
 }
 
-.git-issue-modal header,
-.git-issue-modal form footer {
+.git-issues-section > header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 650;
 }
 
-.git-issue-modal h2 {
-  margin: 0;
-  font-size: var(--font-xl);
+.git-issues-section > header span {
+  color: var(--text-dim);
+  font-size: 12.5px;
+  font-weight: 500;
 }
 
-.git-issue-modal header button {
-  background: none;
-  border: 0;
+.git-issues-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
   color: var(--text-muted);
-}
-
-.git-issue-modal header svg {
-  width: 20px;
-  height: 20px;
-}
-
-.git-issue-modal form,
-.git-issue-modal label {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.git-issue-modal label {
-  gap: 5px;
-  font-weight: 600;
-}
-
-.git-issue-modal input,
-.git-issue-modal textarea {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text);
-  font: inherit;
-}
-
-.git-issue-modal textarea {
-  resize: vertical;
-}
-
-@media (max-width: 680px) {
-  .git-issue-row {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .git-issue-row-actions {
-    align-self: flex-start;
-  }
+  font-size: 13px;
 }
 </style>

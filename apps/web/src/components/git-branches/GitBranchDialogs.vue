@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { NModal } from 'naive-ui';
 
 import {
@@ -36,10 +36,15 @@ const form = ref<HTMLFormElement | null>(null);
 
 watch(
   () => props.dialog,
-  () => {
+  async (dialog) => {
     prefix.value = BRANCH_PREFIXES[0];
     suffix.value = '';
     renamed.value = props.target;
+    if (dialog === null || dialog === 'delete' || dialog === 'delete-remote') {
+      return;
+    }
+    await nextTick();
+    setTimeout(focusField, 60);
   },
 );
 
@@ -89,7 +94,9 @@ function submit(): void {
   <NModal
     :show="dialog !== null"
     :mask-closable="!busy"
-    :close-on-esc="!busy"
+    :close-on-esc="false"
+    :auto-focus="false"
+    :trap-focus="false"
     @after-enter="focusField"
     @update:show="(show: boolean) => !show && !busy && emit('close')"
   >
@@ -100,6 +107,7 @@ function submit(): void {
       aria-modal="true"
       :aria-label="title"
       @submit.prevent="submit"
+      @keydown.esc="!busy && emit('close')"
     >
       <h3>{{ title }}</h3>
 

@@ -253,4 +253,58 @@ export const githubIssuesRoutes: FastifyPluginAsync<
       }
     },
   );
+
+  app.post<{ Params: IssueParams }>(
+    '/projects/:projectId/git/issues/:issueNumber/reopen',
+    {
+      schema: {
+        params: issueParamsSchema,
+        response: {
+          200: singleIssueResponseSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      try {
+        return {
+          issue: await service.reopen(
+            projectPath(request.params.projectId),
+            request.params.issueNumber,
+          ),
+        };
+      } catch (error) {
+        translateError(error);
+      }
+    },
+  );
+
+  app.delete<{ Params: IssueParams }>(
+    '/projects/:projectId/git/issues/:issueNumber',
+    {
+      schema: {
+        params: issueParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['number'],
+            properties: { number: { type: 'integer', minimum: 1 } },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      try {
+        await service.remove(
+          projectPath(request.params.projectId),
+          request.params.issueNumber,
+        );
+        return { number: request.params.issueNumber };
+      } catch (error) {
+        translateError(error);
+      }
+    },
+  );
 };
