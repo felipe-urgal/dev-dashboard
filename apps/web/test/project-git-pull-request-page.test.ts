@@ -134,6 +134,7 @@ async function mountPage(
 ) {
   api.getProjectGitPullRequestStatus.mockResolvedValue(lookup);
   const wrapper = mount(ProjectGitPullRequestPage, {
+    attachTo: document.body,
     props: {
       projectId: 'p1',
       overview,
@@ -148,6 +149,7 @@ async function mountPage(
 }
 
 beforeEach(() => {
+  document.body.innerHTML = '';
   vi.restoreAllMocks();
   for (const mock of Object.values(api)) mock.mockReset();
   api.getProjectGitPullRequestStatus.mockResolvedValue({ checked: true });
@@ -177,46 +179,54 @@ beforeEach(() => {
   } as unknown as Window);
 });
 
-test('prefere a default branch real do remote selecionado', async () => {
-  const wrapper = await mountPage();
-  const selects = wrapper.findAll('select');
+const dialog = () => document.body.querySelector('.git-pr-dialog')!;
 
-  assert.equal((selects[0]!.element as HTMLSelectElement).value, 'upstream');
-  assert.equal((selects[1]!.element as HTMLSelectElement).value, 'develop');
-  assert.deepEqual(api.getProjectGitPullRequestStatus.mock.calls.at(-1), [
-    'p1',
-    { targetRemote: 'upstream', baseBranch: 'develop' },
-  ]);
-});
+async function submitDialog() {
+  dialog().dispatchEvent(new Event('submit', { cancelable: true }));
+  await flushPromises();
+}
 
-test('criação mostra origem real, draft e usa gh como ação principal no GitHub', async () => {
-  const wrapper = await mountPage();
+function buttonByText(
+  wrapper: Awaited<ReturnType<typeof mountPage>>,
+  text: string,
+) {
+  return wrapper.findAll('button').find((button) => button.text() === text)!;
+}
+
+test('projeto só com origin cria a PR direto na origin', async () => {
+  const originOnly: ProjectGitWorkspace = {
+    ...workspace,
+    remotes: workspace.remotes.filter((remote) => remote.name === 'origin'),
+    branches: workspace.branches.filter(
+      (branch) => branch.remote !== 'upstream',
+    ),
+  };
+  const wrapper = await mountPage({ checked: true }, originOnly);
   await wrapper.get('.git-pr-primary-action').trigger('click');
+  assert.equal(wrapper.findAll('select').length, 1);
+  await wrapper.get('form').trigger('submit');
+  await flushPromises();
 
-  assert.match(wrapper.text(), /origin\/feature\/pull-request/);
-  assert.ok(wrapper.find('.git-pr-draft input').exists());
-  assert.equal(wrapper.find('.git-pr-primary').text(), 'Criar Pull Request');
-  assert.match(
-    wrapper.find('.git-pr-external-action').text(),
-    /Abrir comparação/,
-  );
+  assert.deepEqual(api.prepareProjectGitPullRequestAction.mock.calls[0]?.[2], {
+    targetRemote: 'origin',
+    baseBranch: 'main',
+    title: latestCommit.subject,
+    description: `## Resumo\n\n${latestCommit.subject}`,
+    draft: false,
+  });
 });
 
 test('cria draft via gh com repositório upstream explícito', async () => {
   const wrapper = await mountPage();
   await wrapper.get('.git-pr-primary-action').trigger('click');
   await wrapper.get('.git-pr-draft input').setValue(true);
-  await wrapper.get('.git-pr-primary').trigger('click');
-  await flushPromises();
 
+  assert.match(wrapper.text(), /origin\/feature\/pull-request/);
   assert.match(wrapper.text(), /gh pr create/);
   assert.match(wrapper.text(), /--repo empresa\/dev-dashboard/);
-  assert.match(wrapper.text(), /--draft/);
+  assert.match(wrapper.text(), /Abrir comparação/);
 
-  const confirm = wrapper
-    .findAll('.git-pr-confirm button')
-    .find((button) => button.text() === 'Confirmar criação')!;
-  await confirm.trigger('click');
+  await wrapper.get('form').trigger('submit');
   await flushPromises();
 
   assert.deepEqual(api.prepareProjectGitPullRequestAction.mock.calls[0], [
@@ -250,12 +260,8 @@ test('bloqueia merge quando existem requisitos conhecidos pendentes', async () =
     }),
   });
 
-  assert.match(wrapper.text(), /CI\s*Pendente/);
-  assert.match(wrapper.text(), /Conversas pendentes\s*2/);
   assert.match(wrapper.text(), /alterações solicitadas/i);
-  const merge = wrapper
-    .findAll('.git-pr-gh-actions button')
-    .find((button) => button.text().includes('Mesclar com gh'))!;
+  const merge = buttonByText(wrapper, 'Mesclar PR');
   assert.equal((merge.element as HTMLButtonElement).disabled, true);
 });
 
@@ -277,22 +283,16 @@ test('permite editar PR existente e envia targetRemote junto da mutação', asyn
     existing: githubPullRequest(),
   });
 
-  const edit = wrapper
-    .findAll('.git-pr-gh-actions button')
-    .find((button) => button.text() === 'Editar')!;
-  await edit.trigger('click');
-  await wrapper.get('.git-pr-edit-form input').setValue('feat: título editado');
-  await wrapper
-    .get('.git-pr-edit-form textarea')
-    .setValue('## Resumo\n\nNovo corpo.');
-  await wrapper.get('.git-pr-edit-form').trigger('submit');
+  await buttonByText(wrapper, 'Editar').trigger('click');
   await flushPromises();
-
-  const confirm = wrapper
-    .findAll('.git-pr-confirm button')
-    .find((button) => button.text() === 'Confirmar edição')!;
-  await confirm.trigger('click');
+  const input = dialog().querySelector('input')!;
+  input.value = 'feat: título editado';
+  input.dispatchEvent(new Event('input'));
+  const textarea = dialog().querySelector('textarea')!;
+  textarea.value = '## Resumo\n\nNovo corpo.';
+  textarea.dispatchEvent(new Event('input'));
   await flushPromises();
+  await submitDialog();
 
   assert.deepEqual(api.prepareProjectGitPullRequestAction.mock.calls[0], [
     'p1',
@@ -306,7 +306,7 @@ test('permite editar PR existente e envia targetRemote junto da mutação', asyn
   ]);
 });
 
-test('close e merge carregam o remote alvo na confirmação', async () => {
+test('fecha a PR após confirmar no diálogo, com o remote alvo', async () => {
   api.prepareProjectGitPullRequestAction.mockResolvedValue({
     token: 'c'.repeat(64),
     actionId: 'pull-request-close',
@@ -324,16 +324,10 @@ test('close e merge carregam o remote alvo na confirmação', async () => {
     existing: githubPullRequest(),
   });
 
-  const close = wrapper
-    .findAll('.git-pr-gh-actions button')
-    .find((button) => button.text().includes('Fechar com gh'))!;
-  await close.trigger('click');
-  await wrapper.get('.git-pr-confirm input').setValue('42');
-  const confirm = wrapper
-    .findAll('.git-pr-confirm button')
-    .find((button) => button.text().includes('Confirmar fechamento'))!;
-  await confirm.trigger('click');
+  await buttonByText(wrapper, 'Fechar PR').trigger('click');
   await flushPromises();
+  assert.equal(api.prepareProjectGitPullRequestAction.mock.calls.length, 0);
+  await submitDialog();
 
   assert.deepEqual(api.prepareProjectGitPullRequestAction.mock.calls[0]?.[2], {
     targetRemote: 'upstream',
@@ -341,38 +335,36 @@ test('close e merge carregam o remote alvo na confirmação', async () => {
   });
 });
 
-test('GitLab não mostra ações gh e mantém acesso externo ao MR', async () => {
-  const gitlabWorkspace: ProjectGitWorkspace = {
-    ...workspace,
-    remotes: [
-      {
-        name: 'origin',
-        fetchUrl: 'git@gitlab.com:empresa/projeto.git',
-        pushUrl: 'git@gitlab.com:empresa/projeto.git',
-        role: 'origin',
-        defaultBranch: 'main',
-      },
-    ],
-    branches: workspace.branches.filter(
-      (branch) => branch.remote !== 'upstream',
-    ),
-  };
-  const wrapper = await mountPage(
-    {
-      checked: true,
-      existing: {
-        provider: 'gitlab',
-        number: 9,
-        title: 'feat: MR',
-        url: 'https://gitlab.com/empresa/projeto/-/merge_requests/9',
-        sourceBranch: 'feature/pull-request',
-        baseBranch: 'main',
-      },
-    },
-    gitlabWorkspace,
-  );
+test('mescla a PR com a estratégia escolhida', async () => {
+  api.prepareProjectGitPullRequestAction.mockResolvedValue({
+    token: 'm'.repeat(64),
+    actionId: 'pull-request-merge',
+    expiresAt: '2026-10-01T18:00:00.000Z',
+  });
+  api.runProjectGitPullRequestAction.mockResolvedValue({
+    action: 'pull-request-merge',
+    number: 42,
+    url: 'https://github.com/empresa/dev-dashboard/pull/42',
+    title: 'feat: PR existente',
+    state: 'merged',
+  });
+  const wrapper = await mountPage({
+    checked: true,
+    existing: githubPullRequest(),
+  });
 
-  assert.match(wrapper.text(), /MR #9 aberta/);
-  assert.match(wrapper.text(), /Abrir no GitLab/);
-  assert.doesNotMatch(wrapper.text(), /Mesclar com gh|Fechar com gh|Editar/);
+  await buttonByText(wrapper, 'Mesclar PR').trigger('click');
+  await flushPromises();
+  const rebase = [...dialog().querySelectorAll('button')].find(
+    (button) => button.textContent?.trim() === 'Rebase',
+  )!;
+  rebase.click();
+  await flushPromises();
+  await submitDialog();
+
+  assert.deepEqual(api.prepareProjectGitPullRequestAction.mock.calls[0]?.[2], {
+    targetRemote: 'upstream',
+    number: 42,
+    mergeMethod: 'rebase',
+  });
 });

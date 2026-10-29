@@ -17,9 +17,14 @@ import {
   runProjectGitPullRequestAction,
   type GitPullRequestTargetRemote,
 } from '../api';
-import ProjectGitPullRequestConfirmations from './ProjectGitPullRequestConfirmations.vue';
-import ProjectGitPullRequestForm from './ProjectGitPullRequestForm.vue';
-import ProjectGitPullRequestStatus from './ProjectGitPullRequestStatus.vue';
+import GitPrCreateForm from './git-pull-request/GitPrCreateForm.vue';
+import GitPrForcePush from './git-pull-request/GitPrForcePush.vue';
+import GitPrDialogs, {
+  type PrDialog,
+} from './git-pull-request/GitPrDialogs.vue';
+import GitPrSummaryCard from './git-pull-request/GitPrSummaryCard.vue';
+import UiButton from './ui/UiButton.vue';
+import UiTag from './ui/UiTag.vue';
 
 const props = defineProps<{
   projectId: string;
@@ -48,15 +53,9 @@ const generatedUrl = ref('');
 let lookupGeneration = 0;
 let lookupScheduled = false;
 
-const showCreateConfirm = ref(false);
-const showEditConfirm = ref(false);
-const showCloseConfirm = ref(false);
-const showMergeConfirm = ref(false);
-const showEditForm = ref(false);
+const dialog = ref<PrDialog | null>(null);
 const editTitle = ref('');
 const editDescription = ref('');
-const closeConfirmText = ref('');
-const mergeConfirmText = ref('');
 const mergeMethod = ref<GitPullRequestMergeMethod>('squash');
 const mutationBusy = ref(false);
 const mutationError = ref('');
@@ -159,7 +158,10 @@ const canForcePush = computed(
     !mutationBusy.value,
 );
 
-const branchState = computed(() => {
+const branchState = computed<{
+  label: string;
+  tone: 'neutral' | 'accent' | 'warning' | 'success';
+}>(() => {
   if (!branchPublished.value) {
     return { label: 'Não publicada', tone: 'neutral' };
   }
@@ -257,18 +259,18 @@ const mergeCommandPreview = computed(() =>
     : '',
 );
 
-const canConfirmClose = computed(
-  () =>
-    !mutationBusy.value &&
-    existingPullRequest.value?.provider === 'github' &&
-    closeConfirmText.value.trim() === String(existingPullRequest.value.number),
+const canClose = computed(
+  () => !mutationBusy.value && existingPullRequest.value?.provider === 'github',
 );
 
-const canConfirmMerge = computed(
-  () =>
-    canMerge.value &&
-    existingPullRequest.value !== null &&
-    mergeConfirmText.value.trim() === String(existingPullRequest.value.number),
+const dialogCommandPreview = computed(() =>
+  dialog.value === 'merge'
+    ? mergeCommandPreview.value
+    : dialog.value === 'close'
+      ? closeCommandPreview.value
+      : dialog.value === 'edit'
+        ? editCommandPreview.value
+        : '',
 );
 
 const canEdit = computed(() => {
@@ -283,24 +285,6 @@ const canEdit = computed(() => {
   );
 });
 
-function cancelMergeConfirmation() {
-  showMergeConfirm.value = false;
-  mergeConfirmText.value = '';
-}
-
-function cancelCloseConfirmation() {
-  showCloseConfirm.value = false;
-  closeConfirmText.value = '';
-}
-
-function cancelCreateConfirmation() {
-  showCreateConfirm.value = false;
-}
-
-function cancelEditConfirmation() {
-  showEditConfirm.value = false;
-}
-
 function startEdit(): void {
   if (
     !existingPullRequest.value ||
@@ -309,13 +293,12 @@ function startEdit(): void {
     return;
   editTitle.value = existingPullRequest.value.title;
   editDescription.value = existingPullRequest.value.description ?? '';
-  showEditForm.value = true;
-  showEditConfirm.value = false;
+  dialog.value = 'edit';
 }
 
-function cancelEdit(): void {
-  showEditForm.value = false;
-  showEditConfirm.value = false;
+function closeDialog(): void {
+  if (mutationBusy.value) return;
+  dialog.value = null;
 }
 
 function defaultBase(): string {
@@ -393,7 +376,7 @@ async function checkExistingPullRequest(): Promise<GitOpenPullRequest | null> {
     if (generation !== lookupGeneration) return null;
     lookupUnavailable.value = !lookup.checked;
     existingPullRequest.value = lookup.existing ?? null;
-    if (lookup.existing && !showEditForm.value) {
+    if (lookup.existing && dialog.value !== 'edit') {
       editTitle.value = lookup.existing.title;
       editDescription.value = lookup.existing.description ?? '';
     }
@@ -434,13 +417,7 @@ watch(
     errorMessage.value = '';
     existingPullRequest.value = null;
     lookupUnavailable.value = false;
-    showCreateConfirm.value = false;
-    showEditConfirm.value = false;
-    showCloseConfirm.value = false;
-    showMergeConfirm.value = false;
-    showEditForm.value = false;
-    closeConfirmText.value = '';
-    mergeConfirmText.value = '';
+    dialog.value = null;
     mutationError.value = '';
     scheduleExistingLookup();
   },
@@ -453,8 +430,7 @@ watch(targetRemote, () => {
   generatedUrl.value = '';
   existingPullRequest.value = null;
   lookupUnavailable.value = false;
-  showCreateConfirm.value = false;
-  showEditForm.value = false;
+  dialog.value = null;
   scheduleExistingLookup();
 });
 
@@ -462,8 +438,7 @@ watch(baseBranch, () => {
   generatedUrl.value = '';
   existingPullRequest.value = null;
   lookupUnavailable.value = false;
-  showCreateConfirm.value = false;
-  showEditForm.value = false;
+  dialog.value = null;
   scheduleExistingLookup();
 });
 
@@ -535,7 +510,6 @@ async function createPullRequestViaGh(): Promise<void> {
       input,
       confirmation.token,
     );
-    showCreateConfirm.value = false;
     activeView.value = 'overview';
     await checkExistingPullRequest();
   } catch (error) {
@@ -570,8 +544,7 @@ async function editPullRequest(): Promise<void> {
       input,
       confirmation.token,
     );
-    showEditConfirm.value = false;
-    showEditForm.value = false;
+    dialog.value = null;
     await checkExistingPullRequest();
   } catch (error) {
     mutationError.value =
@@ -584,7 +557,7 @@ async function editPullRequest(): Promise<void> {
 }
 
 async function closePullRequest(): Promise<void> {
-  if (!canConfirmClose.value || !existingPullRequest.value) return;
+  if (!canClose.value || !existingPullRequest.value) return;
   mutationBusy.value = true;
   mutationError.value = '';
   try {
@@ -603,8 +576,7 @@ async function closePullRequest(): Promise<void> {
       input,
       confirmation.token,
     );
-    showCloseConfirm.value = false;
-    closeConfirmText.value = '';
+    dialog.value = null;
     await checkExistingPullRequest();
   } catch (error) {
     mutationError.value =
@@ -617,7 +589,7 @@ async function closePullRequest(): Promise<void> {
 }
 
 async function mergePullRequest(): Promise<void> {
-  if (!canConfirmMerge.value || !existingPullRequest.value) return;
+  if (!canMerge.value || !existingPullRequest.value) return;
   mutationBusy.value = true;
   mutationError.value = '';
   try {
@@ -637,8 +609,7 @@ async function mergePullRequest(): Promise<void> {
       input,
       confirmation.token,
     );
-    showMergeConfirm.value = false;
-    mergeConfirmText.value = '';
+    dialog.value = null;
     await checkExistingPullRequest();
   } catch (error) {
     mutationError.value =
@@ -652,7 +623,7 @@ async function mergePullRequest(): Promise<void> {
 </script>
 
 <template>
-  <section class="git-pr-card git-pr-page">
+  <section class="git-pr-page">
     <p v-if="errorMessage" class="project-error" role="alert">
       {{ errorMessage }}
     </p>
@@ -660,554 +631,214 @@ async function mergePullRequest(): Promise<void> {
       {{ mutationError }}
     </p>
 
-    <section class="git-pr-workspace">
-      <div
-        id="git-pr-overview-panel"
-        v-show="activeView === 'overview'"
-        class="git-pr-overview"
-      >
-        <header class="git-pr-overview-heading">
-          <div class="git-pr-overview-meta">
-            <div class="git-pr-current-branch">
-              <ShareIcon aria-hidden="true" />
-              <span>Branch atual</span>
-              <strong>{{ overview.branch ?? 'HEAD' }}</strong>
-              <small class="git-pr-state" :class="`is-${branchState.tone}`">
-                {{ branchState.label }}
-              </small>
-            </div>
-            <button
-              type="button"
-              class="git-pr-refresh"
-              :disabled="checkingExisting || mutationBusy || !canLookup"
-              aria-label="Atualizar status da Pull Request"
-              title="Atualizar status"
-              @click="checkExistingPullRequest"
-            >
-              <ArrowPathIcon aria-hidden="true" />
-            </button>
-          </div>
-        </header>
+    <GitPrForcePush
+      v-if="forcePushBranch"
+      v-model:acknowledged="forcePushAcknowledged"
+      :branch="forcePushBranch"
+      :busy="busy || mutationBusy"
+      :can-force-push="canForcePush"
+      @force-push="emit('force-push')"
+    />
 
-        <ProjectGitPullRequestStatus
-          :branch-published="branchPublished"
-          :checking-existing="checkingExisting"
-          :existing-pull-request="existingPullRequest"
-          :lookup-unavailable="lookupUnavailable"
-          :target-remote="targetRemote"
-          :mutation-busy="mutationBusy"
-          :merge-blockers="mergeBlockers"
-          @edit="startEdit"
-          @toggle-merge="showMergeConfirm = !showMergeConfirm"
-          @toggle-close="showCloseConfirm = !showCloseConfirm"
-        />
-
-        <form
-          v-if="showEditForm && existingPullRequest?.provider === 'github'"
-          class="git-pr-edit-form"
-          @submit.prevent="showEditConfirm = true"
-        >
-          <header>
-            <strong>Editar PR #{{ existingPullRequest.number }}</strong>
-            <small>{{ targetRepository }}</small>
-          </header>
-          <label>
-            <span>Título</span>
-            <input
-              v-model="editTitle"
-              maxlength="256"
-              :disabled="mutationBusy"
-            />
-          </label>
-          <label>
-            <span>Descrição</span>
-            <textarea
-              v-model="editDescription"
-              maxlength="20000"
-              :disabled="mutationBusy"
-            />
-          </label>
-          <div class="git-pr-edit-actions">
-            <button type="button" :disabled="mutationBusy" @click="cancelEdit">
-              Cancelar
-            </button>
-            <button type="submit" :disabled="!canEdit">
-              Salvar alterações
-            </button>
-          </div>
-        </form>
-
-        <div
-          v-if="
-            branchPublished &&
-            !checkingExisting &&
-            !existingPullRequest &&
-            !lookupUnavailable
-          "
-          class="git-pr-empty"
-        >
-          <div class="git-pr-empty-icon" aria-hidden="true">
-            <ShareIcon />
-          </div>
-          <strong>Nenhuma Pull Request aberta</strong>
-          <p>A branch está pronta para comparação.</p>
-
-          <div class="git-pr-route" aria-label="Comparação das branches">
-            <div>
-              <strong>{{ overview.branch ?? 'HEAD' }}</strong>
-              <small>{{ sourceReference }}</small>
-            </div>
-            <span aria-hidden="true">→</span>
-            <div>
-              <strong>{{ destinationLabel }}</strong>
-              <small>Branch base</small>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            class="git-pr-primary-action"
-            @click="activeView = 'create'"
-          >
-            Criar Pull Request
-          </button>
+    <template v-if="activeView === 'overview'">
+      <header class="git-pr-bar">
+        <div class="git-pr-bar-route" aria-label="Comparação das branches">
+          <ShareIcon aria-hidden="true" />
+          <code>{{ overview.branch ?? 'HEAD' }}</code>
+          <span aria-hidden="true">→</span>
+          <code>{{ destinationLabel }}</code>
+          <UiTag :tone="branchState.tone">{{ branchState.label }}</UiTag>
         </div>
+        <UiButton
+          icon
+          variant="ghost"
+          aria-label="Atualizar status da Pull Request"
+          title="Atualizar status"
+          :disabled="checkingExisting || mutationBusy || !canLookup"
+          @click="checkExistingPullRequest"
+        >
+          <ArrowPathIcon aria-hidden="true" />
+        </UiButton>
+      </header>
 
-        <button
-          v-if="lookupUnavailable && branchPublished"
-          type="button"
-          class="git-pr-continue-action"
+      <div v-if="!branchPublished" class="git-pr-note git-pr-note-warning">
+        A branch atual ainda não possui upstream. Publique a branch antes de
+        abrir a Pull Request.
+      </div>
+
+      <div v-else-if="checkingExisting" class="git-pr-note" aria-live="polite">
+        Verificando se já existe uma Pull Request aberta para este destino…
+      </div>
+
+      <GitPrSummaryCard
+        v-else-if="existingPullRequest"
+        :pull-request="existingPullRequest"
+        :target-remote="targetRemote"
+        :mutation-busy="mutationBusy"
+        :merge-blockers="mergeBlockers"
+        @edit="startEdit"
+        @merge="dialog = 'merge'"
+        @close="dialog = 'close'"
+      />
+
+      <div
+        v-else-if="lookupUnavailable"
+        class="git-pr-note git-pr-note-warning"
+      >
+        <p>
+          Não foi possível verificar automaticamente se já existe uma Pull
+          Request aberta. Vale conferir o repositório antes de criar outra.
+        </p>
+        <UiButton variant="primary" @click="activeView = 'create'">
+          Continuar para criação
+        </UiButton>
+      </div>
+
+      <div v-else class="git-pr-note git-pr-empty">
+        <strong>Nenhuma Pull Request aberta</strong>
+        <p>
+          A branch <code>{{ overview.branch ?? 'HEAD' }}</code> está pronta para
+          comparação com <code>{{ destinationLabel }}</code
+          >.
+        </p>
+        <UiButton
+          variant="primary"
+          class="git-pr-primary-action"
           @click="activeView = 'create'"
         >
-          Continuar para criação
-        </button>
+          Criar Pull Request
+        </UiButton>
       </div>
+    </template>
 
-      <div
-        id="git-pr-create-panel"
-        v-show="activeView === 'create'"
-        class="git-pr-create-view"
-      >
-        <header class="git-pr-create-heading">
-          <h2>Criar Pull Request</h2>
-          <p>Revise o destino e as informações antes de publicar.</p>
-        </header>
+    <template v-else>
+      <header class="git-pr-create-head">
+        <h2>Criar Pull Request</h2>
+        <p>Revise o destino e as informações antes de publicar.</p>
+      </header>
 
-        <ProjectGitPullRequestForm
-          :overview-branch="overview.branch ?? null"
-          :source-reference="sourceReference"
-          :available-targets="availableTargets"
-          :base-branches="baseBranches"
-          :target-remote="targetRemote"
-          :base-branch="baseBranch"
-          :title="title"
-          :description="description"
-          :draft="draft"
-          :provider="targetProvider"
-          :opening="opening"
-          :busy="busy"
-          :force-push-branch="forcePushBranch"
-          :force-push-acknowledged="forcePushAcknowledged"
-          :mutation-busy="mutationBusy"
-          :can-force-push="canForcePush"
-          :existing-number="existingPullRequest?.number"
-          :existing-url="existingPullRequest?.url"
-          :generated-url="generatedUrl"
-          :checking-existing="checkingExisting"
-          :can-open="canPreparePullRequest"
-          :can-create-via-gh="canCreateViaGh"
-          :existing-pull-request="Boolean(existingPullRequest)"
-          @update:target-remote="targetRemote = $event"
-          @update:base-branch="baseBranch = $event"
-          @update:title="title = $event"
-          @update:description="description = $event"
-          @update:draft="draft = $event"
-          @update:force-push-acknowledged="forcePushAcknowledged = $event"
-          @force-push="emit('force-push')"
-          @open-external="openPullRequestExternally"
-          @cancel="activeView = 'overview'"
-          @toggle-create="showCreateConfirm = !showCreateConfirm"
-        />
-      </div>
-    </section>
+      <GitPrCreateForm
+        v-model:target-remote="targetRemote"
+        v-model:base-branch="baseBranch"
+        v-model:title="title"
+        v-model:description="description"
+        v-model:draft="draft"
+        :overview-branch="overview.branch ?? null"
+        :source-reference="sourceReference"
+        :available-targets="availableTargets"
+        :base-branches="baseBranches"
+        :provider="targetProvider"
+        :opening="opening"
+        :busy="busy"
+        :mutation-busy="mutationBusy"
+        :generated-url="generatedUrl"
+        :checking-existing="checkingExisting"
+        :existing-number="existingPullRequest?.number"
+        :existing-url="existingPullRequest?.url"
+        :can-open="canPreparePullRequest"
+        :can-create-via-gh="canCreateViaGh"
+        :command-preview="createCommandPreview"
+        @open-external="openPullRequestExternally"
+        @create="createPullRequestViaGh"
+        @cancel="activeView = 'overview'"
+      />
+    </template>
 
-    <ProjectGitPullRequestConfirmations
-      :show-merge="showMergeConfirm"
-      :show-close="showCloseConfirm"
-      :show-create="showCreateConfirm"
-      :show-edit="showEditConfirm"
-      :existing-pull-request="existingPullRequest"
-      :merge-command-preview="mergeCommandPreview"
-      :close-command-preview="closeCommandPreview"
-      :create-command-preview="createCommandPreview"
-      :edit-command-preview="editCommandPreview"
-      :merge-method="mergeMethod"
-      :merge-confirm-text="mergeConfirmText"
-      :close-confirm-text="closeConfirmText"
-      :mutation-busy="mutationBusy"
-      :can-confirm-merge="canConfirmMerge"
-      :can-confirm-close="canConfirmClose"
-      :can-create="canCreateViaGh"
+    <GitPrDialogs
+      v-model:title="editTitle"
+      v-model:description="editDescription"
+      v-model:merge-method="mergeMethod"
+      :dialog="dialog"
+      :pull-request="existingPullRequest"
+      :busy="mutationBusy"
       :can-edit="canEdit"
+      :can-merge="canMerge"
+      :can-close="canClose"
       :merge-blockers="mergeBlockers"
-      @update:merge-method="mergeMethod = $event"
-      @update:merge-confirm-text="mergeConfirmText = $event"
-      @update:close-confirm-text="closeConfirmText = $event"
-      @cancel-merge="cancelMergeConfirmation"
-      @cancel-close="cancelCloseConfirmation"
-      @cancel-create="cancelCreateConfirmation"
-      @cancel-edit="cancelEditConfirmation"
+      :command-preview="dialogCommandPreview"
+      @cancel="closeDialog"
+      @edit="editPullRequest"
       @merge="mergePullRequest"
       @close="closePullRequest"
-      @create="createPullRequestViaGh"
-      @edit="editPullRequest"
     />
   </section>
 </template>
 
-<style src="./ProjectGitPullRequestPage.css"></style>
-
 <style scoped>
 .git-pr-page {
   display: flex;
-  width: 100%;
-  min-width: 0;
-  min-height: calc(100vh - var(--app-topbar-height, 72px));
   flex-direction: column;
-  gap: 0;
-  padding: 0;
-  background: var(--surface-1);
-}
-
-.git-pr-page > .project-error {
-  flex: 0 0 auto;
-  margin: 0;
-  border-radius: 0;
-}
-
-.git-pr-workspace {
-  display: flex;
-  min-width: 0;
-  min-height: 0;
-  flex: 1 1 auto;
-}
-
-.git-pr-overview,
-.git-pr-create-view {
-  width: 100%;
-  min-width: 0;
-  padding: 14px;
-}
-
-.git-pr-overview {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-}
-
-.git-pr-create-view {
-  display: grid;
-  align-content: start;
   gap: 14px;
-  overflow-y: auto;
+  min-width: 0;
 }
 
-.git-pr-overview-heading,
-.git-pr-overview-meta,
-.git-pr-current-branch {
+.git-pr-bar {
   display: flex;
   align-items: center;
-}
-
-.git-pr-overview-heading {
-  min-height: 34px;
-  justify-content: space-between;
-}
-
-.git-pr-overview-meta {
-  width: 100%;
   justify-content: space-between;
   gap: 12px;
 }
 
-.git-pr-current-branch {
+.git-pr-bar-route {
+  display: flex;
   min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
-}
-
-.git-pr-current-branch > svg {
-  width: 16px;
-  height: 16px;
-  flex: none;
   color: var(--text-dim);
 }
 
-.git-pr-current-branch > span {
-  color: var(--text-muted);
-  font-size: 10px;
+.git-pr-bar-route svg {
+  width: 16px;
+  height: 16px;
 }
 
-.git-pr-current-branch > strong {
-  overflow: hidden;
+.git-pr-bar-route code {
   color: var(--text);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+  font-weight: 600;
 }
 
-.git-pr-state {
-  flex: none;
-  padding: 3px 7px;
-  border-radius: 999px;
-  color: var(--text-muted);
-  background: var(--surface-2);
-  font-size: 9px;
-  font-weight: 700;
-}
-
-.git-pr-state.is-success {
-  color: var(--success-text);
-  background: var(--success-surface);
-}
-
-.git-pr-state.is-warning {
-  color: var(--warning-text);
-  background: var(--warning-surface);
-}
-
-.git-pr-state.is-accent {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.git-pr-refresh {
-  display: inline-grid;
-  width: 30px;
-  height: 30px;
-  flex: none;
-  place-items: center;
+.git-pr-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 24px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 14px;
   color: var(--text-muted);
-  background: transparent;
-}
-
-.git-pr-refresh svg {
-  width: 14px;
-  height: 14px;
-}
-
-.git-pr-empty {
-  display: grid;
-  min-height: 330px;
-  place-items: center;
-  align-content: center;
-  gap: 8px;
+  background: var(--surface-1);
   text-align: center;
 }
 
-.git-pr-empty-icon {
-  display: grid;
-  width: 38px;
-  height: 38px;
-  place-items: center;
-  margin-bottom: 2px;
-  border-radius: 50%;
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.git-pr-empty-icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-.git-pr-empty > strong {
-  color: var(--text);
-  font-size: 13px;
-}
-
-.git-pr-empty > p,
-.git-pr-empty-hint,
-.git-pr-create-heading p {
+.git-pr-note p {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 10px;
 }
 
-.git-pr-route {
-  display: grid;
-  width: min(100%, 560px);
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  margin: 12px 0 4px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  text-align: left;
+.git-pr-note code {
+  font-family: var(--font-family-mono);
 }
 
-.git-pr-route > div {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
+.git-pr-note-warning {
+  color: var(--warning-text);
+  background: color-mix(in srgb, var(--warning-text) 8%, var(--surface-1));
 }
 
-.git-pr-route strong,
-.git-pr-route small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.git-pr-route strong {
+.git-pr-empty strong {
   color: var(--text);
-  font-size: 10px;
+  font-size: 15px;
 }
 
-.git-pr-route small {
-  color: var(--text-dim);
-  font-size: 9px;
-}
-
-.git-pr-route > span {
-  color: var(--accent);
-}
-
-.git-pr-primary-action,
-.git-pr-continue-action {
-  min-height: 34px;
-  margin-top: 6px;
-  padding: 0 12px;
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
-  color: #fff;
-  background: var(--accent);
-  font: inherit;
-  font-size: 10px;
-  font-weight: 800;
-}
-
-.git-pr-continue-action {
-  justify-self: start;
-}
-
-.git-pr-create-heading {
-  display: grid;
-  gap: 3px;
-}
-
-.git-pr-create-heading h2 {
+.git-pr-create-head h2 {
   margin: 0;
-  color: var(--text);
-  font-size: 13px;
+  font-size: 16px;
 }
 
-.git-pr-edit-form {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-}
-
-.git-pr-edit-form header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.git-pr-edit-form header strong {
-  color: var(--text);
-  font-size: 11px;
-}
-
-.git-pr-edit-form header small {
-  color: var(--text-dim);
-  font-size: 9px;
-}
-
-.git-pr-edit-form label {
-  display: grid;
-  gap: 5px;
-}
-
-.git-pr-edit-form label > span {
+.git-pr-create-head p {
+  margin: 4px 0 0;
   color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.git-pr-edit-form input,
-.git-pr-edit-form textarea {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  color: var(--text);
-  padding: 9px 10px;
-  font: inherit;
-}
-
-.git-pr-edit-form textarea {
-  min-height: 100px;
-  resize: vertical;
-}
-
-.git-pr-edit-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.git-pr-edit-actions button {
-  min-height: 34px;
-  padding: 0 11px;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  color: var(--text);
-  font: inherit;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.git-pr-edit-actions button[type='submit'] {
-  border-color: var(--accent);
-  color: #fff;
-  background: var(--accent);
-}
-
-.git-pr-edit-actions button:disabled {
-  border-color: var(--border);
-  color: var(--text-dim);
-  background: var(--surface-2);
-}
-
-@media (max-width: 720px) {
-  .git-pr-overview,
-  .git-pr-create-view {
-    padding: 10px;
-  }
-
-  .git-pr-current-branch {
-    flex-wrap: wrap;
-  }
-
-  .git-pr-route {
-    grid-template-columns: 1fr;
-  }
-
-  .git-pr-route > span {
-    transform: rotate(90deg);
-  }
-
-  .git-pr-edit-actions {
-    display: grid;
-  }
-
-  .git-pr-edit-actions button {
-    width: 100%;
-  }
+  font-size: 13px;
 }
 </style>

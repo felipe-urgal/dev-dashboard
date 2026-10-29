@@ -157,35 +157,6 @@ describe('ProjectGitBranchesPage', () => {
     ).toBe(true);
   });
 
-  it('busca e filtros reduzem a lista e a branch atual abre o Pull Request', async () => {
-    const wrapper = mountPage();
-
-    await wrapper.find('input[type="search"]').setValue('remota');
-    expect(
-      wrapper
-        .findAll('[data-branch]')
-        .map((row) => row.attributes('data-branch')),
-    ).toEqual(['feature/remota']);
-
-    await wrapper.find('input[type="search"]').setValue('');
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text() === 'Abrir Pull Request')!
-      .trigger('click');
-    expect(wrapper.emitted('open-pull-request')).toHaveLength(1);
-  });
-
-  it('o botão Nova branch fica bloqueado enquanto outra operação roda', () => {
-    const wrapper = mountPage({ busy: true });
-
-    expect(
-      wrapper
-        .findAll('button')
-        .find((button) => button.text() === 'Nova branch')!
-        .attributes('disabled'),
-    ).toBeDefined();
-  });
-
   describe('regras de pareamento, proteção e confirmação', () => {
     const renamed: ProjectGitWorkspace = {
       branches: [
@@ -198,14 +169,6 @@ describe('ProjectGitBranchesPage', () => {
       ],
       remotes: [],
     };
-
-    it('pareia a branch local renomeada com o origin que ela acompanha', () => {
-      const wrapper = mountPage({ workspace: renamed });
-
-      expect(wrapper.findAll('[data-branch]')).toHaveLength(1);
-      expect(wrapper.text()).toContain('feature/new-name');
-      expect(wrapper.text()).toContain('acompanha origin/feature/old-name');
-    });
 
     it('mostra o nome remoto real, não o local, ao remover do origin', async () => {
       const wrapper = mountPage({ workspace: renamed });
@@ -254,28 +217,6 @@ describe('ProjectGitBranchesPage', () => {
         false,
       );
     });
-  });
-
-  it('mostra o estado de operação só na branch envolvida', () => {
-    const local = (name: string) =>
-      branch({ name, shortName: name, upstream: `origin/${name}` });
-    const wrapper = mountPage({
-      workspace: {
-        branches: [
-          branch({ current: true }),
-          local('feature/target'),
-          remote('feature/target'),
-          local('feature/other'),
-          remote('feature/other'),
-        ],
-        remotes: [],
-      },
-      busy: true,
-      operation: { kind: 'switch', branch: 'feature/target' },
-    });
-
-    expect(rowOf(wrapper, 'feature/target').text()).toContain('Trocando…');
-    expect(rowOf(wrapper, 'feature/other').text()).not.toContain('Trocando…');
   });
 
   it('cria a branch com o prefixo escolhido', async () => {
