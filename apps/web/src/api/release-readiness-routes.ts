@@ -10,7 +10,7 @@ export const releaseReadinessActionRoutes = {
   tests: { toolId: 'tests' },
   'pull-request': { toolId: 'git', query: { tab: 'pull-request' } },
   doctor: { toolId: 'doctor' },
-  migrations: { toolId: 'migrations' },
+  migrations: { toolId: 'terminal' },
   security: { toolId: 'security' },
   production: { toolId: 'production' },
 } as const satisfies Record<

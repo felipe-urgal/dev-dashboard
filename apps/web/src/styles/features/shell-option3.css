@@ -1,68 +1,55 @@
 /* Option 3: developer cockpit — a focused, dark operational shell.
    Os tokens de cor (superfícies, texto, acentos, status) vivem só em
    ../styles/tokens.css — este arquivo só estiliza os componentes com eles. */
-
 .app-shell {
   --app-sidebar-width: 292px;
   background: var(--surface-0);
 }
-
 .sidebar {
   padding: 22px 16px 18px;
   border-right-color: var(--border);
   background: var(--surface-1);
 }
-
 .sidebar-section {
   margin: 26px 0 28px;
   padding: 0 0;
 }
-
 .sidebar-label {
   color: var(--text-dim);
   font-size: 9px;
   letter-spacing: 0.16em;
 }
-
 .navigation {
   gap: 5px;
 }
-
 .sidebar-tools {
   gap: 12px;
 }
-
 .main-content {
   background: transparent;
 }
-
 .content {
   padding: 16px;
 }
-
 .project-row-link {
   min-height: 84px;
   min-width: 0;
   padding: 15px 22px;
   border-color: var(--border);
 }
-
 .project-row-link:hover,
 .project-row-link:focus-visible {
   background: var(--surface-2);
 }
-
 .project-row-identity h3 {
   color: var(--text);
   font-size: 14px;
   text-decoration: none;
 }
-
 .project-path {
   color: var(--text-dim);
   text-decoration: none;
 }
-
 .project-branch-badge,
 .project-port-badge {
   border-color: transparent;
@@ -70,33 +57,27 @@
   background: transparent;
   text-decoration: none;
 }
-
 .project-port-badge {
   border-color: var(--border-strong);
   background: var(--accent-soft);
 }
-
 .project-disable-button {
   color: var(--text-muted);
 }
-
 .project-disable-button:hover,
 .project-disable-button:focus-visible,
 .project-disable-button.active {
   color: var(--danger-text);
   background: var(--danger-surface);
 }
-
 .project-details-page {
   gap: 0;
   background: var(--surface-0);
 }
-
 .git-modern-panel {
   min-height: 0;
   background: var(--surface-1);
 }
-
 .git-navigation-bar {
   top: var(--project-sticky-offset, 134px);
   min-width: 0;
@@ -105,7 +86,6 @@
   border-bottom: 1px solid var(--border);
   background: var(--surface-1);
 }
-
 .git-subtabs {
   align-items: center;
   gap: 0;
@@ -115,11 +95,9 @@
   overflow-y: hidden;
   scrollbar-width: none;
 }
-
 .git-subtabs::-webkit-scrollbar {
   display: none;
 }
-
 .git-subtabs button {
   display: flex;
   position: relative;
@@ -136,13 +114,11 @@
   font-size: 10px;
   line-height: normal;
 }
-
 .git-subtabs button::before {
   width: 16px;
   height: 16px;
   font-size: 12px;
 }
-
 .git-subtabs button::after {
   position: absolute;
   right: 10px;
@@ -153,39 +129,32 @@
   background: transparent;
   content: '';
 }
-
 .git-subtabs button:hover {
   color: var(--text);
   background: var(--surface-2);
 }
-
 .git-subtabs button.active {
   border: 0;
   color: var(--accent);
   background: transparent;
   box-shadow: none;
 }
-
 .git-subtabs button.active::after {
   background: var(--accent);
 }
-
 .git-modern-messages {
   min-width: 0;
   padding: 12px 22px 0;
 }
-
 .git-diff-page {
   background: var(--surface-1);
 }
-
 .git-command-card,
 .git-table-card {
   border-color: var(--border);
   border-radius: 10px;
   background: var(--surface-1);
 }
-
 .git-status-grid article,
 .git-command-card,
 .git-preview-grid article,
@@ -194,18 +163,15 @@
   border-radius: 10px;
   background: var(--surface-1);
 }
-
 .git-status-grid article {
   min-height: 88px;
 }
-
 .git-status-grid strong,
 .git-command-card h3,
 .git-preview-grid h3,
 .git-table-card h3 {
   color: var(--text);
 }
-
 .git-quick-actions button,
 .git-preview-grid header button,
 .git-table-row button {
@@ -214,7 +180,6 @@
   color: var(--text-muted);
   background: var(--surface-2);
 }
-
 .git-quick-actions button:hover,
 .git-preview-grid header button:hover,
 .git-table-row button:hover {
@@ -222,7 +187,6 @@
   color: var(--text);
   background: var(--surface-3);
 }
-
 .git-diff-file-head {
   border-color: var(--border);
   background: var(--surface-2);
@@ -234,14 +198,12 @@
   .git-modern-messages {
     padding-inline: 10px;
   }
-
   .git-subtabs button {
     padding-inline: 11px;
   }
 }
 
 /* Remaining project tools: shared cockpit treatment. */
-
 .project-logs-layout,
 .project-logs-card,
 .project-log-terminal,
@@ -251,100 +213,76 @@
 .tests-config-card,
 .tests-result,
 .database-explorer,
-.dependencies-panel,
-.dependencies-manager-card,
 .project-environment-panel,
 .rails-runtime-panel {
   color: var(--text);
   background: var(--surface-1);
 }
-
 .project-logs-card,
 .terminal-card,
 .tests-config-card,
 .tests-result,
-.dependencies-manager-card,
 .project-environment-file-card {
   border-color: var(--border);
   border-radius: 10px;
   background: var(--surface-1);
 }
-
 .project-logs-topbar,
 .terminal-window-bar,
 .tests-panel-heading,
-.tests-config-card-heading,
-.dependencies-header,
-.dependencies-manager-bar {
+.tests-config-card-heading {
   border-color: var(--border);
   background: var(--surface-2);
 }
-
 .project-logs-topbar,
-.terminal-window-bar,
-.dependencies-header,
-.dependencies-manager-bar {
+.terminal-window-bar {
   min-height: 48px;
   padding: 12px 16px;
 }
-
 .project-log-terminal,
-.terminal-window,
-.dependencies-terminal {
+.terminal-window {
   border-color: var(--border);
   border-radius: 10px;
   background: #020b14;
 }
-
 .terminal-window-dots span {
   box-shadow: none;
 }
-
 .terminal-window-title,
 .terminal-description,
 .project-panel-heading p,
-.tests-panel-heading p,
-.dependencies-header p {
+.tests-panel-heading p {
   color: var(--text-muted);
 }
-
 .terminal-icon-button,
 .terminal-start,
 .tests-button-with-icon,
 .tests-execute-button,
-.dependencies-detect-button,
-.dependencies-row-action,
 .project-environment-value-action {
   border-color: var(--border);
   border-radius: 8px;
   color: var(--text-muted);
   background: var(--surface-2);
 }
-
 .terminal-icon-button:hover,
 .terminal-start:hover,
 .tests-button-with-icon:hover,
 .tests-execute-button:hover,
-.dependencies-detect-button:hover,
-.dependencies-row-action:hover,
 .project-environment-value-action:hover {
   border-color: var(--accent);
   color: var(--text);
   background: var(--accent-soft);
 }
-
 .tests-execute-button,
 .terminal-start {
   border-color: var(--accent-strong);
   color: var(--text);
   background: var(--accent-soft);
 }
-
 .tests-execute-button:hover,
 .terminal-start:hover {
   background: var(--accent-strong);
 }
-
 .tests-summary,
 .tests-related-summary,
 .tests-config-summary {
@@ -352,72 +290,48 @@
   border-radius: 10px;
   background: var(--surface-2);
 }
-
 .tests-summary-success,
 .tests-summary-danger {
   border-color: var(--border);
 }
-
 .tests-log-experience-shell,
 .tests-ready-state,
 .tests-config-review,
-.dependencies-console,
-.dependencies-console-empty,
 .project-environment-empty {
   border-color: var(--border);
   border-radius: 10px;
   background: var(--surface-2);
 }
-
 .tests-field input,
 .tests-field select,
 .tests-field textarea,
-.dependencies-console-actions input,
 .project-environment-table input {
   border-color: var(--border);
   border-radius: 8px;
   color: var(--text);
   background: var(--surface-0);
 }
-
 .tests-field input:focus,
 .tests-field select:focus,
-.tests-field textarea:focus,
-.dependencies-console-actions input:focus {
+.tests-field textarea:focus {
   border-color: var(--accent);
   outline: 2px solid var(--accent-soft);
 }
-
-.dependencies-table tbody tr,
 .project-environment-table tbody tr {
   border-color: var(--border);
 }
-
-.dependencies-table tbody tr:hover,
 .project-environment-table tbody tr:hover {
   background: var(--surface-2);
 }
-
-.dependencies-manager-icon {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.dependencies-table-wrap,
 .project-environment-table {
   border-color: var(--border);
   border-radius: 10px;
   background: var(--surface-1);
 }
-
-.dependencies-table th,
-.dependencies-table td,
 .project-environment-table th,
 .project-environment-table td {
   border-color: var(--border);
 }
-
-.dependencies-table th,
 .project-environment-table th {
   color: var(--text-dim);
   background: var(--surface-2);
@@ -425,7 +339,6 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
-
 .project-environment-secret-value,
 .project-environment-sensitive-value {
   color: var(--warning-text);
@@ -436,7 +349,6 @@
   .terminal-card,
   .tests-config-card,
   .tests-result,
-  .dependencies-manager-card,
   .project-environment-file-card {
     border-radius: 8px;
   }
@@ -446,26 +358,22 @@
   .app-shell {
     display: block;
   }
-
   .sidebar {
     position: relative;
     height: auto;
     min-height: 0;
     padding: 14px 16px;
   }
-
   .sidebar-section,
   .navigation,
   .sidebar-tools {
     margin-top: 16px;
   }
-
   .sidebar-tools {
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
-
   .content {
     padding: 22px 16px 36px;
   }
@@ -489,8 +397,6 @@
 .terminal-start,
 .tests-button-with-icon,
 .tests-execute-button,
-.dependencies-detect-button,
-.dependencies-row-action,
 .project-environment-value-action {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
@@ -504,13 +410,11 @@
 .project-logs-card {
   min-width: 0;
 }
-
 .project-logs-topbar,
 .terminal-window-bar {
   gap: 12px;
   flex-wrap: wrap;
 }
-
 .project-log-terminal,
 .terminal-window {
   min-width: 0;
@@ -524,7 +428,6 @@
 .tests-ready-state {
   min-width: 0;
 }
-
 .tests-panel-heading,
 .tests-config-card-heading {
   gap: 12px;
@@ -532,19 +435,8 @@
 }
 
 /* Data tooling responsive guardrails. */
-.database-explorer,
-.dependencies-panel {
+.database-explorer {
   min-width: 0;
-}
-
-.dependencies-header {
-  min-width: 0;
-  overflow-x: auto;
-}
-
-.dependencies-table-wrap {
-  max-width: 100%;
-  overflow-x: auto;
 }
 
 /* Runtime and environment responsive guardrails. */
@@ -553,7 +445,6 @@
 .rails-runtime-panel {
   min-width: 0;
 }
-
 .project-environment-file-card {
   overflow: hidden;
 }

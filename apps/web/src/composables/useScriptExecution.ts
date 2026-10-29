@@ -27,7 +27,7 @@ import { durationInMilliseconds } from '../stores/native-notifications';
 const realtimeRecoveryMessage =
   'A conexão em tempo real foi interrompida. Recuperando o estado atual…';
 
-type ScriptNoticeRouteName = 'project-scripts' | 'project-dependencies';
+type ScriptNoticeRouteName = 'project-scripts';
 
 export function useScriptExecution<ScriptSection extends string>(
   getProject: () => Project,
@@ -45,10 +45,7 @@ export function useScriptExecution<ScriptSection extends string>(
   const startingActionId = ref<string | null>(null);
   const clearingHistory = ref(false);
   const resolvedNoticeRouteName: ScriptNoticeRouteName =
-    noticeRouteName ??
-    (executionsSection === 'execution'
-      ? 'project-dependencies'
-      : 'project-scripts');
+    noticeRouteName ?? 'project-scripts';
 
   let generation = 0;
   let executionGeneration = 0;

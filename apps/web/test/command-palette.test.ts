@@ -45,11 +45,6 @@ async function mountPalette(
         component: { template: '<div />' },
       },
       {
-        path: '/projects/:projectId/dependencies',
-        name: 'project-dependencies',
-        component: { template: '<div />' },
-      },
-      {
         path: '/projects/:projectId/environment',
         name: 'project-environment',
         component: { template: '<div />' },
