@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { computed, type Component } from 'vue';
-import { NDropdown } from 'naive-ui';
+import { computed, h, type Component } from 'vue';
+import { NDropdown, type DropdownOption } from 'naive-ui';
 import {
   ArrowPathIcon,
   ArrowUpTrayIcon,
   ArrowUturnLeftIcon,
   CheckCircleIcon,
-  ArrowTurnDownRightIcon,
   ChevronDownIcon,
   ClockIcon,
   CodeBracketIcon,
@@ -46,6 +45,8 @@ type NavGroupId = Exclude<ProjectToolGroup, 'direct'>;
 type NavItem = {
   id: string;
   label: string;
+  description: string;
+  icon: Component;
   routeNames: string[];
   to: ProjectToolRoute;
   gitTab?: ProjectGitTabId;
@@ -68,6 +69,25 @@ const gitTabIcons: Record<ProjectGitTabId, Component> = {
   history: ClockIcon,
 };
 
+const toolDescriptions: Record<string, string> = {
+  server: 'Iniciar, parar e acompanhar os logs',
+  terminal: 'Shell integrado ao projeto',
+  console: 'Console interativo do Rails',
+  sidekiq: 'Filas e jobs em segundo plano',
+  webpack: 'Build e dev server dos assets',
+  tests: 'Rodar a suíte e ver resultados',
+};
+
+const gitTabDescriptions: Record<ProjectGitTabId, string> = {
+  sync: 'Status, pull e push',
+  branches: 'Criar, trocar e apagar branches',
+  diff: 'Mudanças do working tree',
+  commit: 'Montar e registrar commits',
+  undo: 'Desfazer alterações com segurança',
+  'pull-request': 'Abrir e acompanhar o PR',
+  history: 'Commits e histórico da branch',
+};
+
 const groupMeta: Record<NavGroupId, { label: string; icon: Component }> = {
   server: { label: 'Execução', icon: ServerStackIcon },
   git: { label: 'Git', icon: CodeBracketIcon },
@@ -77,6 +97,8 @@ function toolItem(tool: ProjectTool): NavItem {
   return {
     id: tool.id,
     label: tool.label,
+    description: toolDescriptions[tool.id] ?? '',
+    icon: projectToolIcons[tool.icon],
     routeNames: [tool.routeName, ...(tool.activeRouteNames ?? [])],
     to: buildProjectToolRoute(
       tool,
@@ -102,6 +124,8 @@ const hubs = computed<NavHub[]>(() => {
         ? PROJECT_GIT_TABS.map((tab) => ({
             id: `git-${tab.id}`,
             label: tab.label,
+            description: gitTabDescriptions[tab.id],
+            icon: gitTabIcons[tab.id],
             routeNames: [gitTool.routeName],
             gitTab: tab.id,
             to: buildProjectToolRoute(
@@ -149,12 +173,28 @@ const activeHub = computed(() =>
   hubs.value.find((hub) => hub.items.some(isItemActive)),
 );
 
-function menuOptions(hub: NavHub) {
+function menuOptions(hub: NavHub): DropdownOption[] {
   return hub.items.map((item) => ({
     key: item.id,
     label: item.label,
+    description: item.description,
+    navIcon: item.icon,
     props: { class: isItemActive(item) ? 'project-nav-menu-active' : '' },
   }));
+}
+
+/** Opção do menu: ícone, título e uma linha dizendo para que serve. */
+function renderMenuLabel(option: DropdownOption) {
+  return h('span', { class: 'project-nav-option' }, [
+    h(option.navIcon as Component, {
+      class: 'project-nav-option-icon',
+      'aria-hidden': 'true',
+    }),
+    h('span', { class: 'project-nav-option-text' }, [
+      h('strong', String(option.label ?? '')),
+      h('small', String(option.description ?? '')),
+    ]),
+  ]);
 }
 
 function selectItem(hub: NavHub, key: string | number): void {
@@ -173,12 +213,13 @@ function activeLabel(hub: NavHub): string {
       <NDropdown
         v-if="hub.items.length > 1"
         trigger="hover"
+        placement="bottom-start"
         :delay="0"
         :duration="150"
-        placement="bottom-start"
-        width="trigger"
+        :show-arrow="false"
         :menu-props="() => ({ class: 'project-nav-menu' })"
         :options="menuOptions(hub)"
+        :render-label="renderMenuLabel"
         @select="(key) => selectItem(hub, key)"
       >
         <button
@@ -186,21 +227,17 @@ function activeLabel(hub: NavHub): string {
           class="project-nav-hub project-nav-hub-menu"
           :class="{ 'project-nav-hub-active': hub === activeHub }"
           :aria-current="hub === activeHub ? 'page' : undefined"
-          :title="hub.label"
           :aria-label="
             hub === activeHub ? `${hub.label} · ${activeLabel(hub)}` : hub.label
           "
           aria-haspopup="menu"
         >
-          <span class="project-nav-top">
-            <component :is="hub.icon" aria-hidden="true" />
-            <span>{{ hub.label }}</span>
-            <ChevronDownIcon class="project-nav-chevron" aria-hidden="true" />
-          </span>
-          <span v-if="hub === activeHub" class="project-nav-sub">
-            <ArrowTurnDownRightIcon aria-hidden="true" />
+          <component :is="hub.icon" aria-hidden="true" />
+          <span class="project-nav-label">{{ hub.label }}</span>
+          <span v-if="hub === activeHub" class="project-nav-current">
             {{ activeLabel(hub) }}
           </span>
+          <ChevronDownIcon class="project-nav-chevron" aria-hidden="true" />
         </button>
       </NDropdown>
 
@@ -212,18 +249,25 @@ function activeLabel(hub: NavHub): string {
         :to="hub.items[0]!.to"
       >
         <component :is="hub.icon" aria-hidden="true" />
-        <span>{{ hub.label }}</span>
+        <span class="project-nav-label">{{ hub.label }}</span>
       </RouterLink>
     </template>
   </nav>
 </template>
 
 <style scoped>
+/* Barra segmentada: itens centralizados, sem alterar a altura da topbar. */
 .project-nav {
   display: flex;
+  align-items: center;
+  align-self: center;
   min-width: 0;
   gap: 2px;
+  padding: 3px;
   overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-0) 55%, transparent);
   scrollbar-width: none;
 }
 
@@ -232,116 +276,141 @@ function activeLabel(hub: NavHub): string {
 }
 
 .project-nav-hub {
-  position: relative;
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;
+  height: 34px;
   padding: 0 12px;
   border: 0;
+  border-radius: 9px;
   color: var(--text-muted);
   background: transparent;
   font: inherit;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: var(--font-weight-strong);
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: color 150ms ease;
-}
-
-/* O dropdown segue a largura do botão: o mínimo evita quebrar os submenus. */
-.project-nav-hub-menu {
-  min-width: 150px;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
+  transition:
+    color 140ms ease,
+    background 140ms ease;
 }
 
 .project-nav-hub svg {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
 }
 
-.project-nav-top {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.project-nav-hub:hover {
+  color: var(--text);
+  background: var(--surface-2);
 }
 
-/* O grupo fica sempre no mesmo lugar; o item atual aparece logo abaixo sem empurrá-lo. */
-.project-nav-sub {
-  position: absolute;
-  top: calc(50% + 9px);
-  left: 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  line-height: 1.2;
-  color: var(--text-muted);
-  font-size: 11.5px;
-  font-weight: 500;
-}
-
-.project-nav-hub-active .project-nav-sub {
+.project-nav-hub-active,
+.project-nav-hub-active:hover {
   color: var(--accent);
+  background: var(--accent-soft);
 }
 
-.project-nav-hub .project-nav-sub svg {
-  width: 13px;
-  height: 13px;
-  flex-basis: 13px;
+/* Item atual dentro do grupo: "Execução │ Testes" na mesma linha. */
+.project-nav-current {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .project-nav-hub .project-nav-chevron {
   width: 12px;
   height: 12px;
   flex-basis: 12px;
-  opacity: 0.7;
-}
-
-.project-nav-hub:hover {
-  color: var(--text);
-}
-
-.project-nav-hub-active {
-  color: var(--accent);
-}
-
-.project-nav-hub::after {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 2px;
-  border-radius: 2px 2px 0 0;
-  background: transparent;
-  content: '';
-  transition: background 150ms ease;
-}
-
-.project-nav-hub:hover::after,
-.project-nav-hub-active::after {
-  background: var(--accent);
+  margin-left: -2px;
+  opacity: 0.65;
 }
 
 .project-nav-hub:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
-  border-radius: 6px;
 }
 </style>
 
 <style>
-/* O menu encosta na borda inferior do topbar (o padrão deixa 6px de folga). */
+/* Menu suspenso: cartão com ícone, título e descrição por opção. */
 .n-dropdown-menu.project-nav-menu {
-  margin-top: 1px;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
+  min-width: 270px;
+  margin-top: 8px;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--surface-1);
+  box-shadow: 0 14px 36px rgb(0 0 0 / 0.35);
 }
 
-.n-dropdown-option-body.project-nav-menu-active .n-dropdown-option-body__label {
+.project-nav-menu .n-dropdown-option-body {
+  --n-option-height: 54px;
+  height: 54px !important;
+  padding: 0 12px;
+  border-radius: 10px;
+}
+
+.project-nav-menu .n-dropdown-option-body__prefix,
+.project-nav-menu .n-dropdown-option-body__suffix {
+  display: none;
+}
+
+.project-nav-menu .n-dropdown-option-body::before {
+  display: none;
+}
+
+.project-nav-menu .n-dropdown-option-body:hover {
+  background: var(--surface-2);
+}
+
+.project-nav-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-nav-option-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  color: var(--text-muted);
+}
+
+.project-nav-option-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.3;
+}
+
+.project-nav-option-text strong {
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.project-nav-option-text small {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.project-nav-menu .n-dropdown-option-body.project-nav-menu-active {
+  background: var(--accent-soft);
+}
+
+.project-nav-menu .project-nav-menu-active .project-nav-option-icon,
+.project-nav-menu .project-nav-menu-active .project-nav-option-text strong {
   color: var(--accent);
 }
 </style>
