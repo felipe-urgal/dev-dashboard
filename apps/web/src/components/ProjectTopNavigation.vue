@@ -213,7 +213,7 @@ function activeLabel(hub: NavHub): string {
       <NDropdown
         v-if="hub.items.length > 1"
         trigger="hover"
-        placement="bottom-start"
+        placement="bottom"
         :delay="0"
         :duration="150"
         :show-arrow="false"
@@ -360,9 +360,25 @@ function activeLabel(hub: NavHub): string {
   border-radius: 10px;
 }
 
+.project-nav-menu .n-dropdown-option + .n-dropdown-option {
+  margin-top: 4px;
+}
+
 .project-nav-menu .n-dropdown-option-body__prefix,
 .project-nav-menu .n-dropdown-option-body__suffix {
   display: none;
+}
+
+.project-nav-menu .n-dropdown-option-body {
+  align-items: center;
+}
+
+.project-nav-menu .n-dropdown-option-body__label {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 .project-nav-menu .n-dropdown-option-body::before {
@@ -375,7 +391,10 @@ function activeLabel(hub: NavHub): string {
 
 .project-nav-option {
   display: flex;
+  width: 100%;
+  max-width: 220px;
   align-items: center;
+  justify-content: flex-start;
   gap: 12px;
 }
 
@@ -392,6 +411,7 @@ function activeLabel(hub: NavHub): string {
   flex-direction: column;
   gap: 1px;
   line-height: 1.3;
+  text-align: left;
 }
 
 .project-nav-option-text strong {
