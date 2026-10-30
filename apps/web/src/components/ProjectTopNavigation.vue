@@ -213,7 +213,7 @@ function activeLabel(hub: NavHub): string {
       <NDropdown
         v-if="hub.items.length > 1"
         trigger="hover"
-        placement="bottom-start"
+        placement="bottom"
         :delay="0"
         :duration="150"
         :show-arrow="false"
@@ -375,7 +375,9 @@ function activeLabel(hub: NavHub): string {
 
 .project-nav-option {
   display: flex;
+  width: 100%;
   align-items: center;
+  justify-content: center;
   gap: 12px;
 }
 
@@ -392,6 +394,7 @@ function activeLabel(hub: NavHub): string {
   flex-direction: column;
   gap: 1px;
   line-height: 1.3;
+  text-align: center;
 }
 
 .project-nav-option-text strong {
