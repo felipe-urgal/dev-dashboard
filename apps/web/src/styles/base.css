@@ -58,3 +58,9 @@ kbd {
 .ui-menu-danger {
   color: var(--danger-text);
 }
+
+/* Itens dos menus teleportados (NDropdown) centralizados. */
+.n-dropdown-option-body__label {
+  justify-content: center;
+  text-align: center;
+}
